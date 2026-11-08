@@ -1,0 +1,11 @@
+{
+  "name": "@sofia/gateway",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Single-origin server for Sofia: serves the built stage, proxies /v1 to Hermes with the key injected, mints Gemini ephemeral tokens.",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  }
+}
