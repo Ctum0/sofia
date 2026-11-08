@@ -81,6 +81,11 @@ function proxyToHermes(req, res, url) {
   const headers = { ...req.headers }
   delete headers.host
   delete headers['content-length']
+  // Hermes refuses any request carrying a browser Origin (no CORS support, and
+  // it treats the header as hostile). This is a trusted server-side call, so the
+  // browser's origin/referer must not travel with it.
+  delete headers.origin
+  delete headers.referer
   headers.authorization = `Bearer ${key}`
   headers['x-sofia-via'] = 'gateway'
 
