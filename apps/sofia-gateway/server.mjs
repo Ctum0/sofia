@@ -6,24 +6,27 @@
 // api_server has no CORS middleware. Rather than bolt CORS onto the brain, the
 // app and its API are served from one origin by this process:
 //
-//   GET  /                -> the built AIRI stage (static, SPA fallback)
-//   ANY  /v1/*            -> proxied to Hermes /p/sofia/v1/*, key injected here
-//   POST /api/live/token   -> Gemini ephemeral token (phase 03)
-//   GET  /healthz          -> liveness + upstream reachability
+//   GET  /                 -> the built AIRI stage (static, SPA fallback)
+//   ANY  /v1/*             -> proxied to Hermes /p/sofia/v1/*, key injected here
+//   GET  /api/live/info    -> which live model/voice this build talks to
+//   WS   /api/live/stream  -> duplex voice: browser <-> gateway <-> Gemini Live
+//   GET  /healthz          -> liveness, upstream reachability, live config
 //
-// Consequence: the browser never holds the Hermes key, there is no preflight,
-// and there is no such thing as a cross-origin request in production.
+// Consequence: the browser never holds a Hermes key or a Google credential,
+// there is no preflight, and there is no such thing as a cross-origin request
+// in production.
 //
-// Two jobs the proxy does that a plain proxy would not:
+// Three jobs the proxy does that a plain proxy would not:
 //   1. drops the browser Origin (Hermes 403s on it),
-//   2. strips model reasoning from completions (the body is a mouth, not a mind).
-//
-// No dependencies on purpose — this must run inside a minimal container and be
-// readable a year from now.
+//   2. strips model reasoning from completions (the body is a mouth, not a mind),
+//   3. holds the Live socket so voice needs no client-side secret.
 import { createServer, request as httpRequest } from 'node:http'
 import { appendFileSync, createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, normalize, resolve } from 'node:path'
 
+import { WebSocketServer } from 'ws'
+
+import { DEFAULT_MODEL, DEFAULT_VOICE, LiveBridge } from './live.mjs'
 import { SseReasoningFilter, stripReasoningFromBody } from './reasoning-filter.mjs'
 
 const PORT = Number(process.env.PORT || 8787)
@@ -33,6 +36,9 @@ const HERMES_BASE = process.env.HERMES_BASE || 'http://127.0.0.1:8643/p/sofia/v1
 const HERMES_KEY_FILE = process.env.HERMES_KEY_FILE || '/run/secrets/hermes_sofia_key'
 const TRACE = process.env.TRACE === '1'
 const KEEP_REASONING = process.env.KEEP_REASONING === '1'
+
+const SYSTEM_INSTRUCTION = process.env.LIVE_SYSTEM_INSTRUCTION
+  || 'You are Sofia, a warm, quick-witted personal assistant. Speak naturally and briefly — one or two sentences unless asked for detail. Never read out formatting, markdown, lists, URLs or code; say the meaning instead.'
 
 function hermesKey() {
   if (process.env.HERMES_KEY) return process.env.HERMES_KEY.trim()
@@ -83,7 +89,6 @@ function proxyToHermes(req, res, url) {
     return
   }
 
-  // /v1/models -> <base>/models
   const suffix = url.pathname.replace(/^\/v1/, '')
   const target = new URL(HERMES_BASE + suffix + (url.search || ''))
   const wantsFilter = /\/chat\/completions$/.test(target.pathname) && !KEEP_REASONING
@@ -99,8 +104,6 @@ function proxyToHermes(req, res, url) {
   headers.authorization = `Bearer ${key}`
   headers['x-sofia-via'] = 'gateway'
 
-  // TRACE=1 writes the exact request/response pair to /tmp/gw-trace.log.
-  // Used to find where text enters the UI; off by default.
   const reqChunks = []
   if (TRACE) {
     req.on('data', (c) => { reqChunks.push(c) })
@@ -181,7 +184,6 @@ function serveStatic(req, res, url) {
     return
   }
 
-  // SPA fallback: unknown paths get index.html, assets 404 honestly.
   if (!existsSync(file) || statSync(file).isDirectory()) {
     if (extname(requested)) {
       res.writeHead(404, { 'content-type': 'text/plain' })
@@ -219,6 +221,7 @@ const server = createServer((req, res) => {
           key: key ? 'set' : 'missing',
           trace: TRACE,
           reasoning: KEEP_REASONING ? 'kept' : 'stripped',
+          live: { transport: 'gateway-proxy', model: DEFAULT_MODEL, voice: DEFAULT_VOICE },
         })
       },
     )
@@ -233,8 +236,12 @@ const server = createServer((req, res) => {
     return
   }
 
+  if (url.pathname === '/api/live/info') {
+    sendJson(res, 200, { transport: 'gateway-proxy', model: DEFAULT_MODEL, voice: DEFAULT_VOICE, ws: '/api/live/stream' })
+    return
+  }
+
   if (url.pathname.startsWith('/api/')) {
-    // Phase 03 fills this in; saying "not implemented" beats a silent 404.
     sendJson(res, 501, { error: 'not implemented yet', path: url.pathname })
     return
   }
@@ -247,7 +254,56 @@ const server = createServer((req, res) => {
   serveStatic(req, res, url)
 })
 
+// --- voice: browser <-> gateway <-> Gemini Live ------------------------------
+const wss = new WebSocketServer({ noServer: true })
+
+server.on('upgrade', (req, socket, head) => {
+  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
+  if (url.pathname !== '/api/live/stream') {
+    socket.destroy()
+    return
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req))
+})
+
+wss.on('connection', (ws) => {
+  const send = (obj) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)) }
+
+  const bridge = new LiveBridge({
+    emit: (evt) => send(evt),
+    systemInstruction: SYSTEM_INSTRUCTION,
+  }).start()
+
+  ws.on('message', (raw) => {
+    let msg
+    try { msg = JSON.parse(raw.toString('utf8')) }
+    catch { return }
+
+    if (msg.type === 'audio' && typeof msg.data === 'string') {
+      bridge.sendAudioBase64(msg.data)
+      return
+    }
+    if (msg.type === 'text' && typeof msg.text === 'string') {
+      const ok = bridge.sendText(msg.text)
+      if (!ok) send({ type: 'error', message: 'live session not ready' })
+      return
+    }
+    if (msg.type === 'toolResponse' && Array.isArray(msg.responses)) {
+      bridge.sendToolResponse(msg.responses)
+      return
+    }
+    if (msg.type === 'close') {
+      bridge.close()
+      ws.close()
+    }
+  })
+
+  ws.on('close', () => bridge.close())
+  ws.on('error', () => bridge.close())
+})
+
 server.listen(PORT, HOST, () => {
   console.log(`[sofia-gateway] http://${HOST}:${PORT}  stage=${DIST}  hermes=${HERMES_BASE}`)
   console.log(`[sofia-gateway] key: ${hermesKey() ? 'loaded' : 'MISSING — /v1 will answer 503'}  trace=${TRACE}  reasoning=${KEEP_REASONING ? 'kept' : 'stripped'}`)
+  console.log(`[sofia-gateway] live: ws /api/live/stream -> ${DEFAULT_MODEL} (${DEFAULT_VOICE})`)
 })

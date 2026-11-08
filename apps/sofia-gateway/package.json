@@ -3,9 +3,12 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
-  "description": "Single-origin server for Sofia: serves the built stage, proxies /v1 to Hermes with the key injected, mints Gemini ephemeral tokens.",
+  "description": "Single-origin server for Sofia: serves the built stage, proxies /v1 to Hermes with the key injected, and bridges the browser to Gemini Live so the key never leaves the server.",
   "main": "server.mjs",
   "scripts": {
     "start": "node server.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
   }
 }
