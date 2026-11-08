@@ -14,23 +14,32 @@
 // Consequence: the browser never holds the Hermes key, there is no preflight,
 // and there is no such thing as a cross-origin request in production.
 //
+// Two jobs the proxy does that a plain proxy would not:
+//   1. drops the browser Origin (Hermes 403s on it),
+//   2. strips model reasoning from completions (the body is a mouth, not a mind).
+//
 // No dependencies on purpose — this must run inside a minimal container and be
 // readable a year from now.
 import { createServer, request as httpRequest } from 'node:http'
-import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
+import { appendFileSync, createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, normalize, resolve } from 'node:path'
+
+import { SseReasoningFilter, stripReasoningFromBody } from './reasoning-filter.mjs'
 
 const PORT = Number(process.env.PORT || 8787)
 const HOST = process.env.HOST || '127.0.0.1'
 const DIST = resolve(process.env.DIST_DIR || '../stage-web/dist')
 const HERMES_BASE = process.env.HERMES_BASE || 'http://127.0.0.1:8643/p/sofia/v1'
 const HERMES_KEY_FILE = process.env.HERMES_KEY_FILE || '/run/secrets/hermes_sofia_key'
+const TRACE = process.env.TRACE === '1'
+const KEEP_REASONING = process.env.KEEP_REASONING === '1'
 
 function hermesKey() {
   if (process.env.HERMES_KEY) return process.env.HERMES_KEY.trim()
   try {
     return readFileSync(HERMES_KEY_FILE, 'utf8').trim()
-  } catch {
+  }
+  catch {
     return ''
   }
 }
@@ -77,6 +86,7 @@ function proxyToHermes(req, res, url) {
   // /v1/models -> <base>/models
   const suffix = url.pathname.replace(/^\/v1/, '')
   const target = new URL(HERMES_BASE + suffix + (url.search || ''))
+  const wantsFilter = /\/chat\/completions$/.test(target.pathname) && !KEEP_REASONING
 
   const headers = { ...req.headers }
   delete headers.host
@@ -89,6 +99,17 @@ function proxyToHermes(req, res, url) {
   headers.authorization = `Bearer ${key}`
   headers['x-sofia-via'] = 'gateway'
 
+  // TRACE=1 writes the exact request/response pair to /tmp/gw-trace.log.
+  // Used to find where text enters the UI; off by default.
+  const reqChunks = []
+  if (TRACE) {
+    req.on('data', (c) => { reqChunks.push(c) })
+    req.on('end', () => {
+      const body = Buffer.concat(reqChunks).toString('utf8').slice(0, 5000)
+      appendFileSync('/tmp/gw-trace.log', `\n=== REQ ${req.method} ${url.pathname}\n${body}\n`)
+    })
+  }
+
   const upstream = httpRequest(
     {
       protocol: target.protocol,
@@ -99,8 +120,45 @@ function proxyToHermes(req, res, url) {
       headers,
     },
     (up) => {
-      // Stream straight through: SSE from /v1/runs must not be buffered.
-      res.writeHead(up.statusCode || 502, up.headers)
+      const outHeaders = { ...up.headers }
+      const contentType = String(up.headers['content-type'] || '')
+
+      if (wantsFilter && contentType.includes('text/event-stream')) {
+        // Stream must stay unbuffered: the answer appears as it is generated.
+        delete outHeaders['content-length']
+        res.writeHead(up.statusCode || 502, outHeaders)
+        up.pipe(new SseReasoningFilter()).pipe(res)
+        return
+      }
+
+      if (wantsFilter && contentType.includes('application/json')) {
+        // Buffer once, drop reasoning, fix the length. Bodies here are small.
+        const parts = []
+        up.on('data', (c) => { parts.push(c) })
+        up.on('end', () => {
+          let out = Buffer.concat(parts)
+          try {
+            const parsed = JSON.parse(out.toString('utf8'))
+            if (stripReasoningFromBody(parsed))
+              out = Buffer.from(JSON.stringify(parsed))
+          }
+          catch {}
+          delete outHeaders['content-length']
+          outHeaders['content-length'] = Buffer.byteLength(out)
+          res.writeHead(up.statusCode || 502, outHeaders)
+          res.end(out)
+        })
+        return
+      }
+
+      res.writeHead(up.statusCode || 502, outHeaders)
+      if (TRACE) {
+        let captured = ''
+        up.on('data', (c) => { if (captured.length < 8000) captured += c.toString('utf8') })
+        up.on('end', () => {
+          appendFileSync('/tmp/gw-trace.log', `=== RES ${up.statusCode}\n${captured.slice(0, 8000)}\n`)
+        })
+      }
       up.pipe(res)
     },
   )
@@ -149,7 +207,7 @@ const server = createServer((req, res) => {
 
   if (url.pathname === '/healthz') {
     const key = hermesKey()
-    const probe = new URL(HERMES_BASE + '/models')
+    const probe = new URL(`${HERMES_BASE}/models`)
     const r = httpRequest(
       { hostname: probe.hostname, port: probe.port, path: probe.pathname, method: 'GET', headers: { authorization: `Bearer ${key}` } },
       (up) => {
@@ -159,6 +217,8 @@ const server = createServer((req, res) => {
           stage: existsSync(join(DIST, 'index.html')),
           hermes: up.statusCode === 200 ? 'reachable' : `status ${up.statusCode}`,
           key: key ? 'set' : 'missing',
+          trace: TRACE,
+          reasoning: KEEP_REASONING ? 'kept' : 'stripped',
         })
       },
     )
@@ -189,5 +249,5 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`[sofia-gateway] http://${HOST}:${PORT}  stage=${DIST}  hermes=${HERMES_BASE}`)
-  console.log(`[sofia-gateway] key: ${hermesKey() ? 'loaded' : 'MISSING — /v1 will answer 503'}`)
+  console.log(`[sofia-gateway] key: ${hermesKey() ? 'loaded' : 'MISSING — /v1 will answer 503'}  trace=${TRACE}  reasoning=${KEEP_REASONING ? 'kept' : 'stripped'}`)
 })
