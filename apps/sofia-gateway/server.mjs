@@ -21,6 +21,7 @@
 //   2. strips model reasoning from completions (the body is a mouth, not a mind),
 //   3. holds the Live socket so voice needs no client-side secret.
 import { createServer, request as httpRequest } from 'node:http'
+import { request as httpsRequest } from 'node:https'
 import { appendFileSync, createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, normalize, resolve } from 'node:path'
 
@@ -82,6 +83,12 @@ function sendJson(res, status, body) {
   res.end(payload)
 }
 
+// http.request speaks plaintext whatever the URL says, so an https upstream
+// answers 301 and every proxied call fails. Pick the matching client.
+function requestFor(target) {
+  return target.protocol === 'https:' ? httpsRequest : httpRequest
+}
+
 /** Proxy everything under /v1 to Hermes, adding the key on this side. */
 function proxyToHermes(req, res, url) {
   const key = hermesKey()
@@ -114,7 +121,7 @@ function proxyToHermes(req, res, url) {
     })
   }
 
-  const upstream = httpRequest(
+  const upstream = requestFor(target)(
     {
       protocol: target.protocol,
       hostname: target.hostname,
@@ -227,7 +234,7 @@ const server = createServer((req, res) => {
   if (url.pathname === '/healthz') {
     const key = hermesKey()
     const probe = new URL(`${HERMES_BASE}/models`)
-    const r = httpRequest(
+    const r = requestFor(probe)(
       { hostname: probe.hostname, port: probe.port, path: probe.pathname, method: 'GET', headers: { authorization: `Bearer ${key}` } },
       (up) => {
         up.resume()
