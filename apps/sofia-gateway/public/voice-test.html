@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sofia — voice harness</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font: 14px/1.5 ui-sans-serif, system-ui, sans-serif; background: #0b0d10; color: #e6e8eb; margin: 0; padding: 24px; }
+  h1 { font-size: 16px; font-weight: 600; margin: 0 0 16px; letter-spacing: .02em; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid #2a2f36; background: #171b21; color: #e6e8eb; cursor: pointer; margin-right: 8px; }
+  button:disabled { opacity: .45; cursor: default; }
+  #state { margin: 16px 0 8px; font-variant-numeric: tabular-nums; color: #9aa4b2; }
+  #meter { height: 6px; background: #171b21; border-radius: 3px; overflow: hidden; margin: 8px 0 16px; }
+  #meterFill { height: 100%; width: 0; background: #3ddc97; transition: width 80ms linear; }
+  #log { font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; background: #0f1216; border: 1px solid #1c2027; border-radius: 8px; padding: 12px; min-height: 220px; max-height: 420px; overflow: auto; }
+  .in { color: #7cc4ff; } .out { color: #3ddc97; } .err { color: #ff6b6b; } .meta { color: #7b8494; }
+</style>
+</head>
+<body>
+  <h1>Sofia — Live voice harness</h1>
+  <button id="start">Start voice</button>
+  <button id="talk" disabled>Ask her to say hello</button>
+  <button id="stop" disabled>Stop</button>
+  <div id="state">idle</div>
+  <div id="meter"><div id="meterFill"></div></div>
+  <div id="log"></div>
+
+<script type="module">
+import { SofiaVoice } from './voice-client.mjs'
+
+const $ = (id) => document.getElementById(id)
+const logEl = $('log')
+const stateEl = $('state')
+const fill = $('meterFill')
+let voice = null
+
+window.__sofia = { framesSent: 0, chunksPlayed: 0, events: [], transcripts: [], errors: [], ready: false }
+
+function log(line, cls = '') {
+  const time = new Date().toLocaleTimeString()
+  logEl.innerHTML += `<span class="meta">${time}</span> <span class="${cls}">${line}</span>\n`
+  logEl.scrollTop = logEl.scrollHeight
+}
+
+async function start() {
+  $('start').disabled = true
+  stateEl.textContent = 'connecting…'
+  voice = new SofiaVoice({
+    onEvent: (e) => {
+      window.__sofia.events.push(e.type)
+      if (e.type === 'ready') {
+        window.__sofia.ready = true
+        stateEl.textContent = `live — ${e.model} / ${e.voice}`
+        log(`live ready: ${e.model} voice=${e.voice}`, 'out')
+        $('talk').disabled = false
+        $('stop').disabled = false
+      }
+      else if (e.type === 'transcript') {
+        window.__sofia.transcripts.push(`${e.dir}: ${e.text}`)
+        log(`${e.dir === 'in' ? 'you' : 'sofia'}: ${e.text}`, e.dir === 'in' ? 'in' : 'out')
+      }
+      else if (e.type === 'audio-played') {
+        $('state').dataset.chunks = e.chunksPlayed
+      }
+      else if (e.type === 'error') {
+        window.__sofia.errors.push(e.message)
+        log(`error: ${e.message}`, 'err')
+      }
+      else {
+        log(e.type, 'meta')
+      }
+    },
+  })
+
+  try {
+    await voice.connect()
+    await voice.startMic()
+    log('mic started — speak, or press the button', 'meta')
+  }
+  catch (err) {
+    stateEl.textContent = 'failed'
+    window.__sofia.errors.push(String(err))
+    log(`failed: ${err}`, 'err')
+    $('start').disabled = false
+  }
+
+  setInterval(() => {
+    if (!voice) return
+    window.__sofia.framesSent = voice.stats.framesSent
+    window.__sofia.chunksPlayed = voice.stats.chunksPlayed
+    fill.style.width = `${Math.min(100, (voice.stats.lastRms || 0) * 900)}%`
+  }, 120)
+}
+
+$('start').onclick = start
+$('talk').onclick = () => {
+  const ok = voice?.sendText('Greet Sithum warmly in one short sentence.')
+  log(ok ? 'sent text turn' : 'could not send', ok ? 'meta' : 'err')
+}
+$('stop').onclick = async () => {
+  await voice?.stop()
+  stateEl.textContent = 'stopped'
+  $('start').disabled = false
+  $('talk').disabled = true
+  $('stop').disabled = true
+}
+</script>
+</body>
+</html>

@@ -32,6 +32,7 @@ import { SseReasoningFilter, stripReasoningFromBody } from './reasoning-filter.m
 const PORT = Number(process.env.PORT || 8787)
 const HOST = process.env.HOST || '127.0.0.1'
 const DIST = resolve(process.env.DIST_DIR || '../stage-web/dist')
+const PUBLIC = resolve(process.env.PUBLIC_DIR || './public')
 const HERMES_BASE = process.env.HERMES_BASE || 'http://127.0.0.1:8643/p/sofia/v1'
 const HERMES_KEY_FILE = process.env.HERMES_KEY_FILE || '/run/secrets/hermes_sofia_key'
 const TRACE = process.env.TRACE === '1'
@@ -174,6 +175,22 @@ function proxyToHermes(req, res, url) {
   req.pipe(upstream)
 }
 
+function serveFrom(req, res, base, relPath) {
+  const requested = decodeURIComponent(relPath)
+  const rel = normalize(requested).replace(/^(\.\.[/\\])+/, '')
+  let file = join(base, rel)
+
+  if (!existsSync(file) || statSync(file).isDirectory()) {
+    res.writeHead(404, { 'content-type': 'text/plain' })
+    res.end('not found')
+    return
+  }
+
+  const type = MIME[extname(file).toLowerCase()] || 'application/octet-stream'
+  res.writeHead(200, { 'content-type': type, 'cache-control': 'no-cache' })
+  createReadStream(file).pipe(res)
+}
+
 function serveStatic(req, res, url) {
   const requested = decodeURIComponent(url.pathname)
   const rel = normalize(requested).replace(/^(\.\.[/\\])+/, '')
@@ -219,6 +236,7 @@ const server = createServer((req, res) => {
           stage: existsSync(join(DIST, 'index.html')),
           hermes: up.statusCode === 200 ? 'reachable' : `status ${up.statusCode}`,
           key: key ? 'set' : 'missing',
+          public: existsSync(PUBLIC),
           trace: TRACE,
           reasoning: KEEP_REASONING ? 'kept' : 'stripped',
           live: { transport: 'gateway-proxy', model: DEFAULT_MODEL, voice: DEFAULT_VOICE },
@@ -233,6 +251,11 @@ const server = createServer((req, res) => {
 
   if (url.pathname.startsWith('/v1/')) {
     proxyToHermes(req, res, url)
+    return
+  }
+
+  if (url.pathname.startsWith('/public/')) {
+    serveFrom(req, res, PUBLIC, url.pathname.slice('/public/'.length))
     return
   }
 
