@@ -1,11 +1,14 @@
-**/node_modules
-**/dist
-**/.temp
-**/.env
-**/.env.*
-!**/.env.example
-airi-docs
-.git
-.worktrees
-**/.turbo
-.vishot
+# Build context control. Without this the 4.4 GB local node_modules tree gets
+# uploaded to the daemon on every build and the context alone can time out.
+node_modules/
+**/node_modules/
+.pnpm-store/
+**/.pnpm-store/
+.git/
+**/dist/
+**/.output/
+**/.turbo/
+**/.nuxt/
+**/coverage/
+**/*.log
+.cache/
