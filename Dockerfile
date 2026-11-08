@@ -36,6 +36,12 @@ RUN pnpm -F @proj-airi/stage-web build
 # ---------- runtime ----------
 FROM node:22-bookworm-slim AS runtime
 
+# Coolify overrides an image's HEALTHCHECK with its own probe, which shells out to
+# curl or wget. Without either, a perfectly healthy container reports unhealthy.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Only the gateway's own manifest: no workspace, so plain npm is fine here.
