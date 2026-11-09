@@ -347,5 +347,17 @@ function emitToolCallRerun(
         </div>
       </template>
     </Virtualizer>
+    <div
+      v-if="!renderMessages.length"
+      data-testid="chat-empty-state"
+      :class="['pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-8 text-center']"
+    >
+      <p :class="['text-base font-medium text-[var(--sofia-text)]']">
+        Say something to Sofia.
+      </p>
+      <p :class="['max-w-xs text-sm text-[var(--sofia-text-muted)]']">
+        Type below, or press Talk and just speak — she answers out loud.
+      </p>
+    </div>
   </ChatHistoryScrollContainer>
 </template>
