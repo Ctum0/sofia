@@ -28,6 +28,7 @@ import { extname, join, normalize, resolve } from 'node:path'
 import { WebSocketServer } from 'ws'
 
 import { DEFAULT_MODEL, DEFAULT_VOICE, LiveBridge } from './live.mjs'
+import { LIVE_TOOLS, executeToolCall } from './tools.mjs'
 import { SseReasoningFilter, stripReasoningFromBody } from './reasoning-filter.mjs'
 import { checkPassword, clearCookie, isAuthed, loginPage, makeSession, sessionCookie } from './auth.mjs'
 
@@ -41,8 +42,16 @@ const TRACE = process.env.TRACE === '1'
 const KEEP_REASONING = process.env.KEEP_REASONING === '1'
 const BRAND_DIR = resolve(process.env.BRAND_DIR || join(PUBLIC, 'brand'))
 
+// Two registers: a companion in conversation, an operator when a task is asked
+// for. The tools are what make the second register honest — she can hand real
+// work to Hermes instead of describing what she would do.
 const SYSTEM_INSTRUCTION = process.env.LIVE_SYSTEM_INSTRUCTION
-  || 'You are Sofia, a warm, quick-witted personal assistant. Speak naturally and briefly — one or two sentences unless asked for detail. Never read out formatting, markdown, lists, URLs or code; say the meaning instead.'
+  || [
+    'You are Sofia, a warm, quick-witted personal assistant to Sithum, who is Sri Lankan and lives in Colombo.',
+    'Speak naturally and briefly — one or two sentences unless he asks for detail. Never read out formatting, markdown, lists, URLs or code; say the meaning instead.',
+    'You have hands: call `ask_hermes` whenever he wants something actually done or looked up — a server checked, a command run, a file read, the web searched, a fact remembered or recalled. Call `local_time` for the time or date. Do not answer those yourself and never claim you did something you did not call a tool for.',
+    'When a tool returns an error, say plainly that it did not work and what it said. Never invent a result.',
+  ].join(' ')
 
 function hermesKey() {
   if (process.env.HERMES_KEY) return process.env.HERMES_KEY.trim()
@@ -578,9 +587,31 @@ server.on('upgrade', (req, socket, head) => {
 wss.on('connection', (ws) => {
   const send = (obj) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)) }
 
+  // Tool calls are executed HERE, not in the browser: the key stays on the
+  // server, and the page has no business deciding whether a command runs.
   const bridge = new LiveBridge({
-    emit: (evt) => send(evt),
+    emit: (evt) => {
+      if (evt.type !== 'toolCall') {
+        send(evt)
+        return
+      }
+      // Every function call gets exactly one response, in order. A missing
+      // response stalls the model's turn forever, so failures answer too.
+      void (async () => {
+        for (const call of evt.functionCalls) {
+          send({ type: 'tool', name: call.name, state: 'started', args: call.args })
+          const result = await executeToolCall(call, {
+            base: HERMES_BASE,
+            key: hermesKey(),
+            onProgress: (p) => send({ type: 'tool', name: call.name, state: 'running', ...p }),
+          })
+          send({ type: 'tool', name: call.name, state: 'done', ok: !String(result.response.result).startsWith('That did not work'), result: String(result.response.result).slice(0, 300) })
+          bridge.sendToolResponse([result])
+        }
+      })()
+    },
     systemInstruction: SYSTEM_INSTRUCTION,
+    tools: LIVE_TOOLS,
   }).start()
 
   ws.on('message', (raw) => {
