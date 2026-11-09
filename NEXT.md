@@ -126,9 +126,13 @@ result under **Log**. Rules at the bottom are mandatory.
    the user's browser. `GET /` unauthenticated is the *login page* (~2.5 KB) —
    log in first, then fetch the app (~18 KB) or the test is meaningless.
 3. Two failures of the same approach = stop, change method, record why.
-4. Production gates: `apps/sofia-gateway/test/{ui,voice,auth}-gate.mjs` in
+4. Production gates: `apps/sofia-gateway/test/{ui,voice,auth,tool}-gate.mjs` in
    `mcr.microsoft.com/playwright:v1.64.1-jammy --network host`,
-   `BASE=https://sofia.ctum.org`.
+   `BASE=https://sofia.ctum.org`. **Pass the app password in the env**: the gate
+   falls back to reading `/home/ctum/secrets/sofia-password`, which does not
+   exist inside `sofia-qa` (only `/qa` is mounted), so a bare run dies at
+   `3/3` → `1/3` with "no SOFIA_PASSWORD" and looks like a product failure.
+   Correct call: `docker exec -e BASE=https://sofia.ctum.org -e SOFIA_PASSWORD="$(cat /home/ctum/secrets/sofia-password)" sofia-qa sh -c "cd /qa && node voice-gate.mjs"`.
 
 ## Access
 
