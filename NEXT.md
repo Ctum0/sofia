@@ -88,6 +88,26 @@ result under **Log**. Rules at the bottom are mandatory.
   `voice-gate.mjs` against https://sofia.ctum.org → **12/12** (54 mic frames,
   1576 frames sent, 11 reply chunks, mouth peak 100, 0 x localhost:6121).
 
+- [x] **I. Notion: bring Phases and Ledger up to the deployed reality.**
+  Both pages were frozen at 2026-11-08: the board still showed voice as 🟡,
+  hands as ⬜, presence ⬜, deploy 🟡 ("auth still open"), and the ledger still
+  said `sofia.ctum.org` → "nothing (502)", `voice Aoede`, and "the AIRI stage
+  still has no Talk control".
+  → **DONE 2026-11-10 02:05 SLT.** Phases rows 03–06 flipped to ✅ with the
+  measured gate for each, 07 to 🟡 with what is actually left, and a dated
+  changelog entry appended. Ledger: `Last verified` moved to 2026-11-10, the
+  domain row now names the Coolify app and port chain, the voice line reads
+  `Leda` with the `5ba1288f0` correction, the build-inefficiency note records
+  the 480 s → 213 s fix, and the "harness is the product" open item is closed.
+  Verified by re-fetching both pages and reading the new text back.
+
+- [ ] **J. Auth surface: enumerate every route and prove the public set is
+  intentional.** Auth is a password gate plus a rate limit, but nobody has
+  listed what the gateway actually serves: `/healthz`, `/sw.js`, `/manifest.webmanifest`,
+  `/api/live/stream` (a WebSocket upgrade — does it check the cookie?),
+  `/public/*`, `/v1/*`, and the static stage. Gate: a table of `path → status
+  without a session`, each line either 200-and-justified or 401/403, plus a
+  WS-upgrade probe with no cookie that must be refused.
 ## Verification rules (do not skip)
 
 0b. **A new container is not a finished deployment.** Coolify swaps the
@@ -249,6 +269,17 @@ another way: `npx eslint <changed files>` inside `sofia-build`, then a real
   "...one short sentence about the weather in Colombo", `0 x localhost:6121`.
   So the Leda switch shipped in `5ba1288f0` was never actually gate-tested on
   the deploy that carried it — it is now. No new defect surfaced.
+
+- 2026-11-10 02:05 SLT — **I done: Notion caught up with production.** Both
+  pages had been untouched since 2026-11-08, when voice had no Talk dock and
+  phase 04 had not started; a day of shipped work was invisible in the tool he
+  reads. Phases: 03–06 → ✅ with the gate that proves each (voice 12/12,
+  tool-gate production PASS, clean DOM + dark stage, auth-gate 10/10), 07 → 🟡
+  (key rotation, restore drill). Ledger: domain row rewritten to the Coolify →
+  `:3005` → `8787` chain, `voice Aoede` → `Leda` with the correction note, the
+  "7-minute pnpm install" paragraph closed with the 303 s → 79 s / 480 s → 213 s
+  numbers, and the harness open item closed. Re-fetched both pages afterwards
+  and confirmed the new text is what is stored — no silent no-op edit.
 
 ## Audit 2026-11-09 16:30 SLT (his request: did it land, any failures, what's missed)
 
