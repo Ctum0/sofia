@@ -42,7 +42,7 @@ echo "== 2. deployment =="
 php_from_stdin() {
   printf '%s\n' "\$x=App\\Models\\ApplicationDeploymentQueue::orderByDesc('id')->first(); echo \$x->status.' '.\$x->commit.PHP_EOL;" | onhost "docker exec -i coolify php artisan tinker"
 }
-row=$(php_from_stdin 2>/dev/null | tr -d '\r')
+row=$(php_from_stdin 2>/dev/null | tr -d '\r' | grep -Eo '^(finished|failed|queued|in_progress|cancelled)[[:space:]]+[0-9a-f]{7,40}' | head -1)
 status=$(echo "$row" | head -1 | awk '{print $1}')
 commit=$(echo "$row" | head -1 | awk '{print $2}')
 note "status ${status:-unknown} · commit ${commit:0:9}"
