@@ -42,11 +42,25 @@ echo "== 2. deployment =="
 php_from_stdin() {
   printf '%s\n' "\$x=App\\Models\\ApplicationDeploymentQueue::orderByDesc('id')->first(); echo \$x->status.' '.\$x->commit.PHP_EOL;" | onhost "docker exec -i coolify php artisan tinker"
 }
-row=$(php_from_stdin 2>/dev/null | tr -d '\r' | grep -Eo '^(finished|failed|queued|in_progress|cancelled)[[:space:]]+[0-9a-f]{7,40}' | head -1)
-status=$(echo "$row" | head -1 | awk '{print $1}')
-commit=$(echo "$row" | head -1 | awk '{print $2}')
-note "status ${status:-unknown} · commit ${commit:0:9}"
-[ "$status" = "finished" ] || fail 3 "latest deployment is '${status:-unknown}', not finished (rule R2)"
+# A deployment may still be running (or queued behind another). Wait for the
+# queue to settle instead of judging a row that has not finished yet.
+deadline=$(( $(date +%s) + 900 ))
+while :; do
+  row=$(php_from_stdin 2>/dev/null | tr -d '\r' | grep -Eo '^(finished|failed|queued|in_progress|cancelled)[[:space:]]+[0-9A-Za-z._-]+' | head -1)
+  status=$(echo "$row" | awk '{print $1}')
+  commit=$(echo "$row" | awk '{print $2}')
+  case "$status" in
+    finished|failed|cancelled) break ;;
+    "") fail 3 "could not read the deployment queue" ;;
+    *) [ "$(date +%s)" -lt "$deadline" ] || fail 3 "deployment still '$status' after 15 min"
+       note "deployment ${status}, waiting…"; sleep 30 ;;
+  esac
+done
+note "status ${status} · commit ${commit:0:9}"
+[ "$status" = "finished" ] || fail 3 "latest deployment is '${status}', not finished (rule R2)"
+case "$commit" in
+  HEAD|""|None) fail 3 "the deployment did not record a commit (it built \"${commit:-nothing}\"); queue it with scripts/coolify-deploy.sh so the build is identifiable (rule R2)" ;;
+esac
 case "$head_sha" in "$commit"*) : ;; *) fail 3 "deployment built ${commit:0:9}, HEAD is ${head_sha:0:9}" ;; esac
 
 echo "== 3. container and health =="
