@@ -14,10 +14,12 @@ const { t } = useI18n()
 const show = defineModel<boolean>({ default: false })
 const buildInfo = useBuildInfo()
 
+// Sofia's own links. THIS is the About dialog the stage renders; the copy in
+// @proj-airi/stage-ui is a fallback that never mounts in stage-web, which is why
+// fixing only that one left upstream links on screen after 6f75cced6.
 const aboutLinks = [
-  { label: 'Home', href: 'https://airi.moeru.ai/docs/', icon: 'i-solar:home-smile-outline' },
-  { label: 'Documentations', href: 'https://airi.moeru.ai/docs/en/docs/overview/', icon: 'i-solar:document-add-outline' },
-  { label: 'GitHub', href: 'https://github.com/moeru-ai/airi', icon: 'i-simple-icons:github' },
+  { label: 'Home', href: 'https://sofia.ctum.org/', icon: 'i-solar:home-smile-outline' },
+  { label: 'GitHub', href: 'https://github.com/Ctum0/sofia', icon: 'i-simple-icons:github' },
 ]
 
 const edition = isStageTamagotchi()
