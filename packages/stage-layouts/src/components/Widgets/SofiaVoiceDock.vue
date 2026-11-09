@@ -12,6 +12,13 @@ import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
  * the only job here is to turn the level envelope of the audio being played into
  * that value — the mouth follows the 24 kHz PCM the model actually sent, not a
  * timer and not the microphone.
+ *
+ * Two things this file must get right, because both failures are invisible:
+ * the module is preloaded and the audio contexts are unlocked *inside* the click
+ * (browsers grant sound only to a context created or resumed while a gesture is
+ * being handled), and `stats` is mirrored onto `window.__sofiaVoice` so a person
+ * — or the QA gate — can see frames, context states and the last error instead
+ * of guessing why nobody is talking.
  */
 
 type Status = 'idle' | 'connecting' | 'live' | 'error'
@@ -25,14 +32,22 @@ interface VoiceEvent {
 }
 
 interface VoiceStats {
+  frames: number
   framesSent: number
   chunksPlayed: number
+  captureState: string
+  playbackState: string
+  captureRate: number
+  playbackRate: number
+  micWarning: string
+  lastError: string
   errors: string[]
   levelPeak?: number
 }
 
 interface VoiceClient {
   stats: VoiceStats
+  unlock: () => { capture: string, playback: string }
   getLevel: () => number
   isPlaying: () => boolean
   connect: () => Promise<void>
@@ -60,16 +75,24 @@ const voice = shallowRef<VoiceClient | null>(null)
 let frame = 0
 let peak = 0
 
-// One object for the QA gate to read, rather than a global per render.
+// One object for the QA gate to read, rather than a global per render. It
+// carries the client's own `stats` verbatim, so frames and context states are
+// visible without reaching inside the module.
 const transcripts: string[] = []
 const telemetry: Record<string, unknown> = {
   status: 'idle',
   level: 0,
   peak: 0,
+  frames: 0,
   framesSent: 0,
   chunksPlayed: 0,
+  captureState: 'none',
+  playbackState: 'none',
+  detail: '',
+  lastError: '',
   transcripts,
   errors: [] as string[],
+  stats: null,
 }
 window.__sofiaVoice = telemetry
 
@@ -83,11 +106,42 @@ const label = computed(() => {
   return 'Talk'
 })
 
-async function loadClient(): Promise<VoiceClientModule> {
+let clientModule: Promise<VoiceClientModule> | null = null
+
+function loadClient(): Promise<VoiceClientModule> {
   // Served by the gateway next to the stage, so the harness and the product run
   // the same bytes. `@vite-ignore` keeps the bundler from trying to resolve it.
-  return await import(/* @vite-ignore */ '/public/voice-client.mjs') as VoiceClientModule
+  clientModule ??= import(/* @vite-ignore */ '/public/voice-client.mjs') as Promise<VoiceClientModule>
+  return clientModule
 }
+
+function handleEvent(event: VoiceEvent) {
+  if (event.type === 'ready') {
+    status.value = 'live'
+    detail.value = event.model || ''
+  }
+  else if (event.type === 'error') {
+    status.value = 'error'
+    detail.value = String(event.message || 'live error').slice(0, 120)
+  }
+  else if (event.type === 'transcript') {
+    transcripts.push(`${event.dir === 'out' ? 'out' : 'in'}:${event.text}`)
+  }
+  else if (event.type === 'warn' || event.type === 'mic-retry') {
+    // Not fatal — the session is still open — but it is the only explanation
+    // the person gets for hearing nothing or not being heard.
+    detail.value = String(event.message || '').slice(0, 120)
+  }
+  else if (event.type === 'warn-cleared' && status.value === 'live') {
+    detail.value = ''
+  }
+}
+
+/** Built before the click so `unlock()` can run synchronously inside it. */
+const prepared = shallowRef<VoiceClient | null>(null)
+void loadClient()
+  .then(({ SofiaVoice }) => { prepared.value = new SofiaVoice({ onEvent: handleEvent }) })
+  .catch(() => {})
 
 function tick() {
   const client = voice.value
@@ -109,12 +163,19 @@ function tick() {
     speaking.mouthOpenSize = 0
   }
 
+  const stats = client.stats
   telemetry.status = status.value
   telemetry.level = Math.round(value * 100)
   telemetry.peak = peak
-  telemetry.framesSent = client.stats.framesSent
-  telemetry.chunksPlayed = client.stats.chunksPlayed
-  telemetry.errors = client.stats.errors
+  telemetry.frames = stats.frames
+  telemetry.framesSent = stats.framesSent
+  telemetry.chunksPlayed = stats.chunksPlayed
+  telemetry.captureState = stats.captureState
+  telemetry.playbackState = stats.playbackState
+  telemetry.detail = detail.value
+  telemetry.lastError = stats.lastError
+  telemetry.errors = stats.errors
+  telemetry.stats = stats
 
   frame = requestAnimationFrame(tick)
 }
@@ -124,23 +185,19 @@ async function start() {
   detail.value = ''
   peak = 0
   try {
-    const { SofiaVoice } = await loadClient()
-    const client = new SofiaVoice({
-      onEvent: (event) => {
-        if (event.type === 'ready') {
-          status.value = 'live'
-          detail.value = event.model || ''
-        }
-        else if (event.type === 'error') {
-          status.value = 'error'
-          detail.value = String(event.message || 'live error').slice(0, 120)
-        }
-        else if (event.type === 'transcript') {
-          transcripts.push(`${event.dir === 'out' ? 'out' : 'in'}:${event.text}`)
-        }
-      },
-    })
+    let client = prepared.value
+    prepared.value = null
+    if (!client) {
+      const { SofiaVoice } = await loadClient()
+      client = new SofiaVoice({ onEvent: handleEvent })
+    }
     voice.value = client
+    // Mirrored before the first tick so a human (or the gate) can read the
+    // context states while the session is still connecting.
+    telemetry.stats = client.stats
+    // The click already unlocked; this covers the path where the module was
+    // still loading then, and is a no-op when the contexts are running.
+    client.unlock()
     await client.connect()
     await client.startMic()
     status.value = 'live'
@@ -149,6 +206,7 @@ async function start() {
   catch (error) {
     status.value = 'error'
     detail.value = errorMessageFromUnknown(error, 'live failed').slice(0, 120)
+    telemetry.lastError = detail.value
     await stop()
     status.value = 'error'
   }
@@ -173,10 +231,16 @@ async function stop() {
 }
 
 function toggle() {
-  if (status.value === 'live' || status.value === 'connecting')
+  if (status.value === 'live' || status.value === 'connecting') {
     void stop()
-  else
-    void start()
+    return
+  }
+  // Synchronously, inside the gesture: an AudioContext created or resumed after
+  // an await is denied on Safari and silently suspended on Chrome, which is how
+  // a working session ends up mute.
+  const target = voice.value ?? prepared.value
+  target?.unlock()
+  void start()
 }
 
 onBeforeUnmount(() => {

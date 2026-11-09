@@ -6,6 +6,13 @@
 // a real sentence through a fake microphone, and reads the mouth value the
 // component writes from the played 24 kHz PCM.
 //
+// Autoplay is left at the strict policy — the one a real browser applies and
+// Safari enforces hardest. That is deliberate: with `no-user-gesture-required`
+// the gate passed while a person's session was mute, because the browser was
+// never given the chance to deny the AudioContext the client was creating
+// outside the click. A build that does not unlock audio inside the gesture now
+// fails here instead of on his desk.
+//
 // Run inside mcr.microsoft.com/playwright:v1.64.1-jammy with --network host.
 import { readFileSync } from 'node:fs'
 
@@ -31,7 +38,7 @@ const browser = await chromium.launch({
     '--use-fake-device-for-media-stream',
     '--use-fake-ui-for-media-stream',
     `--use-file-for-fake-audio-capture=${WAV}`,
-    '--autoplay-policy=no-user-gesture-required',
+    '--autoplay-policy=user-gesture-required',
   ],
 })
 const ctx = await browser.newContext({ permissions: ['microphone'], viewport: { width: 1400, height: 900 } })
@@ -44,6 +51,7 @@ page.on('console', (m) => {
     console.log('  [console]', text.slice(0, 160))
   }
 })
+const stats = () => page.evaluate(() => window.__sofiaVoice?.stats || null)
 
 try {
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded', timeout: 60000 })
@@ -79,8 +87,17 @@ try {
   )
   step('live session ready', true, await dock.getAttribute('data-status'))
 
-  await page.waitForFunction(() => (window.__sofiaVoice?.framesSent || 0) > 0, null, { timeout: 25000 })
-  step('mic frames reach the gateway', true, `${await page.evaluate(() => window.__sofiaVoice.framesSent)} frames`)
+  // The bug this gate used to hide: a context that exists but is suspended.
+  const running = await page.waitForFunction(() => {
+    const s = window.__sofiaVoice?.stats
+    return !!s && s.captureState === 'running' && s.playbackState === 'running'
+  }, null, { timeout: 20000 }).then(() => true).catch(() => false)
+  const live = await stats()
+  step('audio contexts running', running,
+    `capture=${live?.captureState} (${live?.captureRate} Hz) playback=${live?.playbackState} (${live?.playbackRate} Hz)`)
+
+  await page.waitForFunction(() => (window.__sofiaVoice?.frames || 0) > 0, null, { timeout: 25000 })
+  step('mic frames reach the gateway', true, `${await page.evaluate(() => window.__sofiaVoice.frames)} frames`)
 
   const heard = await page.waitForFunction(
     () => (window.__sofiaVoice?.transcripts || []).some(t => t.startsWith('in:') && t.slice(3).trim().length > 8),
@@ -93,13 +110,19 @@ try {
   const played = await page.waitForFunction(() => (window.__sofiaVoice?.chunksPlayed || 0) > 0, null, { timeout: 60000 })
     .then(() => true).catch(() => false)
   const chunks = await page.evaluate(() => window.__sofiaVoice?.chunksPlayed || 0)
-  step('reply audio played on the stage', played, `${chunks} chunks`)
+  const playing = await stats()
+  step('reply audio played on the stage', played && playing?.playbackState === 'running',
+    `${chunks} chunks, playback=${playing?.playbackState}`)
 
   // Lip sync: the mouth comes from the envelope of the PCM that is playing.
   const mouthMoved = await page.waitForFunction(() => (window.__sofiaVoice?.peak || 0) > 10, null, { timeout: 30000 })
     .then(() => true).catch(() => false)
   const peak = await page.evaluate(() => window.__sofiaVoice?.peak || 0)
   step('mouth moved with the reply (peak 0-100)', mouthMoved, `peak ${peak}`)
+
+  // A capture that produces no frames must say so, not sit in 'live'.
+  const after = await stats()
+  step('mic is not reported silent', !after?.micWarning, after?.micWarning || 'none')
 
   const errors = await page.evaluate(() => window.__sofiaVoice?.errors || [])
   step('no live errors', errors.length === 0, errors.join('; ') || 'none')
@@ -110,6 +133,15 @@ try {
   step('no dev-socket dial in production', devSocketDials === 0, `${devSocketDials} x localhost:6121`)
 
   await page.screenshot({ path: '/qa/voice-stage.png' })
+  console.log('\nSTATS: ' + JSON.stringify({
+    frames: after?.frames,
+    framesSent: after?.framesSent,
+    chunksPlayed: after?.chunksPlayed,
+    captureState: after?.captureState,
+    playbackState: after?.playbackState,
+    micWarning: after?.micWarning,
+    lastError: after?.lastError,
+  }))
   console.log('\nTRANSCRIPTS:\n' + transcripts.join('\n').slice(0, 600))
 }
 catch (err) {
