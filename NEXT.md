@@ -288,3 +288,19 @@ Still open (polish, not claimed):
 - Live2D artwork keeps its cream/blue palette by design.
 - Real-device mic/speaker behaviour remains UNVERIFIED (gate uses a fake mic).
 
+- 2026-11-09 20:25 SLT — **Empty state, done at the right layer.** Three attempts
+  in the parent component never rendered because a session carries entries with
+  structured (non-string) content, so `${message.content}` read as non-empty.
+  Moved it into `history.vue`, gated on `!renderMessages.length` — the component's
+  own filtered view. Live proof: `empty-probe.mjs` →
+  `hasEmptyText: true`, `hasTalkLine: true`, body text
+  "Say something to Sofia. | Type below, or press Talk and just speak…".
+  Deployment `finished 6e654a918`, container `T202117`.
+- 2026-11-09 — **Pre-change audit, clean.** Deployments 89-94 all `finished`
+  (the only failures are the earlier env-encryption ones); container healthy;
+  `healthz` ok with `voice: "Leda"`; repo `local == remote`, `dirty=0`; no
+  error/exception/ECONN lines in the app log for 20 minutes; voice gate 12/12.
+
+Still open: the amber "S" logo glyph (asset, not CSS) and real-device voice
+(UNVERIFIED — the gate feeds a fake mic).
+
