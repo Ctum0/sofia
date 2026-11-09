@@ -18,7 +18,7 @@ cd "$(dirname "$0")/.." || exit 1
 # Runs on the VPS host; falls back to SSH when invoked from the Hermes container.
 onhost() {
   if docker info >/dev/null 2>&1; then bash -lc "$1"; else
-    ssh -i /opt/data/ssh/id_ed25519 -o BatchMode=yes ctum@127.0.0.1 "$1" </dev/null
+    ssh -i /opt/data/ssh/id_ed25519 -o BatchMode=yes ctum@127.0.0.1 "$1"
   fi
 }
 
@@ -39,8 +39,12 @@ note "origin/main ${remote_sha:0:9}"
 [ "$GIT_ONLY" = "1" ] && { echo "PASS git-only"; exit 0; }
 
 echo "== 2. deployment =="
-row=$(onhost "docker exec coolify php artisan tinker --execute='\$d=App\\\\Models\\\\ApplicationDeploymentQueue::orderByDesc(\"id\")->first(); echo \$d->status.\" \".(string)\$d->commit;' 2>/dev/null")
-status=${row%% *}; commit=$(echo "$row" | awk '{print $2}')
+php_from_stdin() {
+  printf '%s\n' "\$x=App\\Models\\ApplicationDeploymentQueue::orderByDesc('id')->first(); echo \$x->status.' '.\$x->commit.PHP_EOL;" | onhost "docker exec -i coolify php artisan tinker"
+}
+row=$(php_from_stdin 2>/dev/null | tr -d '\r')
+status=$(echo "$row" | head -1 | awk '{print $1}')
+commit=$(echo "$row" | head -1 | awk '{print $2}')
 note "status ${status:-unknown} · commit ${commit:0:9}"
 [ "$status" = "finished" ] || fail 3 "latest deployment is '${status:-unknown}', not finished (rule R2)"
 case "$head_sha" in "$commit"*) : ;; *) fail 3 "deployment built ${commit:0:9}, HEAD is ${head_sha:0:9}" ;; esac
