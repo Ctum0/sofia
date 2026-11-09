@@ -50,9 +50,14 @@ try {
   // serving these URLs or a tab shows the old mark no matter what the HTML says.
   const svg = await page.request.get(`${BASE}/favicon.svg`)
   const svgText = svg.ok() ? await svg.text() : ''
+  // This assertion used to REQUIRE '#f5c06a' — upstream's amber — so it passed
+  // while the mark was still wrong and failed the moment it was corrected. It
+  // now asserts the property that matters: Sofia's own burgundy mark, no
+  // upstream amber, no AIRI. brand-assets-gate.mjs already asserts the amber
+  // direction; this is the same rule stated once more where the tab reads it.
   step(
     'favicon is the Sofia mark',
-    svg.ok() && svgText.includes('#f5c06a') && !/AIRI/i.test(svgText),
+    svg.ok() && !/AIRI/i.test(svgText) && !/#f5c06a|#e0a35c|#fbbf24/i.test(svgText) && /#b8303f|#3a1620/i.test(svgText),
     `${svg.status()} ${svgText.length}B`,
   )
   const manifest = await page.request.get(`${BASE}/manifest.webmanifest`)

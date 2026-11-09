@@ -155,6 +155,14 @@ result under **Log**. Rules at the bottom are mandatory.
   edits a cron-driven script): add a `tar czf $STAGING/hermes/profile.tar.gz
   --exclude=cache --exclude=images /opt/data/{memories,skills,profiles}` step,
   then prove it by listing the archive. Not done unattended.
+  → **PREPARED 2026-11-10, blocked on him → item L(a).** The step exists twice
+  over: `~/scripts/hermes-profile-backup.sh` (standalone, proven: **45 MB /
+  2463 entries / 8 s, exit 0**) and `~/scripts/vps-backup-hermes-step.patch`
+  (`patch -p1 --dry-run` exit 0, `bash -n` clean). The gap is real and measured:
+  `vps-backup.sh` copies only `hermes/config.yaml`, `env/hermes-data.env` and
+  `hermes/telegram-config.yaml` (lines 78/103/104/105) — `memories/`, `skills/`,
+  `profiles/` and the session store are in no archive. Applying it edits a
+  cron-driven script that *is* the safety net, so it stays his hand.
 - [ ] **K. Notion phase 07's two leftovers: the key rotation and a restore drill.**
   Notion has 07 🟡 against exactly these. Split them by risk:
   **(a) restore drill, autonomous** — take the newest `vps-backup` archive,
@@ -171,6 +179,17 @@ result under **Log**. Rules at the bottom are mandatory.
   `~/scripts/rotate-sofia-api-key.sh`, prove it on a scratch profile, and ask him
   for a window. Record the ask in the Log.
 
+
+- [ ] **L. Two commands that need his hand.** Both are prepared and dry-run
+  proven; neither is safe unattended.
+  **(a) Apply the `/opt/data` backup step.**
+  `cd ~ && cp vps-backup.sh vps-backup.sh.bak && patch -p1 < scripts/vps-backup-hermes-step.patch && bash -n vps-backup.sh`
+  — then prove it on the next run: `ls -l /tmp/vps-backup/vps-backup-*/hermes/`
+  must show `profile.tar.gz`, and `tar tzf` it must list `memories/` and `skills/`.
+  **(b) Rotate the sofia `api_server` key** with
+  `~/scripts/rotate-sofia-api-key.sh`. It restarts the gateway hosting the
+  conversation, so it needs a window; a key swap while Sofia is open breaks her
+  brain until the gateway is back.
 
 ## Verification rules (do not skip)
 
@@ -472,3 +491,46 @@ Still open: the amber "S" logo glyph (asset, not CSS) and real-device voice
   and proves nothing. (3) Two of the gate's own first failures were mine, not the
   product's: a 15-byte `Sec-WebSocket-Key` (ws aborts 400) and a cookie never
   passed to the authenticated GET — both fixed before the production run.
+
+- 2026-11-10 05:0x–06:15 SLT — **About dialog fixed for real, and the reason the
+  first fix never landed.** `6f75cced6` rebranded
+  `packages/stage-ui/.../about/about-content.vue`; the served dialog still
+  printed `airi.moeru.ai` three times. Cause: the stage mounts a **second**
+  About — `packages/stage-layouts/.../InteractiveArea/Actions/About.vue` — which
+  passes its own `links` prop and overrides the stage-ui default, so the copy
+  that was fixed never renders in stage-web. A source grep and a bundle grep both
+  read clean while the browser still showed upstream, which is why this needed a
+  click, not a grep. Rebranded (Home → `sofia.ctum.org`, GitHub → `Ctum0/sofia`,
+  upstream Documentations entry dropped) plus the same upstream GitHub link in
+  the onboarding callout. Deploy `108` `finished` for **`c984fb558`**, container
+  `…T233920` Up (healthy).
+  *New gate, proven discriminating in both directions:* `test/about-gate.mjs`
+  clicks the real `title="About"` trigger (a synthetic `.click()` lies about Vue
+  state) and asserts links + dialog text **and** the composer send button.
+  Against the old build: **2 FAIL** (`no upstream links`,
+  `dialog keeps the Sofia links`). Against `c984fb558`: **ALL PASS**, links read
+  `["https://sofia.ctum.org/","https://github.com/Ctum0/sofia"]`, 0 console
+  errors, screenshot read back — dark dialog, no AIRI, no `(null)` version row.
+  *Second defect, in the gates themselves:* `auth-gate` demanded
+  `favicon.svg` contain **`#f5c06a`** — upstream's amber — so it passed while the
+  mark was wrong and failed the moment the last run corrected it (9/10). The
+  assertion is now inverted to the property that matters (Sofia burgundy
+  `#b8303f`/`#3a1620`, no amber, no AIRI): **10/10**. A gate that hardcodes the
+  defect it is supposed to catch is worse than no gate.
+  *Closed, previously UNVERIFIED:* (i) **About dialog at render level** — opened
+  by real pointer, text read; (ii) "send button reads active while empty" is not
+  a defect — measured `disabled:true`, `bg rgba(123,31,43,0.2)`, `opacity 0.5`
+  empty vs `rgb(123,31,43)`, `opacity 1` filled.
+  *Gates on `c984fb558`:* about **ALL PASS**, auth **10/10**, ui **7/7**,
+  auth-surface **33/33**, brand-assets **13/13**, voice **12/12**
+  (`chunksPlayed:13`, capture 16000 / playback 24000 both `running`, mouth peak
+  100, `0 x localhost:6121`). `/healthz` `brand:"rewritten"`, `hermes:"reachable"`,
+  `voice:"Leda"`.
+  *Correction to the previous run:* it reported "NEXT.md written back — last
+  run's edits never reached the VPS"; the file's mtime (`22:32`) predates that
+  run's deploy (`22:57`), so the write failed a **second** time. The queue is now
+  written and committed, so the next run reads this state instead of re-deriving
+  it.
+  *Queue state:* every Sofia item A–K, plus the polish leftovers, is now closed
+  or gated. **The queue is blocked on him:** L(a) backup patch, L(b) key
+  rotation. Nothing else in it can be advanced without his hand.
