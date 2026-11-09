@@ -36,7 +36,14 @@ const browser = await chromium.launch({
 })
 const ctx = await browser.newContext({ permissions: ['microphone'], viewport: { width: 1400, height: 900 } })
 const page = await ctx.newPage()
-page.on('console', (m) => { if (m.type() === 'error') console.log('  [console]', m.text().slice(0, 160)) })
+const consoleErrors = []
+page.on('console', (m) => {
+  if (m.type() === 'error') {
+    const text = m.text()
+    consoleErrors.push(text)
+    console.log('  [console]', text.slice(0, 160))
+  }
+})
 
 try {
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded', timeout: 60000 })
@@ -96,6 +103,11 @@ try {
 
   const errors = await page.evaluate(() => window.__sofiaVoice?.errors || [])
   step('no live errors', errors.length === 0, errors.join('; ') || 'none')
+  // The mods server channel lives at ws://localhost:6121 in the upstream dev
+  // stack. In production that host does not exist, so any attempt is a bug: a
+  // once-a-second reconnect loop and console noise on every client.
+  const devSocketDials = consoleErrors.filter(line => line.includes('localhost:6121')).length
+  step('no dev-socket dial in production', devSocketDials === 0, `${devSocketDials} x localhost:6121`)
 
   await page.screenshot({ path: '/qa/voice-stage.png' })
   console.log('\nTRANSCRIPTS:\n' + transcripts.join('\n').slice(0, 600))
