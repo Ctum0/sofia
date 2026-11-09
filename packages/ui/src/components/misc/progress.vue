@@ -15,7 +15,7 @@ defineProps<{
     >
       <div
         v-if="progress < 100"
-        absolute inset-0 origin-left rounded-md bg-white
+        absolute inset-0 origin-left rounded-md bg-white/25
         class="progress-shine-animation"
       />
     </div>
