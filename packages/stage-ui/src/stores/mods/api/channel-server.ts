@@ -69,8 +69,19 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
   const pendingSendCount = computed(() => pendingSend.value.length)
   const reconnectedCallbacks = new Set<() => void>()
 
-  const defaultWebSocketUrl = import.meta.env.VITE_AIRI_WS_URL || 'ws://localhost:6121/ws'
+  // The mods server channel is a dev-time bridge: upstream it lives at
+  // ws://localhost:6121, which only exists next to `pnpm dev`. In a production
+  // build that host is absent, so an eager connect becomes a once-a-second
+  // reconnect loop and a stream of ERR_CONNECTION_REFUSED in every client's
+  // console. Keep the localhost default dev-only; production connects only
+  // when a URL is actually configured (VITE_AIRI_WS_URL or the settings field).
+  const DEV_SERVER_CHANNEL_URL = 'ws://localhost:6121/ws'
+  const defaultWebSocketUrl = import.meta.env.VITE_AIRI_WS_URL || (import.meta.env.DEV ? DEV_SERVER_CHANNEL_URL : '')
   const websocketUrl = useLocalStorage('settings/connection/websocket-url', defaultWebSocketUrl)
+  // A URL persisted while the dev default was the fallback survives the build
+  // change in localStorage, so drop the dev host explicitly outside dev.
+  if (!import.meta.env.DEV && websocketUrl.value === DEV_SERVER_CHANNEL_URL)
+    websocketUrl.value = ''
   const websocketAuthToken = useLocalStorage('settings/connection/websocket-auth-token', '')
   const registeredListeners: ChannelListenerEntry[] = []
   const replayableEvents = new Map<keyof WebSocketEvents, WebSocketBaseEvent<any, any>>()
@@ -108,6 +119,14 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
   }) {
     if (options?.connector) {
       textConnectorFactory.value = options.connector
+    }
+
+    if (!(websocketUrl.value || defaultWebSocketUrl)) {
+      // Nothing configured: stay offline rather than dialling a host that
+      // cannot exist here. Settings still let the user set one, which the
+      // watcher below picks up.
+      dispose()
+      return Promise.resolve()
     }
 
     const requestedConnection: ChannelConnectionIdentity = {

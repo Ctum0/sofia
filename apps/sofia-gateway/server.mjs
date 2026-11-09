@@ -403,6 +403,56 @@ function serveStatic(req, res, url) {
   createReadStream(file).pipe(res)
 }
 
+// --- login rate limit -------------------------------------------------------
+// The gate is the only credential in front of a public box, so an unthrottled
+// form is an invitation to grind it. Five failures from one address inside ten
+// minutes locks that address out for the rest of the window; a success clears
+// the record. Kept in memory on purpose: one process, and a restart forgiving
+// the attacker is better than a table nobody prunes.
+const LOGIN_WINDOW_MS = 10 * 60 * 1000
+const LOGIN_MAX_FAILURES = 5
+// Shorter than the counting window on purpose: an attacker gets five guesses per
+// window, but the owner is never stranded for the full ten minutes.
+const LOGIN_LOCK_MS = 5 * 60 * 1000
+const loginFailures = new Map()
+
+function clientIp(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+  return forwarded || req.socket.remoteAddress || 'unknown'
+}
+
+function loginLockSeconds(ip) {
+  const record = loginFailures.get(ip)
+  if (!record)
+    return 0
+  const now = Date.now()
+  if (record.until && record.until > now)
+    return Math.ceil((record.until - now) / 1000)
+  if (now - record.first > LOGIN_WINDOW_MS)
+    loginFailures.delete(ip)
+  return 0
+}
+
+function noteLoginFailure(ip) {
+  const now = Date.now()
+  const record = loginFailures.get(ip) || { count: 0, first: now, until: 0 }
+  if (now - record.first > LOGIN_WINDOW_MS) {
+    record.count = 0
+    record.first = now
+    record.until = 0
+  }
+  record.count += 1
+  if (record.count >= LOGIN_MAX_FAILURES)
+    record.until = now + LOGIN_LOCK_MS
+  loginFailures.set(ip, record)
+  if (loginFailures.size > 1024) {
+    for (const [key, value] of loginFailures) {
+      if (!value.until || value.until < now)
+        loginFailures.delete(key)
+    }
+  }
+}
+
 const server = createServer((req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
 
@@ -412,16 +462,29 @@ const server = createServer((req, res) => {
 
   // --- password gate ---
   if (url.pathname === '/api/login' && req.method === 'POST') {
+    const ip = clientIp(req)
+    const lockedFor = loginLockSeconds(ip)
+    if (lockedFor > 0) {
+      res.writeHead(429, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        'retry-after': String(lockedFor),
+      })
+      res.end(loginPage({ error: `Too many attempts. Try again in ${Math.ceil(lockedFor / 60)} minute(s).` }))
+      return
+    }
     const chunks = []
     req.on('data', (c) => { chunks.push(c) })
     req.on('end', () => {
       const body = Buffer.concat(chunks).toString('utf8')
       const params = new URLSearchParams(body)
       if (checkPassword(params.get('password') || '')) {
+        loginFailures.delete(ip)
         res.writeHead(302, { 'set-cookie': sessionCookie(makeSession()), location: '/' })
         res.end()
         return
       }
+      noteLoginFailure(ip)
       res.writeHead(401, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
       res.end(loginPage({ error: 'Wrong password.' }))
     })
