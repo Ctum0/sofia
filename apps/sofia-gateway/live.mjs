@@ -21,7 +21,7 @@ const PATH = '/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGen
 const KEY_FILE = process.env.GEMINI_KEY_FILE || '/home/ctum/secrets/gemini.key'
 
 export const DEFAULT_MODEL = process.env.LIVE_MODEL || 'gemini-3.8-live'
-export const DEFAULT_VOICE = process.env.LIVE_VOICE || 'Aoede'
+export const DEFAULT_VOICE = process.env.LIVE_VOICE || 'Leda'
 
 function geminiKey() {
   if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY.trim()
