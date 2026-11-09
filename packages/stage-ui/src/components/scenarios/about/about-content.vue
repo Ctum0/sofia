@@ -10,8 +10,8 @@ const props = withDefaults(defineProps<{
   buildInfo?: AboutBuildInfo
   links?: AboutLink[]
 }>(), {
-  title: 'Project',
-  highlight: 'AIRI',
+  title: 'Sofia',
+  highlight: '',
   subtitle: '',
   links: () => ([
     { label: 'Home', href: 'https://airi.moeru.ai/docs/', icon: 'i-solar:home-smile-outline' },
@@ -20,12 +20,23 @@ const props = withDefaults(defineProps<{
   ]),
 })
 
+/**
+ * `unplugin-info` writes a missing git sha into `version` as the literal text
+ * `"0.15.1 (null)"`. Strip the empty parenthesised tail so the dialog never
+ * prints a placeholder; an empty result hides the row entirely.
+ */
+const displayVersion = computed(() => {
+  const raw = (props.buildInfo?.version ?? '').trim()
+  const stripped = raw.replace(/\s*\((?:null|undefined|unknown|)\s*\)$/i, '').trim()
+  return stripped === 'null' || stripped === 'undefined' ? '' : stripped
+})
+
 const hasBuildInfo = computed(() => {
   const info = props.buildInfo
   if (!info)
     return false
 
-  return Boolean(info.branch || info.commit || info.builtOn || info.version)
+  return Boolean(info.branch || info.commit || info.builtOn || displayVersion.value)
 })
 </script>
 
@@ -34,7 +45,7 @@ const hasBuildInfo = computed(() => {
     <div class="mb-14 text-center font-sans-rounded">
       <div class="text-5xl">
         <span class="text-neutral-400 dark:text-neutral-100/65">{{ title }}</span>
-        <span class="text-pink-400 dark:text-pink-300/90">&nbsp;{{ highlight }}</span>
+        <span v-if="highlight" class="text-amber-500 dark:text-amber-300/90">&nbsp;{{ highlight }}</span>
       </div>
       <div v-if="subtitle" class="mt-2 text-base text-neutral-500 dark:text-neutral-400">
         {{ subtitle }}
@@ -48,12 +59,12 @@ const hasBuildInfo = computed(() => {
         Application build information
       </div>
       <div :class="['mt-4', 'grid grid-cols-[120px_1fr]', 'gap-2', 'text-sm']">
-        <template v-if="buildInfo?.version">
+        <template v-if="displayVersion">
           <div :class="['text-neutral-500 dark:text-neutral-400']">
             Version
           </div>
           <div :class="['font-mono']">
-            {{ buildInfo.version }}
+            {{ displayVersion }}
           </div>
         </template>
         <template v-if="buildInfo?.branch">

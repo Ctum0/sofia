@@ -60,8 +60,8 @@ async function handleRetryMessage(index: number) {
 </script>
 
 <template>
-  <div flex="col" items-center pt-4>
-    <div h-full max-h="[85vh]" w-full py="4">
+  <div flex="col" min-h-0 items-center pt-4>
+    <div min-h-0 w-full flex-1 py="4">
       <ChatContainer>
         <div
           v-if="isLoading"
@@ -91,8 +91,17 @@ async function handleRetryMessage(index: number) {
       </ChatContainer>
     </div>
 
-    <ChatActionButtons />
-    <SofiaVoiceDock />
+    <!--
+      The bottom stack: the dock and the toolbar are siblings in one flex column with an
+      8px gap, and the chat panel above is `flex-1 min-h-0` while this row is `shrink-0`.
+      The toolbar therefore owns the row below the dock and can never ride up over the
+      composer the way the old `absolute bottom--8 right-0` toolbar did.
+    -->
+    <div class="sofia-bottom-stack" flex="col" items-center gap-2 w-full shrink-0 pt-2 pb-3>
+      <SofiaVoiceDock />
+      <ChatActionButtons />
+    </div>
+    <!-- Teleports to `body` and pins itself to the top edge, so it adds no height here. -->
     <VoiceCallCapsule />
   </div>
 </template>

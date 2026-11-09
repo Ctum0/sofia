@@ -12,7 +12,7 @@ import { defineProvider } from '../../registry'
 
 export const OPENROUTER_ATTRIBUTION_HEADERS: Record<string, string> = {
   'HTTP-Referer': 'https://airi.moeru.ai/',
-  'X-OpenRouter-Title': 'Project AIRI',
+  'X-OpenRouter-Title': 'Sofia',
 }
 
 const openRouterConfigSchema = z.object({

@@ -42,7 +42,7 @@ const sendModeLabels = computed<Record<SendMode, string>>(() => ({
 <template>
   <ActionAbout v-model="aboutOpen" hide-trigger />
   <BackgroundDialogPicker v-model="backgroundDialogOpen" />
-  <div absolute bottom--8 right-0 flex gap-2>
+  <div class="w-full flex items-center justify-end gap-2">
     <ViewControls />
     <ChatToolbarButton
       :title="t('stage.mobile-tools.background')"
