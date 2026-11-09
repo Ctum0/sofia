@@ -37,6 +37,14 @@ const isActiveSessionSending = computed(() => (
   || isReceivingRemoteStream.value
 ))
 const visibleStreamingMessage = streamingMessage
+
+/**
+ * A session can hold entries with no words yet (a seed greeting placeholder, a
+ * tool card). Counting the array therefore says "not empty" while the panel is
+ * visibly blank, so the empty state keys off actual message content instead.
+ */
+const hasVisibleMessage = computed(() => historyMessages.value.some(message => `${message?.content ?? ''}`.trim().length > 0))
+const showEmptyState = computed(() => isReady.value && !visibleStreamingMessage.value && !hasVisibleMessage.value)
 const { trackChatMessageDeleted } = useAnalytics()
 const { rerunToolCall } = useChatToolCallRerun()
 
@@ -73,7 +81,8 @@ async function handleRetryMessage(index: number) {
         <ChatPanelHeader />
         <div w="full" max-h="<md:[60%]" py="<sm:2" flex="~ col" rounded="lg" relative min-h-0 flex-1 overflow-hidden px="2 <md:0" py-4>
           <div
-            v-if="isReady && !historyMessages.length && !visibleStreamingMessage"
+            v-if="showEmptyState"
+            data-testid="chat-empty-state"
             :class="['pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-8 text-center']"
           >
             <p :class="['text-base font-medium text-[var(--sofia-text)]']">
