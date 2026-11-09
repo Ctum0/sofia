@@ -125,6 +125,36 @@ result under **Log**. Rules at the bottom are mandatory.
   an `Accept: text/html` request gets the login page with **200 on any path**
   (content-negotiated gate) — a scanner that ignores the body reads the API as
   open, so the gate pins both answers.
+- [x] **K(a). Restore drill — DONE 2026-11-09.** `~/scripts/restore-drill.sh`
+  (+ `restore-drill2.sh`) extracted `vps-backup-2026-11-09` to
+  `/home/ctum/archive/drill-2026-11-09` (145 files, 35 MB) and *opened* every
+  artefact instead of trusting the manifest:
+  - Coolify: `databases/coolify-db.sql.gz` 15 MB, a real `PostgreSQL database
+    dump` — 83 `CREATE TABLE`, 166 COPY/INSERT statements, deployment queue
+    data present.
+  - n8n: `n8n_database.sqlite.gz` decompressed → **166 tables, 10,488 rows**
+    (`execution_data` 3,147, `execution_entity` 3,147, `insights_by_period`
+    2,281) — the file only looked "not a database" until it was gunzipped.
+  - Other dumps present: `iriswebapp_db`, `litellm-db`, `honcho-db`.
+  - Caddy: full `Caddyfile`, 27 handle/proxy directives.
+  - Inventory: 46 volumes (name+driver), image list, container list, compose
+    files, `.env` files, `SECRETS.txt`, `hermes/config.yaml`.
+  **What a restore still could NOT recover** — named, not implied:
+  Wazuh indexer + manager (agent keys, alerts), Splunk indexes, MISP's MySQL
+  volume, Karakeep, Wallos, Beszel, SearXNG/valkey, Portainer, and
+  **Hermes' own `/opt/data` (sessions, memories, skills, Honcho config beyond
+  the DB dump)** — the backup copies only `config.yaml` from `/opt/data`.
+  That last one is the cheapest to fix and the most expensive to lose; see K(c).
+  Two hygiene notes: `SECRETS.txt` sits in plaintext inside the archive (it is
+  `0600` and the tarball is pulled off-box by Parrot, but it is still an
+  unencrypted secret copy), and the tarball itself is deleted after the Parrot
+  pull, so the drill can only be run against the staging directory.
+- [ ] **K(c). Cover `/opt/data` in the nightly backup.** `vps-backup.sh` copies
+  only `config.yaml` from the Hermes home; the profile's `memories/`, `skills/`
+  and session store are not archived. Proposal (needs his go-ahead because it
+  edits a cron-driven script): add a `tar czf $STAGING/hermes/profile.tar.gz
+  --exclude=cache --exclude=images /opt/data/{memories,skills,profiles}` step,
+  then prove it by listing the archive. Not done unattended.
 - [ ] **K. Notion phase 07's two leftovers: the key rotation and a restore drill.**
   Notion has 07 🟡 against exactly these. Split them by risk:
   **(a) restore drill, autonomous** — take the newest `vps-backup` archive,
