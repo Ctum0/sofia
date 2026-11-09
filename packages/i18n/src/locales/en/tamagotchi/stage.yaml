@@ -98,8 +98,8 @@ window:
   restore: Restore
   close: Close
   titles:
-    about: About AIRI
-    editor: AIRI Editor
+    about: About Sofia
+    editor: Sofia Editor
 
 notice:
   'fade-on-hover':
@@ -177,14 +177,14 @@ about:
     notices:
       admin-required:
         title: Administrator approval needed
-        description: AIRI is installed in a protected Windows folder. When you install the update, Windows can ask for administrator approval (UAC).
+        description: Sofia is installed in a protected Windows folder. When you install the update, Windows can ask for administrator approval (UAC).
         path: 'Install folder: {path}'
       downgrade-available:
         title: This update is an older version
-        description: The selected update lane offers an older build than your current version. If you install this update, AIRI goes back to the older version.
+        description: The selected update lane offers an older build than your current version. If you install this update, Sofia goes back to the older version.
       downgrade-downloaded:
         title: Older version downloaded
-        description: The package from the selected update lane is an older version. When AIRI restarts, it installs this older version.
+        description: The package from the selected update lane is an older version. When Sofia restarts, it installs this older version.
 computer-use-tool-call:
   help: Help
   status:
