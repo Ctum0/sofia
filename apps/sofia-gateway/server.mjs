@@ -29,6 +29,7 @@ import { WebSocketServer } from 'ws'
 
 import { DEFAULT_MODEL, DEFAULT_VOICE, LiveBridge } from './live.mjs'
 import { SseReasoningFilter, stripReasoningFromBody } from './reasoning-filter.mjs'
+import { checkPassword, clearCookie, isAuthed, loginPage, makeSession, sessionCookie } from './auth.mjs'
 
 const PORT = Number(process.env.PORT || 8787)
 const HOST = process.env.HOST || '127.0.0.1'
@@ -72,6 +73,34 @@ const MIME = {
   '.wav': 'audio/wav',
   '.map': 'application/json; charset=utf-8',
 }
+
+// Runs before the app boots. Only fills what is missing, so a deliberate change
+// made in Settings is never overwritten on reload.
+const SEED_SCRIPT = `<script>
+(function () {
+  try {
+    var origin = location.origin + '/v1';
+    var seed = {
+      'settings/providers/configured': JSON.stringify({
+        'openai-compatible': {
+          id: 'openai-compatible',
+          definitionId: 'openai-compatible',
+          config: { api: 'chat-completions', baseUrl: origin, apiKey: 'gateway-injects-real-key' },
+          status: 'configured',
+          configuredBy: 'user',
+        },
+      }),
+      'settings/providers/added': JSON.stringify({ 'openai-compatible': true }),
+      'settings/consciousness/active-provider': 'openai-compatible',
+      'settings/consciousness/active-model': 'sofia',
+      'settings/speech/active-provider': 'speech-noop',
+    };
+    for (var key in seed) {
+      if (!localStorage.getItem(key)) localStorage.setItem(key, seed[key]);
+    }
+  } catch (e) {}
+})();
+</script>`;
 
 function sendJson(res, status, body) {
   const payload = JSON.stringify(body)
@@ -219,6 +248,19 @@ function serveStatic(req, res, url) {
 
   const type = MIME[extname(file).toLowerCase()] || 'application/octet-stream'
   const immutable = /\/assets\/.+\.[0-9a-f]{6,}\./i.test(file)
+
+  // The stage is upstream AIRI's build. Two things are rewritten as it is served:
+  // the brand strings a person can see, and a seed that makes the provider
+  // already-configured so nobody meets an onboarding wizard.
+  if (file.endsWith('index.html')) {
+    let html = readFileSync(file, 'utf8')
+    html = html.replace(/AIRI/g, 'Sofia').replace(/アイリ/g, 'ソフィア')
+    html = html.replace('</head>', `${SEED_SCRIPT}</head>`)
+    res.writeHead(200, { 'content-type': type, 'cache-control': 'no-store' })
+    res.end(html)
+    return
+  }
+
   res.writeHead(200, {
     'content-type': type,
     // Hashed assets can cache hard; everything else must revalidate, or a
@@ -230,6 +272,52 @@ function serveStatic(req, res, url) {
 
 const server = createServer((req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
+
+  if (url.pathname === '/healthz') {
+    // handled below, but keep it ahead of the gate so uptime probes stay green
+  }
+
+  // --- password gate ---
+  if (url.pathname === '/api/login' && req.method === 'POST') {
+    const chunks = []
+    req.on('data', (c) => { chunks.push(c) })
+    req.on('end', () => {
+      const body = Buffer.concat(chunks).toString('utf8')
+      const params = new URLSearchParams(body)
+      if (checkPassword(params.get('password') || '')) {
+        res.writeHead(302, { 'set-cookie': sessionCookie(makeSession()), location: '/' })
+        res.end()
+        return
+      }
+      res.writeHead(401, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
+      res.end(loginPage({ error: 'Wrong password.' }))
+    })
+    return
+  }
+
+  if (url.pathname === '/api/logout') {
+    res.writeHead(302, { 'set-cookie': clearCookie(), location: '/' })
+    res.end()
+    return
+  }
+
+  const publicPath = url.pathname === '/healthz' || url.pathname === '/login'
+  if (!publicPath && !isAuthed(req)) {
+    const wantsHtml = (req.headers.accept || '').includes('text/html')
+    if (wantsHtml || url.pathname === '/') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
+      res.end(loginPage())
+      return
+    }
+    sendJson(res, 401, { error: 'unauthorized' })
+    return
+  }
+
+  if (url.pathname === '/login') {
+    res.writeHead(302, { location: '/' })
+    res.end()
+    return
+  }
 
   if (url.pathname === '/healthz') {
     const key = hermesKey()
@@ -289,7 +377,7 @@ const wss = new WebSocketServer({ noServer: true })
 
 server.on('upgrade', (req, socket, head) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
-  if (url.pathname !== '/api/live/stream') {
+  if (url.pathname !== '/api/live/stream' || !isAuthed(req)) {
     socket.destroy()
     return
   }

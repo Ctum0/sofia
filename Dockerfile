@@ -49,6 +49,7 @@ COPY apps/sofia-gateway/package.json ./package.json
 RUN npm install --omit=dev --no-audit --no-fund
 
 COPY apps/sofia-gateway/server.mjs ./server.mjs
+COPY apps/sofia-gateway/auth.mjs ./auth.mjs
 COPY apps/sofia-gateway/live.mjs ./live.mjs
 COPY apps/sofia-gateway/reasoning-filter.mjs ./reasoning-filter.mjs
 COPY apps/sofia-gateway/public ./public
