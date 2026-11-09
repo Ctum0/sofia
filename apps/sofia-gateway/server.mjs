@@ -211,6 +211,16 @@ const SEED_SCRIPT = `<script>
             node.name = 'Sofia';
             touched = true;
           }
+          // The persona copy opens with the character introducing itself by the
+          // legacy name, so a renamed card still answers to the old one. Rewrite
+          // that line only: the rest of the description is personality, which is
+          // the part worth keeping.
+          if (typeof node.description === 'string' && node.description.indexOf('Your name is ' + LEGACY[0]) !== -1) {
+            node.description = node.description
+              .split('Your name is ' + LEGACY[0] + ', pronounced as /ˈiːruː/.').join('Your name is Sofia.')
+              .split('Your name is ' + LEGACY[0]).join('Your name is Sofia');
+            touched = true;
+          }
           for (var k in node) { if (node[k] && typeof node[k] === 'object') walk(node[k]); }
         };
         walk(parsed);
