@@ -109,8 +109,8 @@ const MANIFEST = {
   description: 'Your personal companion',
   start_url: '/',
   display: 'standalone',
-  background_color: '#0b0f14',
-  theme_color: '#0b0f14',
+  background_color: '#0b0708',
+  theme_color: '#0b0708',
   lang: 'en',
   scope: '/',
   icons: [
@@ -146,10 +146,10 @@ function rebrandHtml(html) {
   // Splash: the built one is a white sheet with the old mark hue-rotated to the
   // theme colour. Sofia's splash is the dark stage with her own mark at full
   // colour, so the hue-rotate filter and the white palette both have to go.
-  html = swapOnce(html, 'color:#262626;background:#fff;', 'color:#eef2f7;background:#0b0f14;', 'splash:palette')
+  html = swapOnce(html, 'color:#262626;background:#fff;', 'color:#eef2f7;background:#0b0708;', 'splash:palette')
   html = swapOnce(html, 'filter:hue-rotate(calc(var(--chromatic-hue,220.44) * 1deg))', 'border-radius:24%', 'splash:logo-filter')
   html = swapOnce(html, '#boot-splash .boot-error button{background:oklch(65% .16 var(--chromatic-hue,220.44))', '#boot-splash .boot-error button{background:#e0a35c', 'splash:button')
-  html = swapOnce(html, 'html.dark #boot-splash{color:#f5f5f5;background:#171717}', 'html.dark #boot-splash{color:#eef2f7;background:#0b0f14}', 'splash:dark')
+  html = swapOnce(html, 'html.dark #boot-splash{color:#f5f5f5;background:#171717}', 'html.dark #boot-splash{color:#eef2f7;background:#0b0708}', 'splash:dark')
   return html
 }
 

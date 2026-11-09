@@ -86,7 +86,10 @@ echo "== 4. gates =="
 PW=mcr.microsoft.com/playwright:v1.64.1-jammy
 run_gate() {
   docker run --rm --network host -v /home/ctum/qa:/qa -v /home/ctum/secrets:/home/ctum/secrets:ro \
-    -w /qa -e BASE=https://sofia.ctum.org "$PW" node "$1" 2>&1
+    -w /qa -e BASE=https://sofia.ctum.org \
+    -e SOFIA_PASSWORD="$(cat /home/ctum/secrets/sofia-password 2>/dev/null)" \
+    -e PASSWORD="$(cat /home/ctum/secrets/sofia-password 2>/dev/null)" \
+    "$PW" node "$1" 2>&1
 }
 voice=$(run_gate voice-gate.mjs)
 echo "$voice" | grep -qE "12/12|ALL .*PASS|checks passed" || { echo "$voice" | tail -15; fail 5 "voice gate failed"; }
@@ -96,5 +99,9 @@ echo "== 5. brand =="
 brand=$(run_gate dark-check.mjs)
 echo "$brand" | grep -q '"strayAIRI": false' || { echo "$brand" | tail -10; fail 6 "upstream brand visible in the DOM"; }
 note "strayAIRI false · $(echo "$brand" | grep -oE '"anyWhiteSurfaces": [0-9]+')"
+
+brand_px=$(run_gate brand-assets-gate.mjs)
+echo "$brand_px" | grep -qE '^1[0-9]/1[0-9]|^13/13' || { echo "$brand_px" | tail -14; fail 6 "brand assets are not Sofia's"; }
+note "$(echo "$brand_px" | grep -oE '[0-9]+/13' | tail -1) brand assets"
 
 echo "PASS ${head_sha:0:9} — tree clean, deployed, healthy, gated, on-brand"
