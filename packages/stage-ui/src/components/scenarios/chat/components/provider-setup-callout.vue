@@ -34,18 +34,18 @@ const description = computed(() => {
 </script>
 
 <template>
-  <Alert tone="warning" :title="title">
+  <Alert tone="info" :title="title">
     {{ description }}
     <template #actions>
       <template v-if="suggestSignIn">
-        <Button size="sm" color="amber" variant="primary" @click="emit('signIn')">
+        <Button size="sm" color="primary" variant="primary" @click="emit('signIn')">
           {{ t('stage.chat.provider-configuration.sign-in-action') }}
         </Button>
         <Button v-if="customProvidersEnabled" size="sm" variant="secondary" @click="emit('configure')">
           {{ t('stage.chat.provider-configuration.action') }}
         </Button>
       </template>
-      <Button v-else size="sm" color="amber" variant="primary" @click="emit('configure')">
+      <Button v-else size="sm" color="primary" variant="primary" @click="emit('configure')">
         {{ t('stage.chat.provider-configuration.action') }}
       </Button>
     </template>

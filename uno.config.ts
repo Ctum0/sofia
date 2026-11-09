@@ -153,7 +153,9 @@ export function sharedUnoConfig() {
       }),
       presetScrollbar(),
       presetChromatic({
-        baseHue: 220.44,
+        // Sofia's house hue: burgundy. Colours that still read `--chromatic-hue` (the logo filter,
+        // transition overlays) land in the same family as the explicit palette below.
+        baseHue: 350,
         colors: {
           primary: 0,
           complementary: 180,
@@ -216,6 +218,50 @@ export function sharedUnoConfig() {
       [/drag-region/, () => ({ 'app-region': 'drag' })],
     ],
     theme: {
+      /**
+       * Sofia's house palette: luxury dark burgundy on black.
+       *
+       * These literal shades replace the hue-derived chromatic scale so the stage cannot drift back
+       * to a blue/pastel look when the theme hue changes, and so the semantic roles the components
+       * already use (`bg-primary-950` panels, `text-primary-100` body on dark, `bg-primary-500`
+       * accents) resolve to the burgundy palette in one place:
+       *
+       *   page background  #0b0708   (--sofia-bg)
+       *   elevated panel   #171012   (--sofia-panel, 1px border #2a1a1e)
+       *   accent           #7b1f2b   (500) / hover, active #a3283a (600)
+       *   text on dark     #f5e6d3   (100, cream) / secondary #b9a99c (400)
+       *
+       * The named tones live next to `--sofia-*` in `apps/stage-web/src/styles/main.css`; keep the two
+       * lists in step.
+       */
+      colors: {
+        primary: {
+          50: '#f7ece8',
+          100: '#f5e6d3',
+          200: '#e0c9bb',
+          300: '#c2a794',
+          400: '#b9a99c',
+          500: '#7b1f2b',
+          600: '#a3283a',
+          700: '#5c1620',
+          800: '#40121a',
+          900: '#2a1519',
+          950: '#171012',
+        },
+        complementary: {
+          50: '#f7eeea',
+          100: '#efdcd3',
+          200: '#dcc0b4',
+          300: '#bfa094',
+          400: '#9d8177',
+          500: '#6f5550',
+          600: '#55403c',
+          700: '#3d2c2a',
+          800: '#2a1a1e',
+          900: '#1d1216',
+          950: '#120c0e',
+        },
+      },
       fontFamily: {
         'sans': `"DM Sans Variant", "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";`,
         'mono': `"Maple Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;`,

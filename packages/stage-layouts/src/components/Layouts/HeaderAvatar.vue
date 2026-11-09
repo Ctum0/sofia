@@ -52,9 +52,9 @@ const notificationsLabel = computed(() => unread.value > 0
             :class="[
               'group h-10 flex items-center gap-2 rounded-full border-2 p-1 outline-none shadow-sm backdrop-blur-md',
               compact ? 'size-11 justify-center focus-visible:ring-2 focus-visible:ring-primary-500' : 'pl-1 pr-3',
-              'border-neutral-100/60 bg-neutral-50/70 dark:border-neutral-800/30 dark:bg-neutral-800/70',
+              'border-neutral-100/60 bg-neutral-50/70 dark:border-[var(--sofia-panel-border)] dark:bg-[var(--sofia-panel)]/80',
               'hover:bg-neutral-100 data-[state=open]:bg-neutral-100',
-              'dark:hover:bg-neutral-800 dark:data-[state=open]:bg-neutral-800',
+              'dark:hover:bg-primary-900/60 dark:data-[state=open]:bg-primary-900/60',
               'data-[state=open]:ring-2 data-[state=open]:ring-primary-500/20',
               'transition-colors duration-200 ease-in-out',
               'relative',

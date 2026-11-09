@@ -2,7 +2,8 @@ import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { converter } from 'culori'
 import { defineStore } from 'pinia'
 
-export const DEFAULT_THEME_COLORS_HUE = 220.44
+// Sofia's house hue (burgundy); see the palette in `uno.config.ts` and the stage's `main.css`.
+export const DEFAULT_THEME_COLORS_HUE = 350
 
 const convert = converter('oklch')
 const getHueFrom = (color?: string) => color ? convert(color)?.h : DEFAULT_THEME_COLORS_HUE

@@ -52,10 +52,12 @@ const colorClasses: Record<ButtonColor, Record<ButtonVariant, string[]>> = {
       'hover:text-neutral-900 dark:hover:text-white',
       'active:text-neutral-900 dark:active:text-neutral-100',
 
-      'bg-neutral-200/75 dark:bg-neutral-700',
-      'hover:bg-neutral-200 dark:hover:bg-neutral-600/75',
-      'active:bg-neutral-200 dark:active:bg-neutral-600/50',
-      'focus-visible:bg-neutral-200/75 dark:focus-visible:bg-neutral-600/50',
+      // Secondary buttons sit on the stage too, so on dark they take the warm elevated tone instead
+      // of a flat grey. `primary-900` is that tone in the palette.
+      'bg-neutral-200/75 dark:bg-primary-900',
+      'hover:bg-neutral-200 dark:hover:bg-primary-800/80',
+      'active:bg-neutral-200 dark:active:bg-primary-800/60',
+      'focus-visible:bg-neutral-200/75 dark:focus-visible:bg-primary-800/60',
 
       props.outline ? 'hover:outline-neutral-300 dark:hover:outline-neutral-600/50' : '',
       props.outline ? 'active:outline-none dark:active:outline-none' : '',
@@ -66,18 +68,18 @@ const colorClasses: Record<ButtonColor, Record<ButtonVariant, string[]>> = {
     primary: [
       'backdrop-blur-lg',
 
-      'text-white dark:text-white',
-      'hover:text-primary-100 dark:hover:text-white',
+      'text-white dark:text-primary-100',
+      'hover:text-primary-100 dark:hover:text-primary-100',
       'active:text-primary-100 dark:active:text-primary-100',
 
-      'bg-primary-500/85 dark:bg-primary-400/75',
-      'hover:bg-primary-500/85 dark:hover:bg-primary-400/75',
-      'active:bg-primary-500 dark:active:bg-primary-400/50',
-      'focus-visible:bg-primary-500/85 dark:focus-visible:bg-primary-400/50',
+      'bg-primary-500/85 dark:bg-primary-500/90',
+      'hover:bg-primary-500/85 dark:hover:bg-primary-600/90',
+      'active:bg-primary-500 dark:active:bg-primary-600',
+      'focus-visible:bg-primary-500/85 dark:focus-visible:bg-primary-600/70',
 
-      props.outline ? 'hover:outline-primary-300/75 dark:hover:outline-primary-400/50' : '',
+      props.outline ? 'hover:outline-primary-300/75 dark:hover:outline-primary-500/50' : '',
       props.outline ? 'active:outline-none dark:active:outline-none' : '',
-      props.outline ? 'focus-visible:outline-primary-300/75 dark:focus-visible:outline-primary-400/50' : '',
+      props.outline ? 'focus-visible:outline-primary-300/75 dark:focus-visible:outline-primary-500/50' : '',
     ],
     secondary: [
       'backdrop-blur-lg',

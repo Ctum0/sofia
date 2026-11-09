@@ -67,7 +67,7 @@ const sendModeLabels = computed<Record<SendMode, string>>(() => ({
           :side-offset="8"
           :class="[
             'z-50 min-w-[180px] rounded-xl border border-neutral-200/60 bg-neutral-50/90 p-1',
-            'shadow-lg backdrop-blur-md dark:border-neutral-800/30 dark:bg-neutral-900/80',
+            'shadow-lg backdrop-blur-md dark:border-[var(--sofia-panel-border)] dark:bg-[var(--sofia-panel)]/95',
             'flex flex-col gap-1',
           ]"
         >

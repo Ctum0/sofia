@@ -354,7 +354,7 @@ function toggleOpen() {
             props.contentSide === 'top' && props.contentAlign === 'end' ? 'origin-bottom-right' : '',
             props.contentSide === 'bottom' && props.contentAlign === 'start' ? 'origin-top-left' : '',
             props.contentSide === 'bottom' && props.contentAlign === 'end' ? 'origin-top-right' : '',
-            'border-neutral-200 bg-white/95 dark:border-neutral-800 dark:bg-neutral-900/95',
+            'border-neutral-200 bg-white/95 dark:border-[var(--sofia-panel-border)] dark:bg-[var(--sofia-panel)]/95',
           ]"
         >
           <div ref="createContentRef" :class="['flex flex-wrap items-center justify-end gap-2 rounded-xl p-2']">

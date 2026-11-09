@@ -89,9 +89,10 @@ const boxClasses = computed(() => {
 
   return [
     spacing,
+    // The person's own messages carry the accent: burgundy fill, cream text, on the dark stage.
     props.variant === 'mobile'
-      ? 'bg-neutral-100/60 backdrop-blur-xl dark:bg-neutral-800/60'
-      : 'bg-neutral-100/80 dark:bg-neutral-800/80',
+      ? 'bg-neutral-100/60 backdrop-blur-xl dark:bg-[var(--sofia-accent)]/85 dark:text-[var(--sofia-text)]'
+      : 'bg-neutral-100/80 dark:bg-[var(--sofia-accent)]/85 dark:text-[var(--sofia-text)]',
   ]
 })
 const copyText = computed(() => getChatHistoryItemCopyText(props.message))

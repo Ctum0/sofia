@@ -2,10 +2,33 @@
 @import './transitions.css';
 @import './vue-transitions.css';
 
+/*
+ * Sofia's house palette: luxury dark burgundy on black.
+ *
+ * Everything the stage paints reads these tokens, so one change re-colours the page, the panels,
+ * the chrome and the accents together. `uno.config.ts` mirrors the same values as the `primary` /
+ * `complementary` UnoCSS scales, which is what the utilities in the components resolve to
+ * (`bg-primary-950` panels, `text-primary-100` body text on dark, `bg-primary-500` accents).
+ * Keep the two lists in step.
+ *
+ *   page background  #0b0708
+ *   elevated panel   #171012  (1px border #2a1a1e)
+ *   accent           #7b1f2b  (hover, active #a3283a)
+ *   text on dark     #f5e6d3  (secondary #b9a99c)
+ */
 :root {
+  --sofia-bg: #0b0708;
+  --sofia-panel: #171012;
+  --sofia-panel-border: #2a1a1e;
+  --sofia-accent: #7b1f2b;
+  --sofia-accent-hover: #a3283a;
+  --sofia-text: #f5e6d3;
+  --sofia-text-muted: #b9a99c;
+
   --bg-color-light: rgb(255 255 255);
-  --bg-color-dark: rgb(18 18 18);
-  --bg-color: var(--bg-color-light);
+  --bg-color-dark: var(--sofia-bg);
+  /* Dark is the default paint, before any script has run and for every caller that reads this. */
+  --bg-color: var(--bg-color-dark);
 }
 
 /**
@@ -32,26 +55,29 @@ html {
   transition: all 0.3s ease-in-out;
 }
 
+/* Only a person who explicitly chose light gets the light page. */
+html:not(.dark) {
+  --bg-color: var(--bg-color-light);
+}
+
 html.dark {
-  --bg-color: var(--bg-color-dark);
+  --bg-color: var(--sofia-bg);
   color-scheme: dark;
 }
 
-/*
- * Stage transition colours (StageTransitionGroup in App.vue): pale tints of the theme. They live in CSS so they follow
- * `--chromatic-hue`, including the `dynamic-hue` animation, and dark mode.
- */
-:root {
-  --stage-transition-primary: color-mix(in srgb, theme('colors.primary.200') 90%, oklch(90% 0 360));
-  --stage-transition-secondary: color-mix(in srgb, theme('colors.complementary.200') 90%, oklch(90% 0 360));
-  /* primary + 60°: a third of the way from primary (h) to complementary (h + 180°), going up in hue */
-  --stage-transition-tertiary: color-mix(in srgb, color-mix(in oklch increasing hue, theme('colors.primary.200') 66.667%, theme('colors.complementary.200')) 90%, oklch(90% 0 360));
+/* Whatever has no colour of its own (plain prose, buttons that only set a background) reads cream. */
+html.dark body {
+  color: var(--sofia-text);
 }
 
-.dark {
-  --stage-transition-primary: color-mix(in srgb, theme('colors.primary.200') 70%, oklch(50% 0 360));
-  --stage-transition-secondary: color-mix(in srgb, theme('colors.complementary.200') 70%, oklch(50% 0 360));
-  --stage-transition-tertiary: color-mix(in srgb, color-mix(in oklch increasing hue, theme('colors.primary.200') 66.667%, theme('colors.complementary.200')) 70%, oklch(50% 0 360));
+/*
+ * Stage transition colours (StageTransitionGroup in App.vue): the burgundy palette, so a route
+ * change wipes through the same colours the stage is painted with instead of a hue-derived pastel.
+ */
+:root {
+  --stage-transition-primary: var(--sofia-accent);
+  --stage-transition-secondary: var(--sofia-accent-hover);
+  --stage-transition-tertiary: var(--sofia-panel);
 }
 
 #nprogress {
@@ -59,7 +85,7 @@ html.dark {
 }
 
 #nprogress .bar {
-  background: color-mix(in srgb, theme('colors.primary.200') 70%, oklch(50% 0 360));
+  background: var(--sofia-accent-hover);
   opacity: 0.75;
   position: fixed;
   z-index: 1031;
@@ -70,7 +96,7 @@ html.dark {
 }
 
 .dark #nprogress .bar {
-  background: color-mix(in srgb, theme('colors.primary.200') 90%, oklch(90% 0 360));
+  background: var(--sofia-accent-hover);
 }
 
 @media (display-mode: standalone) {

@@ -183,8 +183,8 @@ watch(replyTarget, async (target) => {
     <div
       :class="[
         'relative w-full overflow-hidden rounded',
-        'border-t-2 border-solid border-primary-200/20 bg-primary-100/50 backdrop-blur-md',
-        'dark:border-primary-400/20 dark:bg-primary-900/70',
+        'border border-solid border-primary-200/20 bg-primary-100/50 backdrop-blur-md',
+        'dark:border-[var(--sofia-panel-border)] dark:bg-[var(--sofia-panel)]',
       ]"
     >
       <ChatReplyPreview

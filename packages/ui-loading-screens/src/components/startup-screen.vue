@@ -118,8 +118,8 @@ watch(() => props.phase, async (phase, previous, onCleanup) => {
 }
 
 :global(html.dark .startup-screen) {
-  background: #171717;
-  color: #f5f5f5;
+  background: #0b0708;
+  color: #f5e6d3;
 }
 
 .startup-screen-error {
@@ -146,7 +146,7 @@ watch(() => props.phase, async (phase, previous, onCleanup) => {
   left: 50%;
   width: 96px;
   height: 96px;
-  filter: hue-rotate(calc(var(--chromatic-hue, 220.44) * 1deg));
+  filter: hue-rotate(calc(var(--chromatic-hue, 350) * 1deg));
   transform: translateX(-50%);
   transition: left 500ms ease, width 500ms ease, height 500ms ease, transform 500ms ease;
 }

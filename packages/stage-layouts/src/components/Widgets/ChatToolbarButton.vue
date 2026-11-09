@@ -18,7 +18,7 @@ withDefaults(defineProps<{
       'focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2',
       active
         ? 'bg-primary-100 text-primary-600 dark:bg-primary-900/40 dark:text-primary-300'
-        : 'bg-neutral-100 text-neutral-500 hover:bg-primary-100/60 hover:text-primary-600 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-primary-900/40 dark:hover:text-primary-300',
+        : 'bg-neutral-100 text-neutral-500 hover:bg-primary-100/60 hover:text-primary-600 dark:bg-[var(--sofia-panel)] dark:text-[var(--sofia-text-muted)] dark:hover:bg-primary-900/60 dark:hover:text-[var(--sofia-text)]',
     ]"
   >
     <slot />

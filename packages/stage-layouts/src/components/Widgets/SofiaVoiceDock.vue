@@ -283,7 +283,7 @@ onBeforeUnmount(() => {
   padding: 0.25rem 0 0.5rem;
   justify-content: center;
   font-size: 0.75rem;
-  color: rgb(245 226 200 / 82%);
+  color: color-mix(in srgb, var(--sofia-text, #f5e6d3) 82%, transparent);
 }
 
 .sofia-voice__button {
@@ -292,9 +292,9 @@ onBeforeUnmount(() => {
   gap: 0.4rem;
   padding: 0.35rem 0.85rem;
   border-radius: 999px;
-  border: 1px solid rgb(245 192 106 / 45%);
-  background: rgb(28 18 12 / 72%);
-  color: rgb(245 214 160);
+  border: 1px solid color-mix(in srgb, var(--sofia-accent, #7b1f2b) 85%, transparent);
+  background: var(--sofia-panel, #171012);
+  color: var(--sofia-text, #f5e6d3);
   font-size: 0.75rem;
   letter-spacing: 0.02em;
   cursor: pointer;
@@ -302,14 +302,14 @@ onBeforeUnmount(() => {
 }
 
 .sofia-voice__button:hover {
-  border-color: rgb(245 192 106 / 85%);
-  background: rgb(40 25 16 / 82%);
+  border-color: var(--sofia-accent-hover, #a3283a);
+  background: color-mix(in srgb, var(--sofia-accent, #7b1f2b) 32%, var(--sofia-panel, #171012));
 }
 
 .sofia-voice__button.is-live {
-  border-color: rgb(245 192 106);
-  background: rgb(72 42 18 / 85%);
-  color: rgb(255 236 205);
+  border-color: var(--sofia-accent-hover, #a3283a);
+  background: color-mix(in srgb, var(--sofia-accent, #7b1f2b) 68%, var(--sofia-panel, #171012));
+  color: var(--sofia-text, #f5e6d3);
 }
 
 .sofia-voice__button.is-error {
@@ -321,12 +321,12 @@ onBeforeUnmount(() => {
   width: 0.4rem;
   height: 0.4rem;
   border-radius: 999px;
-  background: rgb(245 192 106 / 60%);
+  background: color-mix(in srgb, var(--sofia-accent-hover, #a3283a) 70%, transparent);
 }
 
 .sofia-voice__button.is-live .sofia-voice__dot {
-  background: rgb(245 192 106);
-  box-shadow: 0 0 0 3px rgb(245 192 106 / 22%);
+  background: var(--sofia-accent-hover, #a3283a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sofia-accent-hover, #a3283a) 26%, transparent);
 }
 
 .sofia-voice__meter {
@@ -335,7 +335,7 @@ onBeforeUnmount(() => {
   height: 0.25rem;
   border-radius: 999px;
   overflow: hidden;
-  background: rgb(245 192 106 / 18%);
+  background: color-mix(in srgb, var(--sofia-accent-hover, #a3283a) 22%, transparent);
 }
 
 .sofia-voice__meter i {
@@ -343,7 +343,7 @@ onBeforeUnmount(() => {
   height: 100%;
   width: 100%;
   transform-origin: left center;
-  background: linear-gradient(90deg, #f5c06a, #f08a6a);
+  background: linear-gradient(90deg, var(--sofia-accent, #7b1f2b), var(--sofia-accent-hover, #a3283a));
   transition: transform 60ms linear;
 }
 

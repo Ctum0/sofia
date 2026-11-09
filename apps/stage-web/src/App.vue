@@ -96,7 +96,7 @@ const secondaryColor = 'var(--stage-transition-secondary)'
 const tertiaryColor = 'var(--stage-transition-tertiary)'
 
 const colors = computed(() => {
-  return [primaryColor, secondaryColor, tertiaryColor, isDark.value ? '#121212' : '#FFFFFF']
+  return [primaryColor, secondaryColor, tertiaryColor, isDark.value ? 'var(--sofia-bg, #0b0708)' : '#FFFFFF']
 })
 
 router.beforeEach((to, from) => {
