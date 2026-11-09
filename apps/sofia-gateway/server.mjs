@@ -314,6 +314,35 @@ const server = createServer((req, res) => {
     return
   }
 
+  // Service-worker kill switch, served at the exact URL the built app registers.
+  //
+  // Why: the stage is a PWA. A browser holding the old worker replays a cached
+  // shell and never asks this server, so server-side changes (new HTML, seeded
+  // provider, renamed strings) do not reach existing tabs — "only incognito
+  // works". Unregistering from inside the page cannot fix it, because that page
+  // code never runs. Replacing the worker script is the only reliable lever: the
+  // browser byte-compares sw.js on navigation, installs this one instead, and it
+  // deletes every cache and unregisters itself.
+  if (url.pathname === '/sw.js') {
+    res.writeHead(200, {
+      'content-type': 'text/javascript; charset=utf-8',
+      'cache-control': 'no-store, must-revalidate',
+    })
+    res.end(`self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    } catch (e) {}
+    try { await self.registration.unregister(); } catch (e) {}
+    const clients = await self.clients.matchAll({ type: 'window' });
+    clients.forEach((c) => { try { c.navigate(c.url); } catch (e) {} });
+  })());
+});`);
+    return;
+  }
+
   if (url.searchParams.get('reset') === '1') {
     res.writeHead(200, {
       'content-type': 'text/html; charset=utf-8',
