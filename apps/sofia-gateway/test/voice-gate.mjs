@@ -107,9 +107,13 @@ try {
   const transcripts = await page.evaluate(() => window.__sofiaVoice.transcripts)
   step('Live transcribed the spoken audio', heard, heard ? transcripts.filter(t => t.startsWith('in:')).slice(-1)[0].slice(0, 90) : 'no input transcript')
 
-  const played = await page.waitForFunction(() => (window.__sofiaVoice?.chunksPlayed || 0) > 0, null, { timeout: 60000 })
+  // chunksPlayed lives on the client's stats object (the dock mirrors the whole
+  // stats blob); reading a top-level field made this assertion time out while
+  // 14 chunks had in fact played.
+  const playedChunks = () => page.evaluate(() => window.__sofiaVoice?.stats?.chunksPlayed ?? window.__sofiaVoice?.chunksPlayed ?? 0)
+  const played = await page.waitForFunction(() => ((window.__sofiaVoice?.stats?.chunksPlayed ?? window.__sofiaVoice?.chunksPlayed) || 0) > 0, null, { timeout: 60000 }).catch(() => null)
     .then(() => true).catch(() => false)
-  const chunks = await page.evaluate(() => window.__sofiaVoice?.chunksPlayed || 0)
+  const chunks = await playedChunks()
   const playing = await stats()
   step('reply audio played on the stage', played && playing?.playbackState === 'running',
     `${chunks} chunks, playback=${playing?.playbackState}`)

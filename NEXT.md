@@ -231,3 +231,40 @@ another way: `npx eslint <changed files>` inside `sofia-build`, then a real
   `postinstall` rebuilds the package, so the served card now reads
   `"Your name is Sofia."` — verified from the seeded card in localStorage on a
   fresh browser, deployment `finished 73bae9856`.
+
+## Audit 2026-11-09 16:30 SLT (his request: did it land, any failures, what's missed)
+
+**Landed and proven**
+- Deployment `90` `finished` for `012c5f4b5`; container `zp31...-20261109T161421` healthy.
+- `/healthz` → `brand:"rewritten"`, `hermes:"reachable"`, `reasoning:"stripped"`,
+  `live.voice:"Leda"`.
+- New client is in the image: `/app/public/voice-client.mjs` contains `unlock`,
+  `micWarning`, `framesSent` (14 hits).
+- Layout fix in the bundle: `sofia-bottom-stack` in `pages-*.js`. Measured live at
+  1440x900 — textarea 677-759, Talk dock 790-833: **31 px apart, no overlap**;
+  screenshot shows no clipping and no visible AIRI text.
+- Card speaks as Sofia: `"Your name is Sofia"` in the bundle; DOM scan clean.
+  `Project AIRI` survives only in `package.json` author metadata, which is not
+  rendered.
+- Gate: **12/12** on a clean run, STATS `chunksPlayed:12`, capture and playback
+  both `running`.
+- Exposure: `/public/voice-test.html` 401, `/v1/models` 401, `/sw.js` 200
+  (public by design), `/healthz` 200.
+
+**Failures found**
+- Deployments 85, 86, 87 all `failed` at the same commit — the plaintext write
+  into Coolify's encrypted env column. Fixed; 88, 89, 90 finished.
+- Gate is **not** idempotent: two runs inside a minute fail with
+  `chunksPlayed:0` (Live session slot contention). Run once, wait ~60 s.
+- My own gate bug: it read `window.__sofiaVoice.chunksPlayed` while the dock
+  mirrors `window.__sofiaVoice.stats` — fixed this audit.
+
+**Still open (not claimed)**
+- Stage theme is still light; only the login screen is burgundy/black.
+- Non-English locales still contain AIRI (e.g. zh-Hans `startup.retry`).
+- About dialog text verified at bundle level only — the click path could not be
+  driven headlessly, so it is UNVERIFIED at render level.
+- Real-device voice (his mic, Chrome/Safari) remains UNVERIFIED: the gate feeds a
+  fake audio file.
+- About links still point at `airi.moeru.ai`.
+
