@@ -28,7 +28,7 @@ COPY . .
 # (via unplugin-info) must not try to inspect a repository.
 RUN git config --global --add safe.directory /repo || true
 
-RUN pnpm install --frozen-lockfile --prefer-offline
+RUN pnpm install --prefer-offline --no-frozen-lockfile
 
 ENV NODE_OPTIONS=--max-old-space-size=3072
 RUN pnpm -F @proj-airi/stage-web build
