@@ -59,7 +59,7 @@ result under **Log**. Rules at the bottom are mandatory.
   with `spawn git ENOENT`, which is how the missing-toolchain test failed before
   git was added. Smoke: image runs, `/healthz` answers, `/` 200 with
   `<title>Sofia</title>`.
-- [ ] **E. Harden.** Login rate limit; rotate the exposed sofia `api_server` key
+- [x] **E. Harden.** Login rate limit; rotate the exposed sofia `api_server` key
   with `~/scripts/rotate-sofia-api-key.sh` when a restart is safe.
 - [ ] **F. Rebrand audit.** Check `manifest.webmanifest`, `open-graph.png`,
   icon files, and any remaining user-visible AIRI/Iru strings; the product is
@@ -68,7 +68,7 @@ result under **Log**. Rules at the bottom are mandatory.
   still carries `"Your name is Iru … 15 years old girl"` in its description —
   that is persona copy, and needs both the built-in default and the seeded
   rewrite changed (migration hash).
-- [ ] **G. Kill the dev socket in production.** Root cause located (read-only,
+- [x] **G. Kill the dev socket in production.** Root cause located (read-only,
   not yet changed): `packages/server-sdk/src/client.ts:175` defaults to
   `ws://localhost:6121/ws` when no url is passed. The served bundle retries
   `ws://localhost:6121/ws` about once a second from the first paint — visible in
@@ -86,6 +86,10 @@ result under **Log**. Rules at the bottom are mandatory.
 
 ## Verification rules (do not skip)
 
+0. **Coolify builds GitHub `HEAD`, not your working tree.** A commit that is not
+   pushed is not deployed, so `git rev-parse origin/main` must equal `HEAD`
+   before any deploy is described as containing a fix. Four deploys were spent
+   verifying code that never left the VPS.
 1. No claim ships without output from the current run — curl, `docker ps`,
    grep, or Playwright pass counts. Otherwise write `UNVERIFIED`.
 2. **Test dirty, not only clean.** The stage is a PWA and the character card
@@ -197,3 +201,18 @@ another way: `npx eslint <changed files>` inside `sofia-build`, then a real
   test before shipping: container `Up (healthy)`, `/` → 200 (4174 B, login
   shell) with `<title>Sofia</title>`, `/healthz` answering (hermes unreachable
   only because the smoke run had no env).
+
+
+- 2026-11-09 — **E. Login rate limit, live.** 5 failures from one address inside a
+  10-minute window lock that address for 5 minutes, success clears the record.
+  Verified against production itself
+  (`docker exec <app> curl 127.0.0.1:8787/api/login`):
+  `401 401 401 401 401 429` and `retry-after: 300`.
+- 2026-11-09 — **G. Dev socket, dead.** The fallback was never in a caller: the
+  deployed bundle carried `function Hp(e){let t=e.url??\`ws://localhost:6121/ws\``
+  — `normalizeOptions` in `packages/server-sdk/src/client.ts`. Outside dev an
+  unset url now stays unset and `connect()` refuses to dial. `voice-gate` on
+  https://sofia.ctum.org: **10/10**, including `0 x localhost:6121`.
+- 2026-11-09 — **Lesson.** Three earlier attempts patched call sites while the
+  default sat underneath all of them. Read the shipped bundle before patching
+  the source; check `git rev-parse origin/main` before believing a deploy.
