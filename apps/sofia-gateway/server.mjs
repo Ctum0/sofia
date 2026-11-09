@@ -20,7 +20,8 @@
 //   1. drops the browser Origin (Hermes 403s on it),
 //   2. strips model reasoning from completions (the body is a mouth, not a mind),
 //   3. holds the Live socket so voice needs no client-side secret.
-import { createServer, request as httpRequest } from 'node:http'
+import { Buffer } from 'node:buffer'
+import { createServer, request as httpRequest, STATUS_CODES } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 import { appendFileSync, createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, normalize, resolve } from 'node:path'
@@ -648,10 +649,29 @@ self.addEventListener('activate', (event) => {
 // --- voice: browser <-> gateway <-> Gemini Live ------------------------------
 const wss = new WebSocketServer({ noServer: true })
 
+// A refused upgrade still answers in HTTP. Destroying the socket with no status
+// line makes Caddy invent 502 and Cloudflare pass it on, so a stranger opening
+// the voice socket reads as "app down" everywhere. Write the status, then close.
+function refuseUpgrade(socket, status, body) {
+  try {
+    socket.end(`HTTP/1.1 ${status} ${STATUS_CODES[status]}\r\n`
+      + 'Connection: close\r\n'
+      + 'Content-Type: text/plain; charset=utf-8\r\n'
+      + `Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`)
+  }
+  catch {
+    socket.destroy()
+  }
+}
+
 server.on('upgrade', (req, socket, head) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
-  if (url.pathname !== '/api/live/stream' || !isAuthed(req)) {
-    socket.destroy()
+  if (url.pathname !== '/api/live/stream') {
+    refuseUpgrade(socket, 404, 'not found')
+    return
+  }
+  if (!isAuthed(req)) {
+    refuseUpgrade(socket, 401, 'unauthorized')
     return
   }
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req))
