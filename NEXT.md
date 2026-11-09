@@ -140,7 +140,7 @@ result under **Log**. Rules at the bottom are mandatory.
 | Coolify app | `zp31tstwfvpppxp5woswltmv` |
 | Redeploy | `bash /home/ctum/scripts/coolify-deploy.sh` (~10 min) |
 | App password | `/home/ctum/secrets/sofia-password` |
-| Notion | root `412c8a93adb5-8149-b8a0-d7a9bc96d140`, Phases `…8043-804b-f8ded2c3779e`, Ledger `…8156-a4f2-fb5ab35f4f22` |
+| Notion | root `412c8a93adb5-8149-b8a0-d7a9bc96d140`, Phases `…8143-804b-f8ded2c3779e`, Ledger `…8156-a4f2-fb5ab35f4f22` |
 
 **Pushing.** The VPS has no git credential helper, no `~/.netrc` and no GitHub
 SSH key — `git push origin main` dies with `could not read Username for
