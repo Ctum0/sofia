@@ -101,13 +101,47 @@ result under **Log**. Rules at the bottom are mandatory.
   the 480 s → 213 s fix, and the "harness is the product" open item is closed.
   Verified by re-fetching both pages and reading the new text back.
 
-- [ ] **J. Auth surface: enumerate every route and prove the public set is
+- [x] **J. Auth surface: enumerate every route and prove the public set is
   intentional.** Auth is a password gate plus a rate limit, but nobody has
   listed what the gateway actually serves: `/healthz`, `/sw.js`, `/manifest.webmanifest`,
   `/api/live/stream` (a WebSocket upgrade — does it check the cookie?),
   `/public/*`, `/v1/*`, and the static stage. Gate: a table of `path → status
   without a session`, each line either 200-and-justified or 401/403, plus a
   WS-upgrade probe with no cookie that must be refused.
+  → **DONE 2026-11-10.** `apps/sofia-gateway/test/auth-surface-gate.mjs`
+  (dependency-free, 33 checks) prints the table and asserts each line:
+  **33/33 against https://sofia.ctum.org** on deployment `100` (`eedd108a6`).
+  11 private routes 401 (`/index.html`, `/settings`, `/assets/*`, `/api/live/info`,
+  `/api/*`, `/v1/models`, `/v1/chat/completions`, `/public/*`); 7 public 200s are
+  each justified in the table (login page, `/healthz`, manifest, two brand
+  pixels, `/sw.js` kill switch, `?reset=1`); `/api/logout` 302, `/login` 302.
+  WS upgrade: **401 with no cookie** (was 502), **404** on a non-live path,
+  **101 with a real session** — so refusal is specific, not a blanket "voice off".
+  Defect fixed: `socket.destroy()` wrote no status line, so Caddy invented 502 and
+  Cloudflare passed it on — anonymous voice attempts read as "backend down".
+  `refuseUpgrade()` now writes the status. Regressions on the same build:
+  auth-gate **10/10**, voice-gate **12/12** (chunksPlayed 13, capture 16 kHz /
+  playback 24 kHz running, 0 x localhost:6121). Not a defect, now documented:
+  an `Accept: text/html` request gets the login page with **200 on any path**
+  (content-negotiated gate) — a scanner that ignores the body reads the API as
+  open, so the gate pins both answers.
+- [ ] **K. Notion phase 07's two leftovers: the key rotation and a restore drill.**
+  Notion has 07 🟡 against exactly these. Split them by risk:
+  **(a) restore drill, autonomous** — take the newest `vps-backup` archive,
+  extract to a scratch dir under `/home/ctum/archive/drill-<date>`, and prove the
+  archive contains what a restore needs: the sofia SQLite/toml state, the Caddy
+  config, Coolify's DB dump. Count files, open the sqlite, print the row counts.
+  A backup nobody has opened is a hope, not a backup — and MISP's DB is known to
+  be missing from it (>100 MB), so the drill should name every service whose data
+  is **not** in the archive rather than imply full coverage.
+  **(b) rotate the sofia `api_server` key, gated on him** — the rotation needs a
+  restart of the gateway that is hosting the conversation, and a key swap while
+  Sofia is open breaks her brain until the gateway is back. Do not attempt it
+  unattended: prepare the exact command block from
+  `~/scripts/rotate-sofia-api-key.sh`, prove it on a scratch profile, and ask him
+  for a window. Record the ask in the Log.
+
+
 ## Verification rules (do not skip)
 
 0b. **A new container is not a finished deployment.** Coolify swaps the
@@ -115,6 +149,12 @@ result under **Log**. Rules at the bottom are mandatory.
    while an older commit's container serves traffic. Read
    `ApplicationDeploymentQueue` for `status=finished` and the matching
    `commit` before verifying anything.
+   `coolify-deploy.sh` prints `status=in_progress` and **never updates** — it
+   reported in_progress for the whole run while row 100 read `finished`. Read the
+   row, not the script's tail:
+   `docker exec coolify-db psql -U coolify -d coolify -t -A -F'|' -c "select id,status,commit,created_at,finished_at from application_deployment_queues order by id desc limit 3;"`
+   (`id` is bigint, the uuid is `deployment_uuid` — filtering on the wrong column
+   errors and looks like "no queue access").
 0. **Coolify builds GitHub `HEAD`, not your working tree.** A commit that is not
    pushed is not deployed, so `git rev-parse origin/main` must equal `HEAD`
    before any deploy is described as containing a fix. Four deploys were spent
@@ -357,3 +397,48 @@ Still open (polish, not claimed):
 Still open: the amber "S" logo glyph (asset, not CSS) and real-device voice
 (UNVERIFIED — the gate feeds a fake mic).
 
+- 2026-11-10 02:34–03:20 SLT — **J done: the auth surface is now a measured table,
+  and an anonymous voice attempt no longer reads as an outage.** Wrote
+  `apps/sofia-gateway/test/auth-surface-gate.mjs` (node builtins only, so it runs
+  in `sofia-qa` with no install) and ran it against production: **33/33** on
+  deployment `100` / `eedd108a6`.
+  *Defect it found (fixed, `eedd108a6`).* `server.on('upgrade')` answered a
+  refused upgrade with `socket.destroy()` and **no status line**, so Caddy
+  invented **502** and Cloudflare passed it through — an unauthenticated or
+  expired-session voice attempt was indistinguishable from a dead backend in the
+  access log, in monitoring and in devtools. `refuseUpgrade()` now writes the
+  truthful status before closing: **401** with no cookie, **404** on a non-live
+  upgrade path. Measured before the fix (`502`, gate 31/33) and after
+  (`401`/`404`/`101`, gate 33/33), so the gate is discriminating in both
+  directions, and the 101 row proves the refusal is specific rather than a
+  blanket "voice is off".
+  *The table.* 11 private routes **401** — `/index.html`, `/settings`,
+  `/assets/app.js`, `/api/live/info`, `/api/live/stream` (plain GET),
+  `/api/anything`, `/v1/models`, `POST /v1/chat/completions`,
+  `/public/voice-client.mjs`, `/public/voice-test.html`. 7 public **200s**, each
+  now carrying its reason: `/` (login form, `<title>Sofia</title>`), `/healthz`
+  (readiness only, `key: set|missing`, never the value), `/manifest.webmanifest`,
+  `/favicon.svg`, `/og.png`, `/sw.js` (the kill switch has to reach a browser
+  that cannot log in), `/?reset=1` (stale-shell recovery; acts only on the
+  caller's own browser). `/api/logout` 302 and `/login` 302. Every public body is
+  also scanned for `/home/ctum`, `SOFIA_PASSWORD` and `AIRI` — clean.
+  *Documented, not fixed.* The gate is content-negotiated: `Accept: text/html`
+  on **any** path returns the login page with **200**, so a scanner that reads
+  status codes alone reports `/v1/models` as open. Correct for a browser, and the
+  gate now pins both answers (200 login HTML vs 401 JSON) so it cannot silently
+  drift. `/api/logout` is a public GET that clears the cookie (logout CSRF, no
+  impact past forcing a re-login) and must stay pre-auth or a locked-out session
+  cannot be dropped. Path traversal is contained: `/public/..%2f..%2fserver.mjs`
+  and `/public/%2e%2e%2f%2e%2e%2fpackage.json` both 404.
+  *Regressions on the same build.* auth-gate **10/10**, voice-gate **12/12**
+  (`chunksPlayed:13`, capture 16000 Hz / playback 24000 Hz both `running`,
+  transcript read back, mouth peak 97, `0 x localhost:6121`).
+  *Corrections.* (1) `coolify-deploy.sh` printed `status=in_progress` for the
+  entire run — the queue row read `finished` at 21:13:38Z; future runs must read
+  the row (rule 0b now says so, with the column-name trap: `id` is bigint, the
+  uuid is `deployment_uuid`). (2) The gateway is **not** on `127.0.0.1:8787` any
+  more — that is the container-side port; the host mapping is
+  `127.0.0.1:3005->8787/tcp`, so a direct host probe of 8787 is refused (exit 7)
+  and proves nothing. (3) Two of the gate's own first failures were mine, not the
+  product's: a 15-byte `Sec-WebSocket-Key` (ws aborts 400) and a cookie never
+  passed to the authenticated GET — both fixed before the production run.
