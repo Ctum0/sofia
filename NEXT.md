@@ -268,3 +268,23 @@ another way: `npx eslint <changed files>` inside `sofia-build`, then a real
   fake audio file.
 - About links still point at `airi.moeru.ai`.
 
+- 2026-11-09 18:25 SLT — **Theme: dark burgundy stage, live.** `821ecbb2e`,
+  deployment `finished`, container `zp31...-20261109T171630`. Verified on
+  production with a fresh profile whose OS scheme is *light*:
+  `colorScheme: "dark"`, `html class "dark"`, text `rgb(245,230,211)`,
+  `anyWhiteSurfaces: 0`, `strayAIRI: false`. Palette is token-level
+  (`uno.config.ts` primary scale + `--sofia-*` vars), so upstream merges keep it.
+- 2026-11-09 — **Locales + About.** `6f75cced6`: 602 AIRI→Sofia replacements
+  across 9 locale dirs (URL lines skipped), About links now point at
+  `sofia.ctum.org` and `Ctum0/sofia`; upstream Documentations entry removed.
+- 2026-11-09 — **Voice gate re-run after the theme**: 12/12,
+  `chunksPlayed:11`, capture+playback `running`. The restyle did not break the dock.
+
+Still open (polish, not claimed):
+- Chat panel has no empty state — a fresh session shows a dark void.
+- Send button reads active while the composer is empty.
+- The "S" logo glyph is amber (#e0a35c asset), the only accent outside the
+  burgundy system and not CSS-controlled.
+- Live2D artwork keeps its cream/blue palette by design.
+- Real-device mic/speaker behaviour remains UNVERIFIED (gate uses a fake mic).
+
