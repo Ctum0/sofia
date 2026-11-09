@@ -98,6 +98,19 @@ const SEED_SCRIPT = `<script>
     for (var key in seed) {
       if (!localStorage.getItem(key)) localStorage.setItem(key, seed[key]);
     }
+    // A cached service worker can replay an old shell forever — that is exactly
+    // how a pre-auth AIRI build kept appearing after deploys. Unregister it so
+    // every load is served by this gateway.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (rs) {
+        for (var i = 0; i < rs.length; i++) rs[i].unregister();
+      }).catch(function () {});
+    }
+    if (window.caches && caches.keys) {
+      caches.keys().then(function (keys) {
+        for (var i = 0; i < keys.length; i++) caches.delete(keys[i]);
+      }).catch(function () {});
+    }
   } catch (e) {}
 })();
 </script>`;
@@ -298,6 +311,22 @@ const server = createServer((req, res) => {
   if (url.pathname === '/api/logout') {
     res.writeHead(302, { 'set-cookie': clearCookie(), location: '/' })
     res.end()
+    return
+  }
+
+  if (url.searchParams.get('reset') === '1') {
+    res.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+      'clear-site-data': '"cache", "storage", "executionContexts"',
+    })
+    res.end(`<!doctype html><meta charset="utf-8"><title>Resetting</title>
+<body style="background:#07080a;color:#e9ecef;font:15px system-ui;display:grid;place-items:center;height:100vh;margin:0">
+<div style="text-align:center">
+  <p>Browser state cleared. Taking you to the door…</p>
+  <p><a style="color:#3ddc97" href="/">Continue</a></p>
+</div>
+<script>setTimeout(function(){location.replace('/')},1200)</script>`)
     return
   }
 
