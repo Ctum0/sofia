@@ -46,7 +46,7 @@ php_from_stdin() {
 # queue to settle instead of judging a row that has not finished yet.
 deadline=$(( $(date +%s) + 900 ))
 while :; do
-  row=$(php_from_stdin 2>/dev/null | tr -d '\r' | grep -Eo '^(finished|failed|queued|in_progress|cancelled)[[:space:]]+[0-9A-Za-z._-]+' | head -1)
+  row=$(php_from_stdin 2>/dev/null | tr -d '\r' | grep -Eo '(finished|failed|queued|in_progress|cancelled)[[:space:]]+[0-9A-Za-z._-]{7,40}' | head -1)
   status=$(echo "$row" | awk '{print $1}')
   commit=$(echo "$row" | awk '{print $2}')
   case "$status" in
@@ -57,11 +57,16 @@ while :; do
   esac
 done
 note "status ${status} · commit ${commit:0:9}"
+# Docs, evidence and gate scripts do not change the container. What must be
+# deployed is the newest commit that touched runtime code (rule R2, finessed:
+# a docs-only commit must not demand a five-minute rebuild).
+deploy_target=$(git log -1 --format=%H -- apps packages server services plugins Dockerfile pnpm-lock.yaml)
+note "runtime HEAD ${deploy_target:0:9}"
 [ "$status" = "finished" ] || fail 3 "latest deployment is '${status}', not finished (rule R2)"
 case "$commit" in
   HEAD|""|None) fail 3 "the deployment did not record a commit (it built \"${commit:-nothing}\"); queue it with scripts/coolify-deploy.sh so the build is identifiable (rule R2)" ;;
 esac
-case "$head_sha" in "$commit"*) : ;; *) fail 3 "deployment built ${commit:0:9}, HEAD is ${head_sha:0:9}" ;; esac
+case "$deploy_target" in "$commit"*) : ;; *) fail 3 "deployment built ${commit:0:9}, newest runtime commit is ${deploy_target:0:9}" ;; esac
 
 echo "== 3. container and health =="
 onhost "docker ps --format '{{.Names}} {{.Status}}' | grep zp31 | head -1" | grep -q "(healthy)" \
