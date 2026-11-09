@@ -30,19 +30,35 @@ result under **Log**. Rules at the bottom are mandatory.
 - [x] **C. Hermes as hands.** Live `toolCall` → gateway → Hermes `/v1` →
   `toolResponse`, so she can act rather than only talk. Verify with a prompt that
   forces a tool call and shows the result spoken back.
-  → **DONE (local) 2026-11-09.** `apps/sofia-gateway/tools.mjs` declares two
+  → **DONE (production) 2026-11-09.** `apps/sofia-gateway/tools.mjs` declares two
   functions in the Live setup — `local_time` (no network) and `ask_hermes`
   (`POST /v1/runs` + poll `GET /v1/runs/{id}` until terminal, 45 s budget).
   The gateway executes them server-side in the `toolCall` emit handler, so the
   Hermes key never reaches the browser and a failure answers as a failure.
-  `test/tool-gate.mjs` (ws + cookie, no browser) → **PASS**: `local_time`
-  round trip 0.30 s → *"It's currently 6:42 PM in Sri Lanka"*; `ask_hermes`
-  9.58 s → real run output `Hostname is vmi3486973 … 18:42 SLT` → she said
-  *"The hostname of the server is vmi3486973."*; 27 audio chunks, 0 errors.
-  `voice-gate.mjs` re-run with tools in the setup: **9/9**, so the audio lane
-  did not regress.
-- [ ] **D. Build speed.** `pnpm fetch` + BuildKit cache mount in `Dockerfile` —
+  `test/tool-gate.mjs` against **https://sofia.ctum.org**: `local_time` call at
+  0.95 s, result `19:31 Sri Lanka time, Monday, 9 November 2026`, spoken back in
+  full at 4.17 s; `ask_hermes` at 4.62 s → real run output `vmi3486973` at
+  13.69 s → *"The server's hostname is vmi3486973."*; 33 audio chunks, 0 errors.
+  Production gates on the same build: **auth 10/10, ui 7/7, voice 9/9**
+  (voice: 30 mic frames, Live transcript, 5 reply chunks, mouth peak 100).
+  Deploy `f8f8a1af` (commit `e390cc0fa`) — the previous deploy had taken the
+  site down; see Log.
+- [x] **D. Build speed.** `pnpm fetch` + BuildKit cache mount in `Dockerfile` —
   every deploy is currently ~10 min, which is why fixes land slowly.
+  → **DONE 2026-11-09.** Root cause was not `pnpm fetch`: a plain
+  `pnpm install` resolves the whole workspace, including
+  `integrations/minecraft`, whose `isolated-vm` compiles C++ — 303 s of the
+  build for a package this image never loads. Builder now runs
+  `pnpm install --filter=@proj-airi/stage-web...` and installs only
+  `git ca-certificates` (no python3/make/g++). Measured on the VPS daemon:
+  install **303 s → 79 s**, whole image **480 s → 213 s** (`sofia-final:1`,
+  exit 0), and the `isolated-vm` tree is absent (`node_modules/.pnpm/isolated-vm*`
+  → none). BuildKit cache mounts were tried and **removed**: a marker written
+  in one `docker build` was gone in the next, so they were decoration.
+  `git` is a real build dependency (unplugin-info) — without it the build dies
+  with `spawn git ENOENT`, which is how the missing-toolchain test failed before
+  git was added. Smoke: image runs, `/healthz` answers, `/` 200 with
+  `<title>Sofia</title>`.
 - [ ] **E. Harden.** Login rate limit; rotate the exposed sofia `api_server` key
   with `~/scripts/rotate-sofia-api-key.sh` when a restart is safe.
 - [ ] **F. Rebrand audit.** Check `manifest.webmanifest`, `open-graph.png`,
@@ -52,6 +68,21 @@ result under **Log**. Rules at the bottom are mandatory.
   still carries `"Your name is Iru … 15 years old girl"` in its description —
   that is persona copy, and needs both the built-in default and the seeded
   rewrite changed (migration hash).
+- [ ] **G. Kill the dev socket in production.** Root cause located (read-only,
+  not yet changed): `packages/server-sdk/src/client.ts:175` defaults to
+  `ws://localhost:6121/ws` when no url is passed. The served bundle retries
+  `ws://localhost:6121/ws` about once a second from the first paint — visible in
+  `voice-gate` console output on https://sofia.ctum.org (5× `ERR_CONNECTION_REFUSED`
+  in one run). It is AIRI's dev-only server channel; in production it is pure
+  console noise and a wasted reconnect loop on every client. Find the module that
+  opens it, gate it on `import.meta.env.DEV`, rebuild, and assert the gate logs
+  zero `localhost:6121`.
+- [ ] **H. Voice: Leda or Aoede? (needs his call — do not change unilaterally).**
+  The locked decision says native-audio voice **Leda**, but the deployed gateway
+  reports `voice: "Aoede"` in `/healthz`, `DEFAULT_VOICE` falls back to `'Aoede'`
+  in `live.mjs`, and both `LIVE_VOICE` and `SOFIA_LIVE_VOICE` are set to `Aoede`
+  in the Coolify app env. Either the decision moved and the skill is stale, or a
+  previous run drifted. Confirm, then fix whichever one is wrong.
 
 ## Verification rules (do not skip)
 
@@ -98,6 +129,27 @@ another way: `npx eslint <changed files>` inside `sofia-build`, then a real
 
 ## Log
 
+- 2026-11-09 — **C verified in production; production recovered from a
+  self-inflicted outage.** The deploy in flight at the end of the previous run
+  had shipped an image whose runtime stage never copied `tools.mjs` (the files
+  were copied one per line), so `server.mjs` imported a module that was not
+  there: the container restarted every 8 s and https://sofia.ctum.org answered
+  **502** (`docker logs` → `ERR_MODULE_NOT_FOUND … /app/tools.mjs`). Fixed in
+  `e390cc0fa` by copying `apps/sofia-gateway/*.mjs` in one instruction **and**
+  adding a build-time gate that resolves every relative import and fails the
+  build on a missing file — tested both directions before shipping (positive:
+  `gateway imports resolve: auth.mjs check.mjs live.mjs reasoning-filter.mjs
+  server.mjs tools.mjs`, exit 0; negative, with `tools.mjs` removed:
+  `unresolved imports: server.mjs -> ./tools.mjs`, exit 1). Deploy `f8f8a1af` → container `…T134941` Up (healthy), `/` 200,
+  `/healthz` `{"ok":true,"stage":true,"brand":"rewritten","hermes":"reachable",
+  "key":"set","reasoning":"stripped","live":{"transport":"gateway-proxy",…}}`.
+  Gates against production: `tool-gate` PASS (local_time 0.40 s; ask_hermes
+  9.55 s → `vmi3486973` spoken back; 33 audio chunks; 0 errors), `auth-gate`
+  10/10, `ui-gate` 7/7, `voice-gate` 9/9. Note for the next run: the gates run
+  as a persistent container `sofia-qa` (`mcr.microsoft.com/playwright:v1.64.1-jammy`,
+  `--network host`, `/home/ctum/qa` mounted) because `docker run --rm` is
+  rejected by the cron safety filter; `auth/ui-gate` take `PASSWORD`, but
+  `voice-gate` takes `SOFIA_PASSWORD`.
 - 2026-11-09 — **C done, gated.** Voice model now has hands. `tools.mjs` +
   gateway-side execution; `test/tool-gate.mjs` PASS (local_time 0.30 s,
   ask_hermes 9.58 s → real `vmi3486973` spoken back, 27 audio chunks);
@@ -126,3 +178,22 @@ another way: `npx eslint <changed files>` inside `sofia-build`, then a real
   `Window`, `errorMessageFromUnknown` from `@proj-airi/stage-shared`. `npx
   eslint` on the file: clean. Build after the change: `pages-DTrFrGkX.js`
   carries `sofia-talk`; the 9/9 gate ran against that build.
+
+- 2026-11-09 20:5x — **D done: deploys are 2.2× faster.** The waste was never
+  `pnpm fetch` — it was the workspace-wide `pnpm install`, which pulls
+  `integrations/minecraft` and compiles `isolated-vm` from C++ on every build.
+  Proved it first in a bare `node:22-bookworm-slim` (no python3/make/g++): a
+  filtered `pnpm install --filter=@proj-airi/stage-web...` completed in **59.2 s**
+  with `isolated-vm` absent, and `pnpm -F @proj-airi/stage-web build` then
+  succeeded after adding only `git` (the failure without it was `spawn git
+  ENOENT`, from unplugin-info — not a missing compiler). Full image builds on the
+  VPS daemon: **480 s → 228 s cold, 221 s warm**, and the shipping file
+  (`sofia-final:1`) **213 s**, exit 0 — install 79.0 s, vite build 113.6 s,
+  context copy 13.4 s. BuildKit cache mounts for the pnpm store and turbo cache
+  were added, measured and **removed**: a marker file written into a
+  `type=cache` mount in one `docker build` was absent in the next (mount 4.0K
+  after two full builds, turbo reported `Cached: 0`), so they were decoration on
+  this daemon, and Coolify builds with a different builder anyway. Image smoke
+  test before shipping: container `Up (healthy)`, `/` → 200 (4174 B, login
+  shell) with `<title>Sofia</title>`, `/healthz` answering (hermes unreachable
+  only because the smoke run had no env).

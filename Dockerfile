@@ -6,17 +6,17 @@
 #
 # The runtime stage carries no pnpm, no node_modules tree, no source: if the
 # gateway needs a new dependency it belongs in apps/sofia-gateway/package.json.
-#
-# The whole repo is copied before install rather than manifests-first: pnpm
-# --frozen-lockfile validates the whole workspace graph, so a partial tree only
-# buys a confusing lockfile error.
 
 # ---------- builder ----------
 FROM node:22-bookworm-slim AS builder
 
-# isolated-vm (pulled by the workspace) compiles against Python and a C++ toolchain.
+# git is a real build dependency: unplugin-info shells out to it and the build
+# dies with `spawn git ENOENT` without the binary, repository or not.
+# python3/make/g++ are deliberately NOT installed — see the filtered install
+# below. The only native package in the graph (isolated-vm) belongs to
+# integrations/minecraft, which this image never touches.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 make g++ git ca-certificates \
+  && apt-get install -y --no-install-recommends git ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable
@@ -28,7 +28,18 @@ COPY . .
 # (via unplugin-info) must not try to inspect a repository.
 RUN git config --global --add safe.directory /repo || true
 
-RUN pnpm install --prefer-offline --no-frozen-lockfile
+# Install ONLY stage-web and the workspace packages it depends on. A plain
+# `pnpm install` also resolves integrations/minecraft, whose `isolated-vm`
+# compiles C++ from source — measured at ~5 minutes of the ~8 minute deploy
+# budget for a package this image never loads. With the filter the install is
+# ~80 s and needs no compiler at all (measured: 303 s -> 80 s).
+#
+# No BuildKit cache mounts here on purpose: measured on this host, a
+# `--mount=type=cache` does not survive between builds (a marker written in one
+# build was absent in the next), and Coolify builds with its own builder
+# anyway. A mount would look like an optimisation without being one; the
+# filtered install is the real win and it works with any builder.
+RUN pnpm install --filter=@proj-airi/stage-web... --no-frozen-lockfile
 
 ENV NODE_OPTIONS=--max-old-space-size=3072
 RUN pnpm -F @proj-airi/stage-web build
@@ -56,7 +67,7 @@ COPY apps/sofia-gateway/public ./public
 
 # ...and make that class fail here instead: every relative import must resolve
 # to a file that exists in this image.
-RUN node -e "const fs=require('fs'),path=require('path');const files=fs.readdirSync('.').filter(n=>n.endsWith('.mjs'));let bad=[];for(const f of files){for(const m of fs.readFileSync(f,'utf8').matchAll(/from\s+'(\.\/[^']+)'/g)){const p=path.resolve(m[1]);if(!(fs.existsSync(p)||['.mjs','.js','/index.mjs','/index.js'].some(e=>fs.existsSync(p+e))))bad.push(f+' -> '+m[1]);}}if(bad.length){console.error('unresolved imports: '+bad.join(', '));process.exit(1)}console.log('gateway imports resolve: '+files.join(' '))"
+RUN node -e "const fs=require('fs'),path=require('path');const files=fs.readdirSync('.').filter(n=>n.endsWith('.mjs'));let bad=[];for(const f of files){for(const m of fs.readFileSync(f,'utf8').matchAll(/from\s+'(\.[^']+)'/g)){const p=path.resolve(m[1]);if(!(fs.existsSync(p)||['.mjs','.js','/index.mjs','/index.js'].some(e=>fs.existsSync(p+e))))bad.push(f+' -> '+m[1]);}}if(bad.length){console.error('unresolved imports: '+bad.join(', '));process.exit(1)}console.log('gateway imports resolve: '+files.join(' '))"
 
 COPY --from=builder /repo/apps/stage-web/dist ./dist
 
