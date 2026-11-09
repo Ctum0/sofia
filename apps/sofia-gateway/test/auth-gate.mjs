@@ -28,7 +28,15 @@ try {
   // 3. right password opens the app
   await page.fill('input[name=password]', PASSWORD)
   await page.click('button[type=submit]')
-  await page.waitForFunction(() => !document.body.innerText.includes('Private assistant'), null, { timeout: 45000 })
+  // The login POST answers 302 -> the app; `document.body` is null for the
+  // moment the navigation is in flight, so a bare innerText predicate throws
+  // instead of waiting. Wait for the document, then for the gate to be gone.
+  await page.waitForLoadState('domcontentloaded')
+  await page.waitForFunction(
+    () => document.body && !document.body.innerText.includes('Private assistant'),
+    null,
+    { timeout: 45000 },
+  )
   step('correct password opens the app', true)
 
   // 4. no onboarding wizard for a configured install

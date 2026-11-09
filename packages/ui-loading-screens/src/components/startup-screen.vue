@@ -57,7 +57,7 @@ watch(() => props.phase, async (phase, previous, onCleanup) => {
       <section v-if="phase !== 'done'" class="startup-screen" :class="{ 'startup-screen-error': phase === 'error' }">
         <div class="startup-brand">
           <img class="startup-logo" :src="logoSrc" alt="">
-          <strong class="startup-name">AIRI</strong>
+          <strong class="startup-name">Sofia</strong>
         </div>
         <div v-if="phase === 'error'" class="startup-error-info" role="alert">
           <h2 class="startup-error-title">

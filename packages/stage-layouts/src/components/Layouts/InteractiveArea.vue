@@ -16,6 +16,7 @@ import ChatPanelHeader from '../Widgets/chat-panel-header.vue'
 import ChatActionButtons from '../Widgets/ChatActionButtons.vue'
 import ChatArea from '../Widgets/ChatArea.vue'
 import ChatContainer from '../Widgets/ChatContainer.vue'
+import SofiaVoiceDock from '../Widgets/SofiaVoiceDock.vue'
 
 import { useChatToolCallRerun } from '../../composables/useChatToolCallRerun'
 import { useStageChatComposerStore } from '../../stores/chat-composer'
@@ -91,6 +92,7 @@ async function handleRetryMessage(index: number) {
     </div>
 
     <ChatActionButtons />
+    <SofiaVoiceDock />
     <VoiceCallCapsule />
   </div>
 </template>

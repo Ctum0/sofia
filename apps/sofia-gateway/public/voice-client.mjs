@@ -5,11 +5,19 @@
 // -> gateway. Playback: 24 kHz PCM16 from the gateway -> AudioBuffer queue with a
 // running start-time cursor so chunks butt together without gaps or overlaps.
 //
+// Lip sync: every played chunk also contributes a level envelope (RMS per 20 ms
+// window, anchored to the playback clock). The stage polls getLevel() while the
+// session is live, so the mouth moves from the audio that is actually heard
+// rather than from a timer or from the mic.
+//
 // Deliberately dependency-free and framework-free: the AIRI stage imports this
 // module, and so does the test harness. Nothing here knows about Vue.
 
 const CAPTURE_SAMPLE_RATE = 16000
 const PLAYBACK_SAMPLE_RATE = 24000
+// One envelope cell per 20 ms of played audio: fine enough for a mouth, coarse
+// enough that a reply costs a few hundred numbers instead of a copy of the PCM.
+const ENVELOPE_CELL = 0.02
 
 // Inline worklet: a pure framer. It must not touch btoa/atob/TextEncoder — those
 // are absent in AudioWorkletGlobalScope and their absence silently kills the
@@ -68,6 +76,17 @@ export function pcm16Base64ToFloat32(b64) {
   return out
 }
 
+/**
+ * Speech RMS lands around 0.03-0.2; a raw value barely moves a mouth. The curve
+ * below maps that band onto 0..1 with a soft knee, so quiet syllables still
+ * register and loud ones do not peg at full open.
+ */
+export function levelFromRms(rms) {
+  if (!Number.isFinite(rms) || rms <= 0)
+    return 0
+  return Math.max(0, Math.min(1, Math.sqrt(rms) * 2.6))
+}
+
 export class SofiaVoice {
   constructor({ url, onEvent } = {}) {
     this.url = url || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/live/stream`
@@ -79,8 +98,10 @@ export class SofiaVoice {
     this.node = null
     this.sink = null
     this.playCursor = 0
+    this.playingUntil = 0
+    this.envelope = []
     this.ready = false
-    this.stats = { framesSent: 0, bytesSent: 0, chunksPlayed: 0, bytesPlayed: 0, lastRms: 0, errors: [] }
+    this.stats = { framesSent: 0, bytesSent: 0, chunksPlayed: 0, bytesPlayed: 0, lastRms: 0, levelPeak: 0, errors: [] }
   }
 
   emit(type, detail) {
@@ -187,18 +208,62 @@ export class SofiaVoice {
 
     const now = this.playbackCtx.currentTime
     if (this.playCursor < now + 0.02) this.playCursor = now + 0.02
-    src.start(this.playCursor)
+    const start = this.playCursor
+    src.start(start)
     this.playCursor += buffer.duration
+    this.playingUntil = this.playCursor
+
+    this.recordEnvelope(floats, start)
 
     this.stats.chunksPlayed += 1
     this.stats.bytesPlayed += floats.length * 2
     this.emit('audio-played', { chunksPlayed: this.stats.chunksPlayed })
   }
 
+  /** Turn one played chunk into timed level cells, so the mouth follows the audio. */
+  recordEnvelope(floats, start) {
+    const samplesPerCell = Math.max(1, Math.round(PLAYBACK_SAMPLE_RATE * ENVELOPE_CELL))
+    for (let offset = 0; offset < floats.length; offset += samplesPerCell) {
+      const end = Math.min(floats.length, offset + samplesPerCell)
+      let sum = 0
+      for (let i = offset; i < end; i++) sum += floats[i] * floats[i]
+      const rms = Math.sqrt(sum / Math.max(1, end - offset))
+      const level = levelFromRms(rms)
+      this.envelope.push({ t: start + offset / PLAYBACK_SAMPLE_RATE, level })
+      if (level > this.stats.levelPeak) this.stats.levelPeak = level
+    }
+  }
+
+  /** True while queued audio is still ahead of the playback clock. */
+  isPlaying() {
+    if (!this.playbackCtx) return false
+    return this.playbackCtx.currentTime < this.playingUntil - 0.02
+  }
+
+  /**
+   * Mouth level 0..1 for the audio playing right now. Cells are pruned as the
+   * clock passes them, so the array stays a few chunks long.
+   */
+  getLevel() {
+    if (!this.playbackCtx || this.envelope.length === 0) return 0
+    const now = this.playbackCtx.currentTime
+    while (this.envelope.length > 1 && this.envelope[1].t <= now - ENVELOPE_CELL) this.envelope.shift()
+    if (!this.isPlaying() && this.envelope[0].t > now) return 0
+    let level = 0
+    for (const cell of this.envelope) {
+      if (cell.t > now) break
+      level = cell.level
+    }
+    if (!this.isPlaying()) return 0
+    return level
+  }
+
   // Barge-in: drop everything queued so the user's voice wins.
   stopPlayback() {
     if (!this.playbackCtx) return
     this.playCursor = 0
+    this.playingUntil = 0
+    this.envelope = []
     this.playbackCtx.close().catch(() => {})
     this.playbackCtx = null
   }
