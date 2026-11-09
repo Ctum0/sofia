@@ -98,6 +98,30 @@ const SEED_SCRIPT = `<script>
     for (var key in seed) {
       if (!localStorage.getItem(key)) localStorage.setItem(key, seed[key]);
     }
+
+    // The character card lives in localStorage, not in the bundle. A browser that
+    // saved a card before the rename keeps showing the old name: the built-in
+    // default renders for a moment, then the saved card hydrates over it. Rewrite
+    // the saved cards once so the name sticks.
+    try {
+      var rawCards = localStorage.getItem('airi-cards');
+      if (rawCards) {
+        var parsed = JSON.parse(rawCards);
+        var touched = false;
+        var walk = function (node) {
+          if (!node || typeof node !== 'object') return;
+          if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) walk(node[i]); return; }
+          if (typeof node.name === 'string' && /^(Iru|AIRI|アイリ)$/.test(node.name.trim())) {
+            node.name = 'Sofia';
+            touched = true;
+          }
+          for (var k in node) { if (node[k] && typeof node[k] === 'object') walk(node[k]); }
+        };
+        walk(parsed);
+        if (touched) localStorage.setItem('airi-cards', JSON.stringify(parsed));
+      }
+    } catch (e) {}
+
     // A cached service worker can replay an old shell forever — that is exactly
     // how a pre-auth AIRI build kept appearing after deploys. Unregister it so
     // every load is served by this gateway.
