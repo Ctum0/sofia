@@ -66,7 +66,11 @@ note "runtime HEAD ${deploy_target:0:9}"
 case "$commit" in
   HEAD|""|None) fail 3 "the deployment did not record a commit (it built \"${commit:-nothing}\"); queue it with scripts/coolify-deploy.sh so the build is identifiable (rule R2)" ;;
 esac
-case "$deploy_target" in "$commit"*) : ;; *) fail 3 "deployment built ${commit:0:9}, newest runtime commit is ${deploy_target:0:9}" ;; esac
+# The deployed commit must contain the newest runtime change — it may be newer
+# (docs commits ride along), it may not be older.
+if ! git merge-base --is-ancestor "$deploy_target" "$commit" 2>/dev/null; then
+  fail 3 "deployment built ${commit:0:9}, which does not contain the newest runtime commit ${deploy_target:0:9}"
+fi
 
 echo "== 3. container and health =="
 onhost "docker ps --format '{{.Names}} {{.Status}}' | grep zp31 | head -1" | grep -q "(healthy)" \
