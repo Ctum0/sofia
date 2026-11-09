@@ -58,8 +58,13 @@ try {
   const manifest = await page.request.get(`${BASE}/manifest.webmanifest`)
   const mf = manifest.ok() ? await manifest.json() : {}
   step('PWA manifest is Sofia', mf.name === 'Sofia' && mf.short_name === 'Sofia', `name=${mf.name}`)
+  // Assert the bytes, not a header: behind Cloudflare the same 37 KB icon came
+  // back with content-length absent on one run, which failed a correct deploy.
+  // A real ICO starts 00 00 01 00 and carries at least one PNG/DIB frame.
   const ico = await page.request.get(`${BASE}/favicon.ico`)
-  step('favicon.ico served', ico.ok() && Number(ico.headers()['content-length'] || 0) > 1000, ico.status())
+  const icoBytes = ico.ok() ? Buffer.from(await ico.body()) : Buffer.alloc(0)
+  const icoMagic = icoBytes.length > 4 && icoBytes[0] === 0 && icoBytes[1] === 0 && icoBytes[2] === 1 && icoBytes[3] === 0
+  step('favicon.ico is a real icon', icoMagic && icoBytes.length > 1000, `${ico.status()} ${icoBytes.length}B`)
 
   // 5. the brain answers without any setup step
   const composer = page.locator('textarea[placeholder="Say something..."]')
