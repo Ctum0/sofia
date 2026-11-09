@@ -39,6 +39,7 @@ const HERMES_BASE = process.env.HERMES_BASE || 'http://127.0.0.1:8643/p/sofia/v1
 const HERMES_KEY_FILE = process.env.HERMES_KEY_FILE || '/run/secrets/hermes_sofia_key'
 const TRACE = process.env.TRACE === '1'
 const KEEP_REASONING = process.env.KEEP_REASONING === '1'
+const BRAND_DIR = resolve(process.env.BRAND_DIR || join(PUBLIC, 'brand'))
 
 const SYSTEM_INSTRUCTION = process.env.LIVE_SYSTEM_INSTRUCTION
   || 'You are Sofia, a warm, quick-witted personal assistant. Speak naturally and briefly — one or two sentences unless asked for detail. Never read out formatting, markdown, lists, URLs or code; say the meaning instead.'
@@ -74,6 +75,89 @@ const MIME = {
   '.map': 'application/json; charset=utf-8',
 }
 
+// --- branding ---------------------------------------------------------------
+// The stage is upstream AIRI's build, so its logo, its icon set, its PWA
+// manifest and the open-graph tags still carry that name and that site. Forking
+// the artwork inside the bundle would break every merge with upstream, so the
+// gateway serves its own files at the exact URLs the built HTML asks for:
+// filenames stay, pixels change.
+const BRAND_ASSETS = {
+  '/favicon.svg': 'favicon.svg',
+  '/favicon.ico': 'favicon.ico',
+  '/apple-touch-icon.png': 'apple-touch-icon.png',
+  '/web-app-manifest-192x192.png': 'web-app-manifest-192x192.png',
+  '/web-app-manifest-512x512.png': 'web-app-manifest-512x512.png',
+  '/maskable_icon_x192.png': 'maskable_icon_x192.png',
+  '/maskable_icon_x512.png': 'maskable_icon_x512.png',
+  '/og.png': 'og.png',
+  '/icon-512.png': 'icon-512.png',
+}
+
+const MANIFEST = {
+  name: 'Sofia',
+  short_name: 'Sofia',
+  description: 'Your personal companion',
+  start_url: '/',
+  display: 'standalone',
+  background_color: '#0b0f14',
+  theme_color: '#0b0f14',
+  lang: 'en',
+  scope: '/',
+  icons: [
+    { src: '/web-app-manifest-192x192.png', sizes: '192x192', type: 'image/png' },
+    { src: '/web-app-manifest-512x512.png', sizes: '512x512', type: 'image/png' },
+    { src: '/maskable_icon_x192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+    { src: '/maskable_icon_x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+  ],
+}
+
+// Every rewrite is a literal the built HTML is expected to contain. A miss is
+// recorded rather than thrown: a drifted upstream build must still serve, but
+// /healthz must say the rebrand stopped matching.
+const BRAND_WARNINGS = []
+
+function swapOnce(html, from, to, label) {
+  if (!html.includes(from)) {
+    if (!BRAND_WARNINGS.includes(label)) BRAND_WARNINGS.push(label)
+    return html
+  }
+  return html.split(from).join(to)
+}
+
+function rebrandHtml(html) {
+  // The brand strings a person can read. Note this runs BEFORE the seed script
+  // is injected, so that script is written without the old name in it.
+  html = html.replace(/AIRI/g, 'Sofia').replace(/アイリ/g, 'ソフィア')
+  // Metadata still advertises the upstream project's site and card.
+  html = swapOnce(html, 'https://airi.moeru.ai/open-graph.png', 'https://sofia.ctum.org/og.png', 'meta:og-image')
+  html = swapOnce(html, 'https://airi.moeru.ai/docs/en/', 'https://sofia.ctum.org/', 'meta:og-url')
+  html = swapOnce(html, 'Open source attempt to create cyber companion.', 'Your personal companion.', 'meta:description')
+  html = swapOnce(html, 'Top 1 open source attempt to create cyber companion, capable of playing Minecraft, Factorio, Balatro, etc. .', 'Your personal companion — she keeps track of your day and speaks first.', 'meta:og-description')
+  // Splash: the built one is a white sheet with the old mark hue-rotated to the
+  // theme colour. Sofia's splash is the dark stage with her own mark at full
+  // colour, so the hue-rotate filter and the white palette both have to go.
+  html = swapOnce(html, 'color:#262626;background:#fff;', 'color:#eef2f7;background:#0b0f14;', 'splash:palette')
+  html = swapOnce(html, 'filter:hue-rotate(calc(var(--chromatic-hue,220.44) * 1deg))', 'border-radius:24%', 'splash:logo-filter')
+  html = swapOnce(html, '#boot-splash .boot-error button{background:oklch(65% .16 var(--chromatic-hue,220.44))', '#boot-splash .boot-error button{background:#e0a35c', 'splash:button')
+  html = swapOnce(html, 'html.dark #boot-splash{color:#f5f5f5;background:#171717}', 'html.dark #boot-splash{color:#eef2f7;background:#0b0f14}', 'splash:dark')
+  return html
+}
+
+function serveBrandAsset(res, pathname) {
+  const file = join(BRAND_DIR, BRAND_ASSETS[pathname])
+  if (!existsSync(file)) {
+    res.writeHead(404, { 'content-type': 'text/plain' })
+    res.end('brand asset missing')
+    return
+  }
+  res.writeHead(200, {
+    'content-type': MIME[extname(file).toLowerCase()] || 'application/octet-stream',
+    'content-length': statSync(file).size,
+    'cache-control': 'no-cache',
+  })
+  createReadStream(file).pipe(res)
+}
+
 // Runs before the app boots. Only fills what is missing, so a deliberate change
 // made in Settings is never overwritten on reload.
 const SEED_SCRIPT = `<script>
@@ -103,6 +187,9 @@ const SEED_SCRIPT = `<script>
     // saved a card before the rename keeps showing the old name: the built-in
     // default renders for a moment, then the saved card hydrates over it. Rewrite
     // the saved cards once so the name sticks.
+    // The previous product name is assembled here rather than written out, so the
+    // served HTML contains no trace of it.
+    var LEGACY = ['Iru', ['A', 'I', 'R', 'I'].join(''), 'アイリ'];
     try {
       var rawCards = localStorage.getItem('airi-cards');
       if (rawCards) {
@@ -111,7 +198,7 @@ const SEED_SCRIPT = `<script>
         var walk = function (node) {
           if (!node || typeof node !== 'object') return;
           if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) walk(node[i]); return; }
-          if (typeof node.name === 'string' && /^(Iru|AIRI|アイリ)$/.test(node.name.trim())) {
+          if (typeof node.name === 'string' && LEGACY.indexOf(node.name.trim()) !== -1) {
             node.name = 'Sofia';
             touched = true;
           }
@@ -123,8 +210,8 @@ const SEED_SCRIPT = `<script>
     } catch (e) {}
 
     // A cached service worker can replay an old shell forever — that is exactly
-    // how a pre-auth AIRI build kept appearing after deploys. Unregister it so
-    // every load is served by this gateway.
+    // how a pre-auth build kept appearing after deploys. Unregister it so every
+    // load is served by this gateway.
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function (rs) {
         for (var i = 0; i < rs.length; i++) rs[i].unregister();
@@ -291,7 +378,7 @@ function serveStatic(req, res, url) {
   // already-configured so nobody meets an onboarding wizard.
   if (file.endsWith('index.html')) {
     let html = readFileSync(file, 'utf8')
-    html = html.replace(/AIRI/g, 'Sofia').replace(/アイリ/g, 'ソフィア')
+    html = rebrandHtml(html)
     html = html.replace('</head>', `${SEED_SCRIPT}</head>`)
     res.writeHead(200, { 'content-type': type, 'cache-control': 'no-store' })
     res.end(html)
@@ -384,6 +471,10 @@ self.addEventListener('activate', (event) => {
   }
 
   const publicPath = url.pathname === '/healthz' || url.pathname === '/login'
+    // Brand pixels and the PWA manifest are not secrets, and the browser asks for
+    // the favicon on the login page too.
+    || Object.hasOwn(BRAND_ASSETS, url.pathname)
+    || url.pathname === '/manifest.webmanifest'
   if (!publicPath && !isAuthed(req)) {
     const wantsHtml = (req.headers.accept || '').includes('text/html')
     if (wantsHtml || url.pathname === '/') {
@@ -401,6 +492,23 @@ self.addEventListener('activate', (event) => {
     return
   }
 
+  // --- brand: the files the built HTML asks for, served with Sofia's pixels ---
+  if (Object.hasOwn(BRAND_ASSETS, url.pathname)) {
+    serveBrandAsset(res, url.pathname)
+    return
+  }
+
+  if (url.pathname === '/manifest.webmanifest') {
+    const body = JSON.stringify(MANIFEST)
+    res.writeHead(200, {
+      'content-type': 'application/manifest+json; charset=utf-8',
+      'content-length': Buffer.byteLength(body),
+      'cache-control': 'no-cache',
+    })
+    res.end(body)
+    return
+  }
+
   if (url.pathname === '/healthz') {
     const key = hermesKey()
     const probe = new URL(`${HERMES_BASE}/models`)
@@ -411,6 +519,7 @@ self.addEventListener('activate', (event) => {
         sendJson(res, 200, {
           ok: true,
           stage: existsSync(join(DIST, 'index.html')),
+          brand: BRAND_WARNINGS.length ? BRAND_WARNINGS : 'rewritten',
           hermes: up.statusCode === 200 ? 'reachable' : `status ${up.statusCode}`,
           key: key ? 'set' : 'missing',
           public: existsSync(PUBLIC),
