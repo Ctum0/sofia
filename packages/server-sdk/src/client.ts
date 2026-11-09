@@ -172,7 +172,12 @@ function createDefaultProtocolConnector<C>(url: string): ClientConnector<WebSock
 }
 
 function normalizeOptions<C>(options: ClientOptions<C>): NormalizedClientOptions<C> {
-  const url = options.url ?? 'ws://localhost:6121/ws'
+  // ws://localhost:6121 is the dev stack's sidecar. Falling back to it in a
+  // production build makes every client dial a host that cannot exist: a
+  // once-a-second reconnect loop and ERR_CONNECTION_REFUSED in the console.
+  // Outside dev, no url means no url, and connect() below refuses to dial.
+  const devSidecarUrl = import.meta.env?.DEV ? 'ws://localhost:6121/ws' : ''
+  const url = options.url ?? devSidecarUrl
   const extension = options.extension ?? { id: options.name }
   const identity = options.identity ?? {
     id: createInstanceId(),
@@ -268,6 +273,12 @@ export class Client<C = undefined> {
 
   async connect(options?: ConnectOptions) {
     if (this.status === 'ready') {
+      return
+    }
+
+    // No url configured and nothing to fall back to: stay offline instead of
+    // dialling a host that does not exist here.
+    if (!this.opts.url) {
       return
     }
 
