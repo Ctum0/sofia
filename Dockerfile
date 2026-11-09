@@ -48,11 +48,15 @@ WORKDIR /app
 COPY apps/sofia-gateway/package.json ./package.json
 RUN npm install --omit=dev --no-audit --no-fund
 
-COPY apps/sofia-gateway/server.mjs ./server.mjs
-COPY apps/sofia-gateway/auth.mjs ./auth.mjs
-COPY apps/sofia-gateway/live.mjs ./live.mjs
-COPY apps/sofia-gateway/reasoning-filter.mjs ./reasoning-filter.mjs
+# Every gateway module in one COPY. A per-file list is a silent trap: adding a
+# module and forgetting its line produced a container that restarted forever
+# with ERR_MODULE_NOT_FOUND while the build itself reported success.
+COPY apps/sofia-gateway/*.mjs ./
 COPY apps/sofia-gateway/public ./public
+
+# ...and make that class fail here instead: every relative import must resolve
+# to a file that exists in this image.
+RUN node -e "const fs=require('fs'),path=require('path');const files=fs.readdirSync('.').filter(n=>n.endsWith('.mjs'));let bad=[];for(const f of files){for(const m of fs.readFileSync(f,'utf8').matchAll(/from\s+'(\.\/[^']+)'/g)){const p=path.resolve(m[1]);if(!(fs.existsSync(p)||['.mjs','.js','/index.mjs','/index.js'].some(e=>fs.existsSync(p+e))))bad.push(f+' -> '+m[1]);}}if(bad.length){console.error('unresolved imports: '+bad.join(', '));process.exit(1)}console.log('gateway imports resolve: '+files.join(' '))"
 
 COPY --from=builder /repo/apps/stage-web/dist ./dist
 
