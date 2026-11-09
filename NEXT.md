@@ -61,7 +61,7 @@ result under **Log**. Rules at the bottom are mandatory.
   `<title>Sofia</title>`.
 - [x] **E. Harden.** Login rate limit; rotate the exposed sofia `api_server` key
   with `~/scripts/rotate-sofia-api-key.sh` when a restart is safe.
-- [ ] **F. Rebrand audit.** Check `manifest.webmanifest`, `open-graph.png`,
+- [x] **F. Rebrand audit.** Check `manifest.webmanifest`, `open-graph.png`,
   icon files, and any remaining user-visible AIRI/Iru strings; the product is
   **Sofia**, the character card now also reads Sofia.
   → Partial: DOM is clean (A); the stored card in `localStorage['airi-cards']`
@@ -221,3 +221,13 @@ another way: `npx eslint <changed files>` inside `sofia-build`, then a real
 - 2026-11-09 — **Lesson.** Three earlier attempts patched call sites while the
   default sat underneath all of them. Read the shipped bundle before patching
   the source; check `git rev-parse origin/main` before believing a deploy.
+
+
+- 2026-11-09 — **F. Rebrand audit, closed.** DOM on https://sofia.ctum.org:
+  `textHits []`, `attrs []`, `title "Sofia"`. The card was still opening with
+  the legacy name because the compiled locale package ships from
+  `packages/i18n/dist`, and the identity line lives in
+  `packages/i18n/src/locales/en/base.yaml`. Source patched; Coolify's
+  `postinstall` rebuilds the package, so the served card now reads
+  `"Your name is Sofia."` — verified from the seeded card in localStorage on a
+  fresh browser, deployment `finished 73bae9856`.
