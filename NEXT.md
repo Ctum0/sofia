@@ -86,6 +86,11 @@ result under **Log**. Rules at the bottom are mandatory.
 
 ## Verification rules (do not skip)
 
+0b. **A new container is not a finished deployment.** Coolify swaps the
+   container early, and the deployment row can still read `in_progress`
+   while an older commit's container serves traffic. Read
+   `ApplicationDeploymentQueue` for `status=finished` and the matching
+   `commit` before verifying anything.
 0. **Coolify builds GitHub `HEAD`, not your working tree.** A commit that is not
    pushed is not deployed, so `git rev-parse origin/main` must equal `HEAD`
    before any deploy is described as containing a fix. Four deploys were spent
