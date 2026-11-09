@@ -72,6 +72,17 @@ async function handleRetryMessage(index: number) {
         </div>
         <ChatPanelHeader />
         <div w="full" max-h="<md:[60%]" py="<sm:2" flex="~ col" rounded="lg" relative min-h-0 flex-1 overflow-hidden px="2 <md:0" py-4>
+          <div
+            v-if="isReady && !historyMessages.length && !visibleStreamingMessage"
+            :class="['pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 px-8 text-center']"
+          >
+            <p :class="['text-base font-medium text-[var(--sofia-text)]']">
+              Say something to Sofia.
+            </p>
+            <p :class="['max-w-xs text-sm text-[var(--sofia-text-muted)]']">
+              Type below, or press Talk and just speak — she answers out loud.
+            </p>
+          </div>
           <ChatHistory
             v-if="isReady"
             :messages="historyMessages"

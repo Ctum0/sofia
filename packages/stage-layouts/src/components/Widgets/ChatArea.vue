@@ -278,7 +278,7 @@ watch(replyTarget, async (target) => {
           v-else
           v-model:send-mode="sendMode"
           :disabled="voiceRecording || !!pendingImages || (!messageInput.trim() && !attachments.length && !voicePending) || isComposing"
-          :button-class="[composerActionButtonClass, 'bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-40']"
+          :button-class="[composerActionButtonClass, 'bg-primary-500 text-white hover:bg-primary-600 disabled:bg-primary-500/20 disabled:text-white/40']"
           @send="handleSend"
         />
       </div>
