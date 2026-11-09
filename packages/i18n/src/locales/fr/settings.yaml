@@ -10,8 +10,8 @@ animations:
 dialogs:
   onboarding:
     official:
-      title: Fournisseur officiel AIRI
-    title: Bienvenue dans AIRI!
+      title: Fournisseur officiel Sofia
+    title: Bienvenue dans Sofia!
     description: Configurez votre premier fournisseur d’IA pour commencer.
     selectProvider: Choisissez un fournisseur d'IA.
     configureProvider: Configurer {provider}
@@ -35,13 +35,13 @@ dialogs:
     retry: Réessayer
     credentialsSafeLabel: Gardez vos clés API et identifiants en sécurité !
     credentialsSafeLocal: >-
-      AIRI fonctionne entièrement en local sur votre PC et nous ne volerons jamais vos identifiants pour les fournisseurs d'IA / LLM. Gardez toutefois à l'esprit que vos clés API sont des informations sensibles. Veillez à les conserver en lieu sûr et à ne les partager avec personne.
+      Sofia fonctionne entièrement en local sur votre PC et nous ne volerons jamais vos identifiants pour les fournisseurs d'IA / LLM. Gardez toutefois à l'esprit que vos clés API sont des informations sensibles. Veillez à les conserver en lieu sûr et à ne les partager avec personne.
     credentialsSafeOpenSource: >-
       AIRI est open source sur {github}, si vous souhaitez vérifier comment nous gérons vos identifiants, n'hésitez pas à inspecter notre code.
     enableChatCheck: >-
-      Autoriser AIRI à envoyer un message "ping" au premier modèle de chat disponible pour vérifier sa disponibilité
+      Autoriser Sofia à envoyer un message "ping" au premier modèle de chat disponible pour vérifier sa disponibilité
     start: Commençons !
-    loginPrompt: Connectez-vous pour utiliser le fournisseur officiel AIRI et bénéficier de la meilleure expérience.
+    loginPrompt: Connectez-vous pour utiliser le fournisseur officiel Sofia et bénéficier de la meilleure expérience.
     loginAction: Se connecter
     setupWithoutSigningIn: Configurer avec votre fournisseur
     pricingLink: Tarifs
@@ -55,7 +55,7 @@ dialogs:
       title: Gestion des autorisations
       description: Vous pouvez accorder les autorisations nécessaires maintenant ou les configurer plus tard.
       notificationsDescription: Autorisez les rappels et les mises à jour de statut importantes.
-      microphoneDescription: Autorisez AIRI à utiliser le microphone pour la saisie vocale et la transcription.
+      microphoneDescription: Autorisez Sofia à utiliser le microphone pour la saisie vocale et la transcription.
       requestAction: Demander l’accès
       optionalHint: Vous pouvez continuer même si ces autorisations ne sont pas accordées.
       stateGranted: Accordée
@@ -92,7 +92,7 @@ analytics:
   notice:
     title: Statistiques d'utilisation
     description: >-
-      AIRI collecte des statistiques d'utilisation anonymes pour nous aider à comprendre comment l'application est utilisée et améliorer sa stabilité. Aucune donnée personnelle n'est collectée.
+      Sofia collecte des statistiques d'utilisation anonymes pour nous aider à comprendre comment l'application est utilisée et améliorer sa stabilité. Aucune donnée personnelle n'est collectée.
     privacyPrefix: Lire la
     privacyLink: politique de confidentialité
     onboardingHint: Vous pouvez désactiver les statistiques plus tard dans Paramètres > Système > Général.
@@ -167,13 +167,13 @@ live2d:
   theme-color-from-model:
     title: Extraire les couleurs du modèle
     description: >
-      Extrayez les couleurs dominantes du rendu actuel. Cliquez sur une couleur pour l’appliquer à AIRI. Si le résultat ne convient pas, réessayez avec différentes poses du modèle.
+      Extrayez les couleurs dominantes du rendu actuel. Cliquez sur une couleur pour l’appliquer à Sofia. Si le résultat ne convient pas, réessayez avec différentes poses du modèle.
     button-extract:
       title: Extraire
   animation:
     motion-driver:
       title: Pilote de mouvement
-      description: Choisissez comment AIRI anime le corps et les yeux au repos.
+      description: Choisissez comment Sofia anime le corps et les yeux au repos.
       options:
         universal:
           title: Universel
@@ -213,7 +213,7 @@ live2d:
       description: Forcer le clignement des yeux avec une minuterie externe
     blink-mode:
       title: Mode de clignement
-      description: Choisissez le clignement intégré au modèle ou la minuterie de clignement forcé d’AIRI.
+      description: Choisissez le clignement intégré au modèle ou la minuterie de clignement forcé d’Sofia.
     idle-motion:
       title: Animation au repos
       no-motion: Aucune animation disponible
@@ -266,7 +266,7 @@ pages:
     connections:
       tab: Comptes connectés
       title: Comptes connectés
-      description: Connectez-vous à AIRI par l'intermédiaire de ces fournisseurs. Dissociez un compte pour révoquer l'accès, puis associez-le à nouveau pour passer à un autre compte.
+      description: Connectez-vous à Sofia par l'intermédiaire de ces fournisseurs. Dissociez un compte pour révoquer l'accès, puis associez-le à nouveau pour passer à un autre compte.
       status:
         linked: Relié
         notLinked: Non relié
@@ -283,7 +283,7 @@ pages:
         listFailed: Impossible de charger les comptes connectés.
         unlinkFailed: Impossible de dissocier ce compte.
         linkFailed: Impossible de démarrer le flux de liaison.
-        accountAlreadyLinkedToDifferentUser: Ce compte OAuth est déjà lié à un autre compte AIRI. Choisissez un autre compte fournisseur ou dissociez-le d'abord de l'autre compte AIRI.
+        accountAlreadyLinkedToDifferentUser: Ce compte OAuth est déjà lié à un autre compte Sofia. Choisissez un autre compte fournisseur ou dissociez-le d'abord de l'autre compte Sofia.
         oauthCallbackFailed: Impossible de connecter ce compte OAuth. Réessayez ou choisissez un autre compte fournisseur.
         lastAccount: C'est votre seule méthode de connexion. Définissez d'abord un mot de passe avant de le dissocier.
     security:
@@ -351,7 +351,7 @@ pages:
         pending: En attente d’envoi
         refused: Non envoyée. Votre compte n’a plus de place pour d’autres fiches. Cette fiche reste sur cet appareil.
       conflict_copy_name: '{name} (copie de conflit)'
-      conflict_notice: Un autre appareil a modifié le même personnage. AIRI a conservé la version de cet appareil sous forme de copie.
+      conflict_notice: Un autre appareil a modifié le même personnage. Sofia a conservé la version de cet appareil sous forme de copie.
       history:
         tab: Historique
         empty: Cette fiche n’a pas encore d’historique.
@@ -423,7 +423,7 @@ pages:
     delete: Supprimer
     delete_card: Supprimer la carte
     delete_confirmation: Êtes-vous sûr de vouloir supprimer cette carte ?
-    description: Gérer les cartes de personnage AIRI
+    description: Gérer les cartes de personnage Sofia
     drop_here: Déposer pour téléverser
     create_card: Créer une nouvelle carte
     edit_card: Modifier la carte
@@ -503,7 +503,7 @@ pages:
       model: Parole / Modèle
       voice: Parole / Voix
     systemprompt: Prompt système
-    title: Carte AIRI
+    title: Carte Sofia
     try_different_search: Essayez un autre terme de recherche
     export: Exporter
     exported: Paquet de fiche exporté
@@ -512,13 +512,13 @@ pages:
     import_missing_file: Des fichiers requis manquent dans le paquet de fiche
     import_invalid_file: Le fichier du paquet de fiche est invalide
     upload: Téléverser
-    upload_desc: Cliquez ou déposez un paquet de fiche AIRI pour l’importer
+    upload_desc: Cliquez ou déposez un paquet de fiche Sofia pour l’importer
   memory:
     description: Endroit où les souvenirs sont stockés et organisés
     title: Mémoire
   data:
     title: Données
-    description: Gérer les données AIRI enregistrées, les exports et les réinitialisations
+    description: Gérer les données Sofia enregistrées, les exports et les réinitialisations
     sections:
       chats:
         title: Sessions de chat
@@ -552,11 +552,11 @@ pages:
         delete: Supprimer toutes les données
       desktop-folder:
         title: Ouvrir le dossier app data
-        description: Ouvrez le dossier de données d'AIRI dans votre gestionnaire de fichiers.
+        description: Ouvrez le dossier de données d'Sofia dans votre gestionnaire de fichiers.
         open: Ouvrir le dossier
       desktop:
         title: Réinitialiser les paramètres et états du bureau
-        description: Effacer les paramètres du bureau AIRI et l'état d'exécution.
+        description: Effacer les paramètres du bureau Sofia et l'état d'exécution.
         center: Centrer la fenêtre sur l’écran
         reset: Réinitialiser les données du bureau
     confirmations:
@@ -653,7 +653,7 @@ pages:
           name: Nano Banana (aperçu)
           description: Utilise Google AI Studio pour les aperçus d’images et les réactions.
       card:
-        description: Configurez la génération d’images et de contenu visuel par AIRI.
+        description: Configurez la génération d’images et de contenu visuel par Sofia.
         comfyui_empty: Aucun workflow ComfyUI configuré. Ouvrez Paramètres → Fournisseurs → ComfyUI pour importer un modèle de workflow.
         exposed_fields: '{count} champs accessibles'
         open_on_replicate: Ouvrir sur Replicate
@@ -736,13 +736,13 @@ pages:
             thinking:
               label: Raisonnement
               required-description: Ce modèle nécessite le raisonnement.
-              provider-default-description: AIRI ne propose pas de paramètres de raisonnement pour ce modèle. OpenRouter utilise ses paramètres par défaut.
+              provider-default-description: Sofia ne propose pas de paramètres de raisonnement pour ce modèle. OpenRouter utilise ses paramètres par défaut.
       title: Conscience
     description: Synthèse, vision, parole, jeux, etc.
     gaming-factorio:
       description: Jouer à Factorio !
       enable: Activer l'intégration Factorio
-      enable-description: Autoriser AIRI à interagir avec le jeu Factorio
+      enable-description: Autoriser Sofia à interagir avec le jeu Factorio
       server-address: Adresse du serveur
       server-address-description: L'adresse IP ou le nom d'hôte du serveur Factorio
       server-address-placeholder: Entrez l'adresse du serveur (ex. localhost ou 192.168.1.100)
@@ -812,30 +812,30 @@ pages:
             error: Le microphone est indisponible
           input-device:
             label: Périphérique d’entrée
-            description: Sélectionnez le microphone qu’AIRI utilise.
+            description: Sélectionnez le microphone qu’Sofia utilise.
             playground-description: L’audition et l’espace d’essai utilisent ce microphone.
             placeholder: Sélectionnez un microphone
           auto-send:
             title: Transcriptions
-            description: Choisissez ce qu’AIRI fait du texte de votre voix.
+            description: Choisissez ce qu’Sofia fait du texte de votre voix.
             label: Envoyer automatiquement
-            label-description: AIRI envoie la transcription après un délai. Désactivez cette option pour lire et modifier le texte d’abord. Chaque message envoyé consomme des tokens.
+            label-description: Sofia envoie la transcription après un délai. Désactivez cette option pour lire et modifier le texte d’abord. Chaque message envoyé consomme des tokens.
             delay: Délai d’envoi
-            delay-description: Durée d’attente d’AIRI avant l’envoi de la transcription.
+            delay-description: Durée d’attente d’Sofia avant l’envoi de la transcription.
             immediate: Immédiatement
           input-mode:
             title: Mode d’entrée
-            description: Choisissez comment AIRI commence à écouter lorsque le microphone est activé.
+            description: Choisissez comment Sofia commence à écouter lorsque le microphone est activé.
             label: Commencer à écouter
             always-on: Toujours actif
-            always-on-description: AIRI écoute en permanence et répond lorsque vous parlez.
+            always-on-description: Sofia écoute en permanence et répond lorsque vous parlez.
             push-to-talk: Appuyer pour parler
-            push-to-talk-description: AIRI écoute uniquement lorsque vous maintenez la touche Appuyer pour parler. Le microphone est ouvert seulement pendant cet appui.
+            push-to-talk-description: Sofia écoute uniquement lorsque vous maintenez la touche Appuyer pour parler. Le microphone est ouvert seulement pendant cet appui.
             push-to-talk-unavailable: Indisponible ici. Cette application n’a pas de touche Appuyer pour parler sur cet appareil.
             stranded-title: Appuyer pour parler est indisponible ici
-            stranded-description: Cette application n’a pas de touche Appuyer pour parler sur cet appareil. AIRI n’écoute donc pas. Choisissez Toujours actif ou Mots d’activation pour lui parler.
+            stranded-description: Cette application n’a pas de touche Appuyer pour parler sur cet appareil. Sofia n’écoute donc pas. Choisissez Toujours actif ou Mots d’activation pour lui parler.
             wake-word: Mots d’activation
-            wake-word-description: Le microphone reste activé, mais AIRI écoute seulement après le mot d’activation d’un personnage.
+            wake-word-description: Le microphone reste activé, mais Sofia écoute seulement après le mot d’activation d’un personnage.
             wake-word-status:
               no-words: Aucun personnage n’a de mots d’activation. Demandez à un personnage de les définir dans la conversation.
               unconfigured: La détection des mots d’activation commence lorsque le microphone est activé.
@@ -844,9 +844,9 @@ pages:
               error: 'Le modèle de mots d’activation est indisponible : {error}'
           end-judge:
             title: Fin de la prise de parole
-            description: Lorsque vous faites une pause, un modèle de conversation lit la transcription et détermine si vous avez terminé. Sinon, AIRI attend 3 secondes de plus pour que vous puissiez continuer.
+            description: Lorsque vous faites une pause, un modèle de conversation lit la transcription et détermine si vous avez terminé. Sinon, Sofia attend 3 secondes de plus pour que vous puissiez continuer.
             enabled: Vérifier si j’ai fini de parler
-            enabled-description: La transcription de chaque pause est envoyée au modèle de réécriture. Si cette option est désactivée, AIRI met fin à votre prise de parole après une courte pause.
+            enabled-description: La transcription de chaque pause est envoyée au modèle de réécriture. Si cette option est désactivée, Sofia met fin à votre prise de parole après une courte pause.
           rephrase:
             title: Réécriture des transcriptions
             description: Un modèle de conversation corrige les erreurs de reconnaissance et retire les mots de remplissage avant la création du brouillon. Le texte original est conservé.
@@ -888,7 +888,7 @@ pages:
     messaging-discord:
       description: Chat et chat vocal via Discord
       enable: Activer l'intégration Discord
-      enable-description: Autoriser AIRI à interagir via Discord
+      enable-description: Autoriser Sofia à interagir via Discord
       token: Jeton du bot
       token-description: Votre jeton de bot Discord
       token-placeholder: Entrez votre jeton de bot Discord
@@ -966,7 +966,7 @@ pages:
     x:
       description: Navigation et utilisation X / Twitter
       enable: Activer l'intégration X / Twitter
-      enable-description: Autoriser AIRI à interagir avec X / Twitter
+      enable-description: Autoriser Sofia à interagir avec X / Twitter
       api-key: Clé API
       api-key-description: Votre clé API X / Twitter
       api-key-placeholder: Entrez votre clé API X / Twitter
@@ -1047,9 +1047,9 @@ pages:
         airi-agree: 'Oui'
         airi-disagree: Non, merci
     home-assistant:
-      description: Permet à AIRI de lire et de contrôler vos appareils Home Assistant.
+      description: Permet à Sofia de lire et de contrôler vos appareils Home Assistant.
       enable: Activer Home Assistant
-      enable-description: Autoriser AIRI à lire et contrôler vos appareils
+      enable-description: Autoriser Sofia à lire et contrôler vos appareils
       base-url:
         label: Adresse
         description: Adresse de votre instance Home Assistant.
@@ -1076,15 +1076,15 @@ pages:
         failed-policy-rollback: L’enregistrement a été refusé. La liste d’appareils n’a pas atteint la fenêtre des outils. Le modèle n’accède donc à aucun appareil. Réessayez.
       access:
         label: Accès aux appareils
-        description: Choisissez les appareils qu’AIRI peut lire et contrôler.
+        description: Choisissez les appareils qu’Sofia peut lire et contrôler.
         mode-all: Tous les appareils
         mode-allow: Liste d’autorisation
         mode-deny: Liste de blocage
-        all-hint: AIRI accède à tous les appareils. Choisissez une liste pour limiter cet accès.
+        all-hint: Sofia accède à tous les appareils. Choisissez une liste pour limiter cet accès.
         rule-allow: Seuls les appareils sélectionnés sont accessibles.
         rule-deny: Tous les appareils sont accessibles, sauf ceux que vous sélectionnez.
         selected-count: '{count} sélectionnés'
-        empty-warning: Sélectionnez au moins un appareil. AIRI n’accède à rien tant que vous ne le faites pas.
+        empty-warning: Sélectionnez au moins un appareil. Sofia n’accède à rien tant que vous ne le faites pas.
         search: Rechercher des appareils
         reload: Recharger les appareils
         loading: Chargement des appareils…
@@ -1219,16 +1219,16 @@ pages:
         weather: Météo
     web-search:
       title: Recherche sur le Web
-      description: Permet à AIRI de rechercher des informations actuelles sur le Web
+      description: Permet à Sofia de rechercher des informations actuelles sur le Web
       enable: Activer la recherche sur le Web
-      enable-description: Autoriser AIRI à rechercher sur le Web pendant la conversation
+      enable-description: Autoriser Sofia à rechercher sur le Web pendant la conversation
       api-key: Clé API Tavily
       api-key-description: La recherche sur le Web utilise Tavily. Obtenez une clé API gratuite sur tavily.com.
       api-key-placeholder: Saisissez votre clé API Tavily
       configured: La recherche sur le Web est prête !
     mcp-server:
       title: Serveurs MCP
-      description: Configurez des serveurs MCP pour rendre leurs outils accessibles à AIRI.
+      description: Configurez des serveurs MCP pour rendre leurs outils accessibles à Sofia.
       config-path: Fichier de configuration
       runtime-title: État de l'exécution
       empty: Aucun serveur MCP. Cliquez sur « Ajouter un serveur » ci-dessous ou collez une configuration dans « Modifier le JSON ».
@@ -1267,7 +1267,7 @@ pages:
           description: Nom unique utilisé comme clé dans mcp.json.
           placeholder: Par exemple, filesystem
         transport:
-          description: Mode de connexion d’AIRI à ce serveur.
+          description: Mode de connexion d’Sofia à ce serveur.
           stdio: Processus local
           http: URL distante
         url:
@@ -1299,7 +1299,7 @@ pages:
         placeholder: Collez mcp.json ici…
       test:
         title: Vérifier la connexion
-        description: AIRI se connecte brièvement au serveur pour afficher les outils disponibles.
+        description: Sofia se connecte brièvement au serveur pour afficher les outils disponibles.
         pick-server-label: Serveur
         no-servers: Aucun serveur à vérifier
         no-server-selected: Sélectionnez d’abord un serveur.
@@ -1521,7 +1521,7 @@ pages:
     helpinfo:
       title: Première fois ici ?
       description: >
-        AIRI nécessite qu’au moins un fournisseur {chat} soit configuré pour penser et se comporter correctement. On peut le considérer comme le cerveau des personnages vivant dans le système AIRI.
+        Sofia nécessite qu’au moins un fournisseur {chat} soit configuré pour penser et se comporter correctement. On peut le considérer comme le cerveau des personnages vivant dans le système Sofia.
     explained:
       chat: Fournisseurs de modèles de génération de texte, par ex. OpenRouter, OpenAI, Ollama.
       Speech: Fournisseurs de modèles de synthèse vocale, par ex. ElevenLabs, Azure Speech.
@@ -1541,7 +1541,7 @@ pages:
         asset:
           title: Fichiers du modèle
           unknown: Vérification des fichiers…
-          bundled: Fourni avec AIRI
+          bundled: Fourni avec Sofia
           installed: Stocké sur cet appareil
           missing: Télécharger lors de l’utilisation
           downloading: Téléchargement…
@@ -1658,7 +1658,7 @@ pages:
               description: Adresse à laquelle ComfyUI fonctionne
           cors:
             title: Blocage CORS détecté
-            description: ComfyUI bloque par défaut les requêtes des autres applications. Pour autoriser AIRI, démarrez ComfyUI avec `--enable-cors-header "*"`.
+            description: ComfyUI bloque par défaut les requêtes des autres applications. Pour autoriser Sofia, démarrez ComfyUI avec `--enable-cors-header "*"`.
           workflows:
             title: Modèles de workflow
             upload: Importer un workflow
@@ -1669,7 +1669,7 @@ pages:
             remove: Supprimer
             config_snippet: Extrait de configuration de création d’images
             copy_json: Copier le JSON
-            paste_hint: Collez cet extrait dans la configuration de création d’images de votre fiche AIRI pour remplacer ces nœuds.
+            paste_hint: Collez cet extrait dans la configuration de création d’images de votre fiche Sofia pour remplacer ces nœuds.
           upload:
             prompt: Déposez ou sélectionnez un fichier workflow_api.json
             invalid_json: JSON invalide
@@ -1819,13 +1819,13 @@ pages:
         title: API Prompt
       official:
         title: Fournisseur officiel
-        description: Fournisseur d'IA officiel par AIRI.
+        description: Fournisseur d'IA officiel par Sofia.
         speech-title: Fournisseur vocal officiel
-        speech-description: Fournisseur texte-to-speech officiel par AIRI.
+        speech-description: Fournisseur texte-to-speech officiel par Sofia.
         speech-streaming-title: Fournisseur officiel de parole en continu
-        speech-streaming-description: Fournisseur officiel AIRI de synthèse vocale à faible latence, via WebSocket bidirectionnel.
+        speech-streaming-description: Fournisseur officiel Sofia de synthèse vocale à faible latence, via WebSocket bidirectionnel.
         transcription-title: Fournisseur de transcription officiel
-        transcription-description: Fournisseur speech-to-text officiel par AIRI.
+        transcription-description: Fournisseur speech-to-text officiel par Sofia.
       transcriptions:
         playground:
           title: Terrain de test de transcription
@@ -1840,18 +1840,18 @@ pages:
       label: Adresse du serveur WebSocket
     server-hostname:
       label: Expose On Network
-      description: Choose whether the AIRI gateway only listens on this device or can be reached from your local network.
+      description: Choose whether the Sofia gateway only listens on this device or can be reached from your local network.
     server-auth-token:
       label: Auth Token
       description: >-
-        Security token required by remote clients that connect to this gateway. When left empty, AIRI generates a new token automatically.
+        Security token required by remote clients that connect to this gateway. When left empty, Sofia generates a new token automatically.
       placeholder: Générer automatiquement
     qr:
       title: Connect from Stage Pocket
       description: >-
         Scan this QR code from Stage Pocket to try all reachable local network addresses and save the first working one.
       refresh: Actualiser
-      image-alt: AIRI server channel connection QR code
+      image-alt: Sofia server channel connection QR code
       candidates: Adresses candidates
       token-hint: >-
         The QR code includes the auth token so Stage Pocket can authenticate after connecting. Do not share it publicly.
@@ -1861,7 +1861,7 @@ pages:
     qr-scan:
       title: Connexion rapide
       description: Scannez le code QR de la version de bureau pour une connexion rapide
-      instructions: Dirigez la caméra vers le code QR de connexion AIRI.
+      instructions: Dirigez la caméra vers le code QR de connexion Sofia.
       action: Scanner
       success:
         title: Adresse de connexion enregistrée
@@ -1986,8 +1986,8 @@ pages:
           presets:
             default:
               colors:
-                color-1: Vert AIRI
-              description: La couleur de thème verdâtre par défaut, offerte par AIRI !
+                color-1: Vert Sofia
+              description: La couleur de thème verdâtre par défaut, offerte par Sofia !
               title: Couleur par défaut
             morandi:
               colors:
@@ -2083,7 +2083,7 @@ sections:
 theme:
   title: Thème
   description: |
-    Changez le thème de base d’AIRI, mode clair ou mode sombre.
+    Changez le thème de base d’Sofia, mode clair ou mode sombre.
   auto: Système
   light: Clair
   dark: Sombre

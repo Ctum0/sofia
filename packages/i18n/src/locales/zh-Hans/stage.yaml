@@ -22,7 +22,7 @@ character-switcher:
   empty: 暂无角色
   failed: 无法切换角色，请重试。
 mobile-tools:
-  sign-in: 登录 AIRI
+  sign-in: 登录 Sofia
   account-description: 账户与偏好
   sound: 声音
   character-voice: 角色声音
@@ -46,8 +46,8 @@ chat:
     description: 请先前往设置页面选择并验证一个 Provider，再发送消息。
     action: 打开 Provider 设置
     sign-in-title: 登录后即可开始聊天
-    sign-in-description: 登录即可使用 AIRI 官方 Provider，也可以在设置中配置你自己的 Provider。
-    sign-in-description-official-only: 登录即可使用 AIRI 官方 Provider。
+    sign-in-description: 登录即可使用 Sofia 官方 Provider，也可以在设置中配置你自己的 Provider。
+    sign-in-description-official-only: 登录即可使用 Sofia 官方 Provider。
     sign-in-action: 登录
   voice-message:
     recording: 正在录制
@@ -81,7 +81,7 @@ chat:
     system-default: 系统默认
     listen: 持续聆听
     push-to-talk: 按住说话
-    push-to-talk-unavailable: 当前设备没有「按住说话」按键，所以 AIRI 不会聆听。请在听觉设置中更改输入模式。
+    push-to-talk-unavailable: 当前设备没有「按住说话」按键，所以 Sofia 不会聆听。请在听觉设置中更改输入模式。
     wake-word: 监听唤醒词
     hearing-settings: 更多听觉设置…
     use-microphone: 启用麦克风
@@ -138,7 +138,7 @@ chat:
     minimize: 收起通话
     expand: 回到通话
     failed: 无法开始语音通话
-    microphone-denied: AIRI 无法使用麦克风。
+    microphone-denied: Sofia 无法使用麦克风。
     microphone-off: 麦克风已关闭。请在听觉设置中打开麦克风，再开始语音通话。
     busy: 请先结束或取消录音，再开始语音通话。
     configure-description: 请在听觉设置中选择转录服务和模型，才能开始语音通话。
@@ -297,10 +297,10 @@ startup:
   failed: 启动失败
   failed-resource: 无法加载{resource}
   recover: 请重试。如果仍然失败，请查看下方的错误详情。
-  recover-model: 重新启动 AIRI 再试一次，或暂不加载角色，稍后选择其他模型。
+  recover-model: 重新启动 Sofia 再试一次，或暂不加载角色，稍后选择其他模型。
   details: 发生了什么？
   close-details: 关闭详情
-  retry: 重新启动 AIRI
+  retry: 重新启动 Sofia
   continue-without-model: 暂不加载角色
   model-timeout: 角色模型加载超时，请检查网络连接后重试。
   resources:
@@ -407,7 +407,7 @@ computer-use:
 status:
   preparing: 正在准备麦克风
   listening: 正在听
-  paused: AIRI 说话时暂停聆听
+  paused: Sofia 说话时暂停聆听
   transcribing: 正在转写
   hearing-error: 语音转写出错了
   no-transcript: 识别到的内容会显示在这里。

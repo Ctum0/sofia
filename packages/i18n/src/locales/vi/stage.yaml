@@ -22,7 +22,7 @@ character-switcher:
   empty: Chưa có nhân vật
   failed: Không thể đổi nhân vật. Thử lại.
 mobile-tools:
-  sign-in: Đăng nhập AIRI
+  sign-in: Đăng nhập Sofia
   account-description: Tài khoản và tùy chọn
   sound: Âm thanh
   character-voice: Giọng nhân vật
@@ -65,7 +65,7 @@ chat:
     system-default: Mặc định hệ thống
     listen: Lắng nghe liên tục
     push-to-talk: Nhấn để nói
-    push-to-talk-unavailable: Thiết bị này không có phím nhấn để nói nên AIRI không lắng nghe. Hãy đổi chế độ nhập trong cài đặt Nghe.
+    push-to-talk-unavailable: Thiết bị này không có phím nhấn để nói nên Sofia không lắng nghe. Hãy đổi chế độ nhập trong cài đặt Nghe.
     wake-word: Lắng nghe từ đánh thức
     hearing-settings: Cài đặt Nghe khác…
     options-hint: Di chuột hoặc nhấp chuột phải để xem tùy chọn
@@ -273,7 +273,7 @@ computer-use:
 status:
   preparing: Đang chuẩn bị micrô
   listening: Đang lắng nghe
-  paused: Tạm dừng lắng nghe khi AIRI nói
+  paused: Tạm dừng lắng nghe khi Sofia nói
   transcribing: Đang phiên âm
   hearing-error: Không thể phiên âm âm thanh
   no-transcript: Lời nói được nhận dạng sẽ xuất hiện ở đây.

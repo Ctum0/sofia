@@ -22,7 +22,7 @@ character-switcher:
   empty: ยังไม่มีตัวละคร
   failed: สลับตัวละครไม่สำเร็จ ลองอีกครั้ง
 mobile-tools:
-  sign-in: เข้าสู่ระบบ AIRI
+  sign-in: เข้าสู่ระบบ Sofia
   account-description: บัญชีและการกำหนดค่า
   sound: เสียง
   character-voice: เสียงของตัวละคร
@@ -65,7 +65,7 @@ chat:
     system-default: ค่าเริ่มต้นของระบบ
     listen: ฟังต่อเนื่อง
     push-to-talk: กดเพื่อพูด
-    push-to-talk-unavailable: อุปกรณ์นี้ไม่มีปุ่มกดเพื่อพูด AIRI จึงไม่ฟัง เปลี่ยนโหมดการป้อนเสียงได้ในการตั้งค่าการฟัง
+    push-to-talk-unavailable: อุปกรณ์นี้ไม่มีปุ่มกดเพื่อพูด Sofia จึงไม่ฟัง เปลี่ยนโหมดการป้อนเสียงได้ในการตั้งค่าการฟัง
     wake-word: ฟังคำปลุก
     hearing-settings: การตั้งค่าการฟังเพิ่มเติม…
     options-hint: วางเคอร์เซอร์หรือคลิกขวาเพื่อดูตัวเลือก
@@ -267,7 +267,7 @@ computer-use:
 status:
   preparing: กำลังเตรียมไมโครโฟน
   listening: กำลังฟัง
-  paused: หยุดฟังชั่วคราวขณะที่ AIRI พูด
+  paused: หยุดฟังชั่วคราวขณะที่ Sofia พูด
   transcribing: กำลังถอดเสียง
   hearing-error: ถอดเสียงไม่ได้
   no-transcript: เสียงพูดที่จดจำได้จะแสดงที่นี่

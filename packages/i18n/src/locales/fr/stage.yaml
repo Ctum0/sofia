@@ -22,7 +22,7 @@ character-switcher:
   empty: Aucun personnage pour le moment
   failed: Impossible de changer de personnage. Réessayez.
 mobile-tools:
-  sign-in: Se connecter à AIRI
+  sign-in: Se connecter à Sofia
   account-description: Compte et préférences
   sound: Son
   character-voice: Voix du personnage
@@ -63,7 +63,7 @@ chat:
     system-default: Par défaut du système
     listen: Écouter en continu
     push-to-talk: Appuyer pour parler
-    push-to-talk-unavailable: Cet appareil n’a pas de touche pour parler, donc AIRI n’écoute pas. Changez le mode de saisie dans les paramètres d’Audition.
+    push-to-talk-unavailable: Cet appareil n’a pas de touche pour parler, donc Sofia n’écoute pas. Changez le mode de saisie dans les paramètres d’Audition.
     wake-word: Écouter les mots d’activation
     hearing-settings: Autres paramètres d’Audition…
     options-hint: Survolez ou faites un clic droit pour voir les options
@@ -265,7 +265,7 @@ computer-use:
 status:
   preparing: Préparation du microphone
   listening: Écoute en cours
-  paused: Écoute en pause pendant qu’AIRI parle
+  paused: Écoute en pause pendant qu’Sofia parle
   transcribing: Transcription en cours
   hearing-error: Impossible de transcrire l’audio
   no-transcript: Le texte reconnu apparaîtra ici.

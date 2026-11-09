@@ -10,8 +10,8 @@ animations:
 dialogs:
   onboarding:
     official:
-      title: AIRI 公式プロバイダー
-    title: AIRI へようこそ！
+      title: Sofia 公式プロバイダー
+    title: Sofia へようこそ！
     description: まず最初のAIプロバイダーを設定しましょう。
     selectProvider: AIプロバイダーを選択
     configureProvider: 設定 {provider}
@@ -35,13 +35,13 @@ dialogs:
     retry: 再試行
     credentialsSafeLabel: API キーや認証情報を安全に保管してください！
     credentialsSafeLocal: >-
-      AIRI はお使いの PC 上で完全ローカルに動作するため、AI/LLM プロバイダーの認証情報を収集することは一切ありません。ただし、API キーは機密情報ですので、安全に管理し第三者と共有しないでください。
+      Sofia はお使いの PC 上で完全ローカルに動作するため、AI/LLM プロバイダーの認証情報を収集することは一切ありません。ただし、API キーは機密情報ですので、安全に管理し第三者と共有しないでください。
     credentialsSafeOpenSource: >-
       AIRI は {github} 上のオープンソースプロジェクトです。認証情報の取り扱いを確認したい場合は、ソースコードをご覧ください。
     enableChatCheck: >-
-      AIRI が利用可能な最初のチャットモデルに「ping」シグナルを送信して利用可能性をチェックすることを許可する
+      Sofia が利用可能な最初のチャットモデルに「ping」シグナルを送信して利用可能性をチェックすることを許可する
     start: 始めましょう！
-    loginPrompt: 最高の体験を得るためにログインして AIRI 公式プロバイダーを使用してください。
+    loginPrompt: 最高の体験を得るためにログインして Sofia 公式プロバイダーを使用してください。
     loginAction: ログイン
     setupWithoutSigningIn: 独自のプロバイダーを設定
     pricingLink: 料金体系
@@ -57,7 +57,7 @@ dialogs:
       notificationsTitle: 通知
       notificationsDescription: リマインダーや重要なステータス更新を許可します。
       microphoneTitle: マイク
-      microphoneDescription: AIRI が音声入力と文字起こしにマイクを使用することを許可します。
+      microphoneDescription: Sofia が音声入力と文字起こしにマイクを使用することを許可します。
       requestAction: アクセスをリクエスト
       optionalHint: これらの権限を許可しない場合でも続行できます。
       stateGranted: 許可済み
@@ -94,7 +94,7 @@ analytics:
   notice:
     title: 利用状況の分析
     description: >-
-      AIRI はアプリの使用状況を理解し安定性を向上させるため、匿名で利用状況データを収集します。個人データは一切収集されません。
+      Sofia はアプリの使用状況を理解し安定性を向上させるため、匿名で利用状況データを収集します。個人データは一切収集されません。
     privacyPrefix: 閲覧
     privacyLink: プライバシーポリシー
     onboardingHint: 分析機能は 設定 > システム > 一般 でいつでもオフにできます。
@@ -171,14 +171,14 @@ live2d:
   theme-color-from-model:
     title: モデルから色を抽出
     description: >
-      現在レンダリング中のキャンバスからアクセントカラーを抽出します。色をクリックして AIRI に適用します。希望の色にならない場合は、モデルのポーズを変えて再度抽出をお試しください。
+      現在レンダリング中のキャンバスからアクセントカラーを抽出します。色をクリックして Sofia に適用します。希望の色にならない場合は、モデルのポーズを変えて再度抽出をお試しください。
     button-extract:
       title: 抽出
   animation:
     title: アニメーション
     motion-driver:
       title: モーションドライバー
-      description: 待機中の体や目の動きを AIRI が生成する方法を選択してください。
+      description: 待機中の体や目の動きを Sofia が生成する方法を選択してください。
       options:
         universal:
           title: 汎用
@@ -218,7 +218,7 @@ live2d:
       description: 外部タイマーを使用してまばたきアニメーションを強制します
     blink-mode:
       title: まばたきモード
-      description: 既存のモデルまばたき、または AIRI の強制まばたきタイマーを選択します。
+      description: 既存のモデルまばたき、または Sofia の強制まばたきタイマーを選択します。
     idle-motion:
       title: アイドルモーション
       no-motion: 利用可能なモーションがありません
@@ -273,7 +273,7 @@ pages:
     connections:
       tab: 連携済みアカウント
       title: 連携済みアカウント
-      description: これらのプロバイダー経由で AIRI にログインします。連携を解除してアクセス権を取り消すか、再連携して別のアカウントに切り替えます。
+      description: これらのプロバイダー経由で Sofia にログインします。連携を解除してアクセス権を取り消すか、再連携して別のアカウントに切り替えます。
       status:
         linked: 連携済み
         notLinked: 未連携
@@ -290,7 +290,7 @@ pages:
         listFailed: 連携済みアカウントを取得できませんでした。
         unlinkFailed: このアカウントの連携を解除できませんでした。
         linkFailed: 連携フローを開始できませんでした。
-        accountAlreadyLinkedToDifferentUser: この OAuth アカウントは別の AIRI アカウントにすでに連携されています。別のプロバイダーを選択するか、もう一方のアカウントから連携を解除してください。
+        accountAlreadyLinkedToDifferentUser: この OAuth アカウントは別の Sofia アカウントにすでに連携されています。別のプロバイダーを選択するか、もう一方のアカウントから連携を解除してください。
         oauthCallbackFailed: この OAuth アカウントを接続できませんでした。再試行するか別のプロバイダーを選択してください。
         lastAccount: これは唯一のログイン方法です。連携を解除する前にパスワードを設定してください。
     security:
@@ -358,7 +358,7 @@ pages:
         pending: アップロード待機中
         refused: アップロードされていません。アカウントのカード保存容量が不足しているため、このカードはこのデバイスに残ります。
       conflict_copy_name: '{name}（競合コピー）'
-      conflict_notice: 別のデバイスが同じキャラクターを変更しました。AIRI はこのデバイスのバージョンをコピーとして保存しました。
+      conflict_notice: 別のデバイスが同じキャラクターを変更しました。Sofia はこのデバイスのバージョンをコピーとして保存しました。
       history:
         tab: 履歴
         empty: このカードにはまだ履歴がありません。
@@ -434,7 +434,7 @@ pages:
     delete: 削除
     delete_card: カードを削除
     delete_confirmation: このカードを削除してもよろしいですか？
-    description: AIRIキャラクターカードを管理
+    description: Sofiaキャラクターカードを管理
     description_label: 説明
     drop_here: アップロードするにはここにドラッグ
     create_card: 新しいカードを作成
@@ -519,7 +519,7 @@ pages:
       model: 発話/モデル
       voice: 発話/音声
     systemprompt: システムプロンプト
-    title: AIRIカード
+    title: Sofiaカード
     try_different_search: 別の検索ワードを試してください
     export: エクスポート
     exported: カードパックをエクスポートしました
@@ -528,13 +528,13 @@ pages:
     import_missing_file: カードパックに必須ファイルが不足しています
     import_invalid_file: 無効なカードパックファイルです
     upload: アップロード
-    upload_desc: ここをクリックするか AIRI カードパックをドラッグ＆ドロップしてインポートします
+    upload_desc: ここをクリックするか Sofia カードパックをドラッグ＆ドロップしてインポートします
   memory:
     description: 記憶が保存され、整理される場所
     title: 記憶
   data:
     title: データ
-    description: AIRIデータの保存、エクスポート、およびリセットの管理
+    description: Sofiaデータの保存、エクスポート、およびリセットの管理
     sections:
       chats:
         title: チャット セッション
@@ -569,11 +569,11 @@ pages:
         delete: すべてのデータを削除
       desktop-folder:
         title: アプリデータフォルダを開く
-        description: ファイルマネージャーで AIRI のデータフォルダを開きます。
+        description: ファイルマネージャーで Sofia のデータフォルダを開きます。
         open: フォルダを開く
       desktop:
         title: デスクトップの設定と状態をリセット
-        description: AIRIデスクトップの設定と実行時の状態を消去します。
+        description: Sofiaデスクトップの設定と実行時の状態を消去します。
         center: デスクトップウィンドウを画面中央に配置
         reset: デスクトップのデータをリセット
     confirmations:
@@ -670,7 +670,7 @@ pages:
           name: Nano Banana (プレビュー)
           description: Google AI Studio を使用して画像やリアクションをプレビューします。
       card:
-        description: AIRI が画像やグラフィックコンテンツを生成する方法を設定します。
+        description: Sofia が画像やグラフィックコンテンツを生成する方法を設定します。
         comfyui_empty: ComfyUI ワークフローが設定されていません。設定 → プロバイダー → ComfyUI に移動してワークフローテンプレートを読み込んでください。
         exposed_fields: '{count} 個のフィールドが公開されています'
         open_on_replicate: Replicate で開く
@@ -753,13 +753,13 @@ pages:
             thinking:
               label: 思考 (Thinking)
               required-description: このモデルでは思考機能が必須です。
-              provider-default-description: AIRI にはこのモデルの推論設定がありません。OpenRouter の初期設定が適用されます。
+              provider-default-description: Sofia にはこのモデルの推論設定がありません。OpenRouter の初期設定が適用されます。
       title: 意識
     description: 思考、視覚、音声合成、ゲームなど。
     gaming-factorio:
       description: Factorioをプレイ！
       enable: Factorio連携を有効にする
-      enable-description: AIRIがFactorioゲームと通信できるようにする
+      enable-description: SofiaがFactorioゲームと通信できるようにする
       server-address: サーバーアドレス
       server-address-description: FactorioサーバーのIPアドレスまたはホスト名
       server-address-placeholder: サーバーアドレスを入力 (例： localhostまたは192.168.1.100)
@@ -831,30 +831,30 @@ pages:
             error: マイクを利用できません
           input-device:
             label: 入力デバイス
-            description: AIRI が使用するマイクを選択してください。
+            description: Sofia が使用するマイクを選択してください。
             playground-description: 聴覚とテスト画面はこのマイクを使用します。
             placeholder: マイクを選択
           auto-send:
             title: 文字起こし
             description: 音声を文字に変換した後の動作を選択してください。
             label: 自動送信
-            label-description: AIRI は待ち時間の後に文字起こしをチャットへ送信します。先に内容を確認・編集するには無効にしてください。送信ごとにトークンを消費します。
+            label-description: Sofia は待ち時間の後に文字起こしをチャットへ送信します。先に内容を確認・編集するには無効にしてください。送信ごとにトークンを消費します。
             delay: 送信までの待ち時間
-            delay-description: AIRI が文字起こしを送信するまでの待ち時間です。
+            delay-description: Sofia が文字起こしを送信するまでの待ち時間です。
             immediate: すぐに
           input-mode:
             title: 入力モード
-            description: マイクが有効な間、AIRI が聞き取りを始める方法を選択してください。
+            description: マイクが有効な間、Sofia が聞き取りを始める方法を選択してください。
             label: 聞き取りを開始
             always-on: 常時有効
-            always-on-description: AIRI は常に聞き取り、話しかけると応答します。
+            always-on-description: Sofia は常に聞き取り、話しかけると応答します。
             push-to-talk: 押して話す
-            push-to-talk-description: '「押して話す」キーを押している間だけ AIRI が聞き取ります。マイクも押している間だけ有効になります。'
+            push-to-talk-description: '「押して話す」キーを押している間だけ Sofia が聞き取ります。マイクも押している間だけ有効になります。'
             push-to-talk-unavailable: ここでは利用できません。このデバイスのアプリには「押して話す」キーがありません。
             stranded-title: ここでは「押して話す」を利用できません
-            stranded-description: このデバイスには「押して話す」キーがないため、AIRI は聞き取りません。話しかけるには「常時有効」か「ウェイクワード」を選択してください。
+            stranded-description: このデバイスには「押して話す」キーがないため、Sofia は聞き取りません。話しかけるには「常時有効」か「ウェイクワード」を選択してください。
             wake-word: ウェイクワード
-            wake-word-description: マイクは有効なままですが、キャラクターのウェイクワードを話した後だけ AIRI が聞き取ります。
+            wake-word-description: マイクは有効なままですが、キャラクターのウェイクワードを話した後だけ Sofia が聞き取ります。
             wake-word-status:
               no-words: ウェイクワードを設定したキャラクターがいません。チャットでキャラクターに設定を依頼してください。
               unconfigured: マイクを有効にすると、ウェイクワードの検出が始まります。
@@ -863,9 +863,9 @@ pages:
               error: 'ウェイクワードモデルを利用できません：{error}'
           end-judge:
             title: 発話の終わり
-            description: 話が途切れると、チャットモデルが文字起こしを読み、話し終えたかを判断します。まだ途中なら、AIRI は続きを話せるよう 3 秒長く待ちます。
+            description: 話が途切れると、チャットモデルが文字起こしを読み、話し終えたかを判断します。まだ途中なら、Sofia は続きを話せるよう 3 秒長く待ちます。
             enabled: 話し終えたかを判定
-            enabled-description: 話が途切れるたびに、その文字起こしが修正用のモデルに送信されます。オフにすると、AIRI は少し間があいた時点で発話を終了します。
+            enabled-description: 話が途切れるたびに、その文字起こしが修正用のモデルに送信されます。オフにすると、Sofia は少し間があいた時点で発話を終了します。
           rephrase:
             title: 文字起こしの修正
             description: チャットモデルが認識ミスや不要なつなぎ言葉を修正してから、文字起こしを下書きにします。元のテキストも保持されます。
@@ -907,7 +907,7 @@ pages:
     messaging-discord:
       description: Discordでのチャットとボイスチャット
       enable: Discord連携を有効にする
-      enable-description: AIRIがDiscordを介して対話できるようにする
+      enable-description: SofiaがDiscordを介して対話できるようにする
       token: ボットトークン
       token-description: あなたのDiscordボットトークン
       token-placeholder: Discordボットトークンを入力
@@ -990,7 +990,7 @@ pages:
     x:
       description: X / Twitterの閲覧と使用
       enable: X / Twitter連携を有効にする
-      enable-description: AIRIがX / Twitterと対話できるようにする
+      enable-description: SofiaがX / Twitterと対話できるようにする
       api-key: APIキー
       api-key-description: あなたのX / Twitter APIキー
       api-key-placeholder: あなたのX / Twitter APIキーを入力
@@ -1073,9 +1073,9 @@ pages:
         airi-agree: 'はい'
         airi-disagree: 遠慮します
     home-assistant:
-      description: AIRI が Home Assistant のデバイスを読み取り、操作できるようにします。
+      description: Sofia が Home Assistant のデバイスを読み取り、操作できるようにします。
       enable: Home Assistant を有効にする
-      enable-description: AIRI にデバイスの読み取りと操作を許可
+      enable-description: Sofia にデバイスの読み取りと操作を許可
       base-url:
         label: アドレス
         description: Home Assistant インスタンスのアドレスです。
@@ -1102,15 +1102,15 @@ pages:
         failed-policy-rollback: 保存が拒否されました。デバイスの一覧がツールを実行するウィンドウに届かなかったため、モデルはどのデバイスにもアクセスできません。もう一度お試しください。
       access:
         label: デバイスへのアクセス
-        description: AIRI が読み取り、操作できるデバイスを選択してください。
+        description: Sofia が読み取り、操作できるデバイスを選択してください。
         mode-all: すべてのデバイス
         mode-allow: 許可リスト
         mode-deny: ブロックリスト
-        all-hint: AIRI はすべてのデバイスにアクセスできます。制限するにはリストを選択してください。
+        all-hint: Sofia はすべてのデバイスにアクセスできます。制限するにはリストを選択してください。
         rule-allow: 選択したデバイスだけにアクセスできます。
         rule-deny: 選択したデバイスを除き、すべてにアクセスできます。
         selected-count: '{count} 個を選択済み'
-        empty-warning: デバイスを 1 つ以上選択してください。選択するまで AIRI はどのデバイスにもアクセスできません。
+        empty-warning: デバイスを 1 つ以上選択してください。選択するまで Sofia はどのデバイスにもアクセスできません。
         search: デバイスを検索
         reload: デバイスを再読み込み
         loading: デバイスを読み込み中…
@@ -1251,16 +1251,16 @@ pages:
         zone: ゾーン
     web-search:
       title: Web 検索
-      description: AIRI が Web を検索して最新の情報を取得できるようにします
+      description: Sofia が Web を検索して最新の情報を取得できるようにします
       enable: Web 検索を有効化
-      enable-description: 会話中に AIRI が Web 検索を行うことを許可します
+      enable-description: 会話中に Sofia が Web 検索を行うことを許可します
       api-key: Tavily API キー
       api-key-description: Web 検索機能は Tavily によって提供されています。tavily.com で無料の API キーを取得できます。
       api-key-placeholder: Tavily API キーを入力
       configured: Web 検索を利用する準備が整いました！
     mcp-server:
       title: MCP サーバー
-      description: MCP サーバーを設定し、そのツールを AIRI に導入します。
+      description: MCP サーバーを設定し、そのツールを Sofia に導入します。
       config-path: 設定ファイルのパス
       runtime-title: 実行ステータス
       empty: MCP サーバーがまだありません。下の「サーバーを追加」をクリックして作成するか、「JSON を編集」から設定を貼り付けてください。
@@ -1300,7 +1300,7 @@ pages:
           placeholder: '例: filesystem'
         transport:
           label: 種別
-          description: AIRI がこのサーバーに接続する方法です。
+          description: Sofia がこのサーバーに接続する方法です。
           stdio: ローカルプロセス
           http: リモート URL
         url:
@@ -1563,7 +1563,7 @@ pages:
     helpinfo:
       title: ここを初めて利用しますか？
       description: >
-        AIRIが正常に思考し動作するためには、少なくとも1つの{chat}プロバイダーの設定が必要です。 これはAIRIシステム内に存在するキャラクターの脳と考えることができます。
+        Sofiaが正常に思考し動作するためには、少なくとも1つの{chat}プロバイダーの設定が必要です。 これはSofiaシステム内に存在するキャラクターの脳と考えることができます。
     explained:
       chat: テキスト生成モデルプロバイダー。例： OpenRouter, OpenAI, Ollama。
       Speech: 音声 (テキスト読み上げ) モデルプロバイダー。例： ElevenLabs, Azure Speech。
@@ -1583,7 +1583,7 @@ pages:
         asset:
           title: モデルファイル
           unknown: ファイルを確認中…
-          bundled: AIRI に付属
+          bundled: Sofia に付属
           installed: このデバイスに保存済み
           missing: 使用時にダウンロード
           downloading: ダウンロード中…
@@ -1702,7 +1702,7 @@ pages:
               description: 稼働中の ComfyUI のアドレス
           cors:
             title: CORS により要求がブロックされました
-            description: ComfyUI はデフォルトで他のアプリからのリクエストをブロックします。AIRI が接続できるようにするには、`--enable-cors-header "*"` フラグを付けて ComfyUI を起動する必要があります。
+            description: ComfyUI はデフォルトで他のアプリからのリクエストをブロックします。Sofia が接続できるようにするには、`--enable-cors-header "*"` フラグを付けて ComfyUI を起動する必要があります。
           workflows:
             title: ワークフローテンプレート
             upload: ワークフローをアップロード
@@ -1713,7 +1713,7 @@ pages:
             remove: 削除
             config_snippet: アート設定スニペット
             copy_json: JSON をコピー
-            paste_hint: この内容を AIRI カードのアート設定に貼り付けることで、これらのノードを上書きできます。
+            paste_hint: この内容を Sofia カードのアート設定に貼り付けることで、これらのノードを上書きできます。
           upload:
             prompt: workflow_api.json ファイルをドラッグ＆ドロップまたは選択
             invalid_json: 無効な JSON です
@@ -1875,13 +1875,13 @@ pages:
         description: Prompt API を使用すると、自然言語リクエストを Chrome の基盤モデルに送信できます。
       official:
         title: 公式プロバイダー
-        description: AIRI 公式の AI プロバイダー。
+        description: Sofia 公式の AI プロバイダー。
         speech-title: 公式音声プロバイダー
-        speech-description: AIRI 公式のテキスト読み上げプロバイダー。
+        speech-description: Sofia 公式のテキスト読み上げプロバイダー。
         speech-streaming-title: 公式リアルタイム (Streaming) 音声プロバイダー
-        speech-streaming-description: AIRI 公式の超低遅延テキスト読み上げプロバイダー (双方向 WebSocket)。
+        speech-streaming-description: Sofia 公式の超低遅延テキスト読み上げプロバイダー (双方向 WebSocket)。
         transcription-title: 公式文字起こしプロバイダー
-        transcription-description: AIRI 公式の音声認識プロバイダー。
+        transcription-description: Sofia 公式の音声認識プロバイダー。
       transcriptions:
         playground:
           title: 文字起こし実験場
@@ -1896,18 +1896,18 @@ pages:
       label: WebSocket サーバーアドレス
     server-hostname:
       label: Expose On Network
-      description: Choose whether the AIRI gateway only listens on this device or can be reached from your local network.
+      description: Choose whether the Sofia gateway only listens on this device or can be reached from your local network.
     server-auth-token:
       label: 認証トークン
       description: >-
-        Security token required by remote clients that connect to this gateway. When left empty, AIRI generates a new token automatically.
+        Security token required by remote clients that connect to this gateway. When left empty, Sofia generates a new token automatically.
       placeholder: 自動生成
     qr:
       title: Connect from Stage Pocket
       description: >-
         Scan this QR code from Stage Pocket to try all reachable local network addresses and save the first working one.
       refresh: 更新
-      image-alt: AIRI server channel connection QR code
+      image-alt: Sofia server channel connection QR code
       candidates: 利用可能なアドレス
       token-hint: >-
         The QR code includes the auth token so Stage Pocket can authenticate after connecting. Do not share it publicly.
@@ -1917,7 +1917,7 @@ pages:
     qr-scan:
       title: クイック接続
       description: たまごっちから QR コードをスキャンしてすばやく接続します
-      instructions: カメラを AIRI 接続用 QR コードに向けてください。
+      instructions: カメラを Sofia 接続用 QR コードに向けてください。
       action: スキャン
       success:
         title: 接続アドレスを保存しました
@@ -2047,8 +2047,8 @@ pages:
           presets:
             default:
               colors:
-                color-1: AIRIグリーン
-              description: AIRIによって用意された、デフォルトの緑がかったテーマカラー！
+                color-1: Sofiaグリーン
+              description: Sofiaによって用意された、デフォルトの緑がかったテーマカラー！
               title: デフォルトカラー
             morandi:
               colors:
@@ -2149,7 +2149,7 @@ sections:
 theme:
   title: テーマ
   description: |
-    AIRIの基本テーマをライトモードまたはダークモードに切り替えます。
+    Sofiaの基本テーマをライトモードまたはダークモードに切り替えます。
   auto: システム
   light: ライト
   dark: ダーク

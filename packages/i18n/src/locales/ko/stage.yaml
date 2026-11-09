@@ -22,7 +22,7 @@ character-switcher:
   empty: 아직 캐릭터가 없습니다
   failed: 캐릭터를 전환하지 못했습니다. 다시 시도하세요.
 mobile-tools:
-  sign-in: AIRI에 로그인
+  sign-in: Sofia에 로그인
   account-description: 계정 및 환경설정
   sound: 소리
   character-voice: 캐릭터 음성
@@ -69,7 +69,7 @@ chat:
     system-default: 시스템 기본값
     listen: 계속 듣기
     push-to-talk: 눌러서 말하기
-    push-to-talk-unavailable: 이 기기에는 눌러서 말하기 키가 없어 AIRI가 듣지 않습니다. 청각 설정에서 입력 모드를 변경하세요.
+    push-to-talk-unavailable: 이 기기에는 눌러서 말하기 키가 없어 Sofia가 듣지 않습니다. 청각 설정에서 입력 모드를 변경하세요.
     wake-word: 호출어 듣기
     hearing-settings: 청각 설정 더 보기…
     options-hint: 마우스를 올리거나 오른쪽 클릭하여 옵션 보기
@@ -355,7 +355,7 @@ computer-use:
 status:
   preparing: 마이크 준비 중
   listening: 듣는 중
-  paused: AIRI가 말하는 동안 듣기 일시 중지
+  paused: Sofia가 말하는 동안 듣기 일시 중지
   transcribing: 음성 인식 중
   hearing-error: 오디오에서 음성을 인식할 수 없습니다
   no-transcript: 인식된 음성이 여기에 표시됩니다.

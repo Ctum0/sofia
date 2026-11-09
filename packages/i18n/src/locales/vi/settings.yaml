@@ -10,8 +10,8 @@ animations:
 dialogs:
   onboarding:
     official:
-      title: Nhà cung cấp chính thức của AIRI
-    title: Chào mừng đến với AIRI!
+      title: Nhà cung cấp chính thức của Sofia
+    title: Chào mừng đến với Sofia!
     description: Hãy thiết lập nhà cung cấp AI đầu tiên để bắt đầu.
     selectProvider: Chọn nhà cung cấp AI
     configureProvider: Cấu hình {provider}
@@ -35,13 +35,13 @@ dialogs:
     retry: Thử lại
     credentialsSafeLabel: Hãy giữ các khóa API và thông tin xác thực an toàn!
     credentialsSafeLocal: >-
-      AIRI đang chạy hoàn toàn cục bộ trên PC của bạn và chúng tôi sẽ không bao giờ đánh cắp các thông tin xác thực cho các nhà cung cấp AI / LLM. Nhưng hãy nhớ rằng các khóa API của bạn là thông tin nhạy cảm. Hãy giữ chúng an toàn và không được chia sẽ với bất kỳ ai.
+      Sofia đang chạy hoàn toàn cục bộ trên PC của bạn và chúng tôi sẽ không bao giờ đánh cắp các thông tin xác thực cho các nhà cung cấp AI / LLM. Nhưng hãy nhớ rằng các khóa API của bạn là thông tin nhạy cảm. Hãy giữ chúng an toàn và không được chia sẽ với bất kỳ ai.
     credentialsSafeOpenSource: >-
       AIRI là dự án mã nguồn mở trên {github}, nếu bạn muốn kiểm tra cách chúng tôi xử lý các thông tin xác thực của bạn, bạn có thể kiểm tra code của chúng tôi.
     enableChatCheck: >-
-      Cho phép AIRI gửi tín hiệu "ping" đến mô hình chat có thể dùng được đầu tiên để kiểm tra tính khả dụng
+      Cho phép Sofia gửi tín hiệu "ping" đến mô hình chat có thể dùng được đầu tiên để kiểm tra tính khả dụng
     start: Bắt đầu thôi!
-    loginPrompt: Đăng nhập để sử dụng nhà cung cấp AIRI chính thức để có trải nghiệm tốt nhất.
+    loginPrompt: Đăng nhập để sử dụng nhà cung cấp Sofia chính thức để có trải nghiệm tốt nhất.
     loginAction: Đăng nhập
     setupWithoutSigningIn: Thiết lập nhà cung cấp của bạn
     pricingLink: Bảng Giá
@@ -57,7 +57,7 @@ dialogs:
       notificationsTitle: Thông báo
       notificationsDescription: Cho phép nhắc nhở và các cập nhật trạng thái quan trọng.
       microphoneTitle: Micrô
-      microphoneDescription: Cho phép AIRI sử dụng micrô để nhập giọng nói và phiên âm.
+      microphoneDescription: Cho phép Sofia sử dụng micrô để nhập giọng nói và phiên âm.
       requestAction: Yêu cầu quyền truy cập
       optionalHint: Bạn vẫn có thể tiếp tục ngay cả khi chưa cấp các quyền này.
       stateGranted: Đã cấp quyền
@@ -94,7 +94,7 @@ analytics:
   notice:
     title: Phân tích dữ liệu sử dụng
     description: >-
-      AIRI thu thập dữ liệu sử dụng một cách ẩn danh để giúp chúng tôi hiểu cách ứng dụng được dùng và cải thiện sự ổn định. Không có dữ liệu cá nhân nào được thu thập.
+      Sofia thu thập dữ liệu sử dụng một cách ẩn danh để giúp chúng tôi hiểu cách ứng dụng được dùng và cải thiện sự ổn định. Không có dữ liệu cá nhân nào được thu thập.
     privacyPrefix: Đọc
     privacyLink: chính sách quyền riêng tư
     onboardingHint: Bạn có thể tắt phân tích ở Cài đặt > Hệ thống > Chung.
@@ -171,14 +171,14 @@ live2d:
   theme-color-from-model:
     title: Trích xuất màu từ mô hình
     description: >
-      Xuất các màu nổi bật từ canvas đang render hiện tại. Nhấp vào màu và áp dụng nó lên AIRI. Thử xuất nhiều lần với mô hình theo nhiều tư thế khác nhau nếu màu sắc chưa được như mong muốn.
+      Xuất các màu nổi bật từ canvas đang render hiện tại. Nhấp vào màu và áp dụng nó lên Sofia. Thử xuất nhiều lần với mô hình theo nhiều tư thế khác nhau nếu màu sắc chưa được như mong muốn.
     button-extract:
       title: Trích xuất
   animation:
     title: Hoạt ảnh
     motion-driver:
       title: Bộ điều khiển chuyển động
-      description: Chọn cách AIRI tạo chuyển động cơ thể và mắt khi nghỉ.
+      description: Chọn cách Sofia tạo chuyển động cơ thể và mắt khi nghỉ.
       options:
         universal:
           title: Đa dụng
@@ -218,7 +218,7 @@ live2d:
       description: Ép hoạt ảnh chớp mắt bằng bộ hẹn giờ ngoài
     blink-mode:
       title: Chế độ chớp mắt
-      description: Chọn mô hình chớp mắt có sẵn hoặc bộ hẹn giờ chớp mắt bắt buộc của AIRI.
+      description: Chọn mô hình chớp mắt có sẵn hoặc bộ hẹn giờ chớp mắt bắt buộc của Sofia.
     idle-motion:
       title: Hoạt ảnh nhàn rỗi
       no-motion: Không có hoạt ảnh khả dụng
@@ -273,7 +273,7 @@ pages:
     connections:
       tab: Các tài khoản đã được liên kết
       title: Các tài khoản đã được liên kết
-      description: Đăng nhập AIRI thông qua các nhà cung cấp này. Hủy liên kết để thu hồi quyền truy cập, sau đó liên kết lại một lần nữa để chuyển sang tài khoản khác.
+      description: Đăng nhập Sofia thông qua các nhà cung cấp này. Hủy liên kết để thu hồi quyền truy cập, sau đó liên kết lại một lần nữa để chuyển sang tài khoản khác.
       status:
         linked: Đã liên kết
         notLinked: Chưa được liên kết
@@ -290,7 +290,7 @@ pages:
         listFailed: Không thể tải các tài khoản đã liên kết.
         unlinkFailed: Không thể hủy liên kết tài khoản này.
         linkFailed: Không thể khởi động liên kết luồng (luồng liên kết).
-        accountAlreadyLinkedToDifferentUser: Tài khoản OAuth này đã được liên kết với một tài khoản AIRI khác. Hãy chọn tài khoản nhà cung cấp khác hoặc hủy liên kết tài khoản đó khỏi tài khoản AIRI kia trước.
+        accountAlreadyLinkedToDifferentUser: Tài khoản OAuth này đã được liên kết với một tài khoản Sofia khác. Hãy chọn tài khoản nhà cung cấp khác hoặc hủy liên kết tài khoản đó khỏi tài khoản Sofia kia trước.
         oauthCallbackFailed: Không thể kết nối tài khoản OAuth này. Hãy thử lại hoặc chọn tài khoản nhà cung cấp khác.
         lastAccount: Đây là phương thức đăng nhập duy nhất của bạn. Đặt mật khẩu trước khi hủy liên kết.
     security:
@@ -358,7 +358,7 @@ pages:
         pending: Đang chờ tải lên
         refused: Chưa tải lên. Tài khoản không còn chỗ cho thẻ mới nên thẻ này vẫn nằm trên thiết bị này.
       conflict_copy_name: '{name} (bản sao do xung đột)'
-      conflict_notice: Thiết bị khác đã sửa cùng nhân vật. AIRI giữ phiên bản trên thiết bị này dưới dạng bản sao.
+      conflict_notice: Thiết bị khác đã sửa cùng nhân vật. Sofia giữ phiên bản trên thiết bị này dưới dạng bản sao.
       history:
         tab: Lịch sử
         empty: Thẻ này chưa có lịch sử.
@@ -434,7 +434,7 @@ pages:
     delete: Xóa
     delete_card: Xóa thẻ
     delete_confirmation: Bạn có chắc muốn xóa thẻ này?
-    description: Quản lý thẻ nhân vật AIRI
+    description: Quản lý thẻ nhân vật Sofia
     description_label: Mô tả
     drop_here: Kéo vào đây để tải lên
     create_card: Tạo thẻ mới
@@ -519,7 +519,7 @@ pages:
       model: Giọng nói / Mô hình
       voice: Giọng nói / Giọng
     systemprompt: Lời nhắc hệ thống
-    title: Thẻ AIRI
+    title: Thẻ Sofia
     try_different_search: Hãy thử từ khóa khác
     export: Xuất
     exported: Đã xuất gói thẻ
@@ -528,13 +528,13 @@ pages:
     import_missing_file: Gói thẻ thiếu các tệp bắt buộc
     import_invalid_file: Tệp gói thẻ không hợp lệ
     upload: Tải lên
-    upload_desc: Nhấp hoặc kéo thả gói thẻ AIRI vào đây để nhập
+    upload_desc: Nhấp hoặc kéo thả gói thẻ Sofia vào đây để nhập
   memory:
     description: Nơi lưu trữ và tổ chức ký ức
     title: Bộ nhớ
   data:
     title: Dữ liệu
-    description: Quản lý dữ liệu AIRI đã lưu, xuất và đặt lại
+    description: Quản lý dữ liệu Sofia đã lưu, xuất và đặt lại
     sections:
       chats:
         title: Phiên trò chuyện
@@ -569,11 +569,11 @@ pages:
         delete: Xóa sạch dữ liệu
       desktop-folder:
         title: Mở thư mục dữ liệu ứng dụng
-        description: Mở thư mục dữ liệu của AIRI trong trình quản lý tệp tin của bạn.
+        description: Mở thư mục dữ liệu của Sofia trong trình quản lý tệp tin của bạn.
         open: Mở thư mục
       desktop:
         title: Đặt lại thiết lập máy tính
-        description: Xóa các cài đặt và trạng thái thực thi của AIRI trên máy tính.
+        description: Xóa các cài đặt và trạng thái thực thi của Sofia trên máy tính.
         center: Đưa cửa sổ desktop về giữa màn hình
         reset: Đặt lại dữ liệu desktop
     confirmations:
@@ -670,7 +670,7 @@ pages:
           name: Nano Banana (Bản xem trước)
           description: Sử dụng Google AI Studio để xem trước ảnh và các phản ứng.
       card:
-        description: Cấu hình cách AIRI tạo ảnh và các nội dung đồ họa.
+        description: Cấu hình cách Sofia tạo ảnh và các nội dung đồ họa.
         comfyui_empty: ComfyUI workflows chưa được cấu hình. Đi tới Cài đặt → Nhà cung cấp → ComfyUI để tải mẫu workflow.
         exposed_fields: '{count} trường được cung cấp'
         open_on_replicate: Mở bằng Replicate
@@ -753,13 +753,13 @@ pages:
             thinking:
               label: Suy nghĩ
               required-description: Mô hình này yêu cầu bật suy luận.
-              provider-default-description: AIRI không có cài đặt suy luận cho mô hình này. OpenRouter áp dụng mặc định của dịch vụ.
+              provider-default-description: Sofia không có cài đặt suy luận cho mô hình này. OpenRouter áp dụng mặc định của dịch vụ.
       title: Ý thức
     description: Tư duy, thị giác, tổng hợp giọng nói, chơi game, v.v.
     gaming-factorio:
       description: Chơi Factorio!
       enable: Bật tích hợp Factorio
-      enable-description: Cho phép AIRI tương tác với trò chơi Factorio
+      enable-description: Cho phép Sofia tương tác với trò chơi Factorio
       server-address: Địa chỉ máy chủ
       server-address-description: Địa chỉ IP hoặc tên máy chủ của máy chủ Factorio
       server-address-placeholder: Nhập địa chỉ máy chủ (ví dụ localhost hoặc 192.168.1.100)
@@ -830,30 +830,30 @@ pages:
             error: Micrô không khả dụng
           input-device:
             label: Thiết bị đầu vào
-            description: Chọn micrô mà AIRI sử dụng.
+            description: Chọn micrô mà Sofia sử dụng.
             playground-description: Mô-đun Nghe và khu thử nghiệm dùng micrô này.
             placeholder: Chọn micrô
           auto-send:
             title: Bản chuyển giọng nói thành văn bản
-            description: Chọn cách AIRI xử lý văn bản được nhận dạng từ giọng nói của bạn.
+            description: Chọn cách Sofia xử lý văn bản được nhận dạng từ giọng nói của bạn.
             label: Gửi tự động
-            label-description: AIRI gửi bản chuyển giọng nói thành văn bản vào cuộc trò chuyện sau một khoảng trễ. Tắt để đọc và sửa trước. Mỗi tin nhắn gửi đi đều dùng token.
+            label-description: Sofia gửi bản chuyển giọng nói thành văn bản vào cuộc trò chuyện sau một khoảng trễ. Tắt để đọc và sửa trước. Mỗi tin nhắn gửi đi đều dùng token.
             delay: Độ trễ gửi
-            delay-description: Thời gian AIRI chờ trước khi gửi bản chuyển giọng nói thành văn bản.
+            delay-description: Thời gian Sofia chờ trước khi gửi bản chuyển giọng nói thành văn bản.
             immediate: Ngay lập tức
           input-mode:
             title: Chế độ đầu vào
-            description: Chọn cách AIRI bắt đầu lắng nghe khi micrô bật.
+            description: Chọn cách Sofia bắt đầu lắng nghe khi micrô bật.
             label: Bắt đầu lắng nghe
             always-on: Luôn bật
-            always-on-description: AIRI luôn lắng nghe và trả lời khi bạn nói.
+            always-on-description: Sofia luôn lắng nghe và trả lời khi bạn nói.
             push-to-talk: Nhấn để nói
-            push-to-talk-description: AIRI chỉ lắng nghe khi bạn giữ phím Nhấn để nói. Micrô chỉ mở trong lúc giữ phím.
+            push-to-talk-description: Sofia chỉ lắng nghe khi bạn giữ phím Nhấn để nói. Micrô chỉ mở trong lúc giữ phím.
             push-to-talk-unavailable: Không khả dụng ở đây. Ứng dụng không có phím Nhấn để nói trên thiết bị này.
             stranded-title: Nhấn để nói không khả dụng ở đây
-            stranded-description: Ứng dụng không có phím Nhấn để nói trên thiết bị này nên AIRI không lắng nghe. Chọn Luôn bật hoặc Từ đánh thức để nói với AIRI.
+            stranded-description: Ứng dụng không có phím Nhấn để nói trên thiết bị này nên Sofia không lắng nghe. Chọn Luôn bật hoặc Từ đánh thức để nói với Sofia.
             wake-word: Từ đánh thức
-            wake-word-description: Micrô vẫn bật nhưng AIRI chỉ lắng nghe sau khi bạn nói từ đánh thức của một nhân vật.
+            wake-word-description: Micrô vẫn bật nhưng Sofia chỉ lắng nghe sau khi bạn nói từ đánh thức của một nhân vật.
             wake-word-status:
               no-words: Chưa nhân vật nào có từ đánh thức. Hãy yêu cầu nhân vật đặt từ đánh thức trong cuộc trò chuyện.
               unconfigured: Nhận diện từ đánh thức bắt đầu khi micrô bật.
@@ -862,9 +862,9 @@ pages:
               error: 'Mô hình từ đánh thức không khả dụng: {error}'
           end-judge:
             title: Kết thúc lời nói
-            description: Khi bạn ngừng nói, mô hình trò chuyện sẽ đọc bản chuyển giọng nói thành văn bản và xác định bạn đã nói xong chưa. Nếu chưa, AIRI sẽ đợi thêm 3 giây để bạn nói tiếp.
+            description: Khi bạn ngừng nói, mô hình trò chuyện sẽ đọc bản chuyển giọng nói thành văn bản và xác định bạn đã nói xong chưa. Nếu chưa, Sofia sẽ đợi thêm 3 giây để bạn nói tiếp.
             enabled: Kiểm tra xem tôi đã nói xong chưa
-            enabled-description: Bản chuyển giọng nói thành văn bản của mỗi lần ngừng sẽ được gửi đến mô hình viết lại. Khi tắt, AIRI sẽ kết thúc lượt nói của bạn sau một khoảng ngừng ngắn.
+            enabled-description: Bản chuyển giọng nói thành văn bản của mỗi lần ngừng sẽ được gửi đến mô hình viết lại. Khi tắt, Sofia sẽ kết thúc lượt nói của bạn sau một khoảng ngừng ngắn.
           rephrase:
             title: Viết lại bản chuyển giọng nói thành văn bản
             description: Mô hình trò chuyện sửa lỗi nhận dạng và bỏ từ đệm trước khi tạo bản nháp. Văn bản gốc vẫn được giữ.
@@ -906,7 +906,7 @@ pages:
     messaging-discord:
       description: Trò chuyện & gọi thoại qua Discord
       enable: Bật tích hợp Discord
-      enable-description: Cho phép AIRI tương tác qua Discord
+      enable-description: Cho phép Sofia tương tác qua Discord
       token: Mã token của bot
       token-description: Mã token bot Discord của bạn
       token-placeholder: Nhập mã token bot Discord của bạn
@@ -989,7 +989,7 @@ pages:
     x:
       description: Sử Dụng Twitter
       enable: Bật tích hợp X / Twitter
-      enable-description: Cho phép AIRI tương tác với X / Twitter
+      enable-description: Cho phép Sofia tương tác với X / Twitter
       api-key: Khóa API
       api-key-description: Khóa API X / Twitter của bạn
       api-key-placeholder: Nhập khóa API X / Twitter của bạn
@@ -1072,9 +1072,9 @@ pages:
         airi-agree: 'Đồng ý'
         airi-disagree: Không, cảm ơn
     home-assistant:
-      description: Cho phép AIRI đọc và điều khiển thiết bị Home Assistant của bạn.
+      description: Cho phép Sofia đọc và điều khiển thiết bị Home Assistant của bạn.
       enable: Bật Home Assistant
-      enable-description: Cho phép AIRI đọc và điều khiển thiết bị
+      enable-description: Cho phép Sofia đọc và điều khiển thiết bị
       base-url:
         label: Địa chỉ
         description: Địa chỉ phiên bản Home Assistant của bạn.
@@ -1101,15 +1101,15 @@ pages:
         failed-policy-rollback: Việc lưu bị từ chối. Danh sách thiết bị chưa đến cửa sổ chạy công cụ nên mô hình không truy cập được thiết bị nào. Thử lại.
       access:
         label: Quyền truy cập thiết bị
-        description: Chọn thiết bị mà AIRI được đọc và điều khiển.
+        description: Chọn thiết bị mà Sofia được đọc và điều khiển.
         mode-all: Mọi thiết bị
         mode-allow: Danh sách cho phép
         mode-deny: Danh sách chặn
-        all-hint: AIRI truy cập mọi thiết bị. Chọn danh sách để giới hạn.
+        all-hint: Sofia truy cập mọi thiết bị. Chọn danh sách để giới hạn.
         rule-allow: Chỉ truy cập được thiết bị bạn chọn.
         rule-deny: Truy cập được mọi thiết bị trừ những thiết bị bạn chọn.
         selected-count: 'Đã chọn {count}'
-        empty-warning: Chọn ít nhất một thiết bị. AIRI không truy cập được thiết bị nào cho đến khi bạn chọn.
+        empty-warning: Chọn ít nhất một thiết bị. Sofia không truy cập được thiết bị nào cho đến khi bạn chọn.
         search: Tìm thiết bị
         reload: Tải lại thiết bị
         loading: Đang tải thiết bị…
@@ -1250,16 +1250,16 @@ pages:
         zone: Vùng
     web-search:
       title: Tìm kiếm trên web
-      description: Cho phép AIRI tìm kiếm trên web để lấy thông tin mới nhất
+      description: Cho phép Sofia tìm kiếm trên web để lấy thông tin mới nhất
       enable: Kích hoạt Tìm kiếm trên Web
-      enable-description: Cho phép AIRI tìm kiếm trên web trong khi trò chuyện
+      enable-description: Cho phép Sofia tìm kiếm trên web trong khi trò chuyện
       api-key: Khóa API Tavily
       api-key-description: Chức năng tìm kiếm trên web được cung cấp bởi Tavily. Nhận API miễn phí tại tavily.com.
       api-key-placeholder: Nhập Tavily API của bạn
       configured: Tìm kiếm web đã sẵn sàng sử dụng!
     mcp-server:
       title: Các máy chủ MCP
-      description: Cấu hình các máy chủ MCP và đưa công cụ của chúng vào AIRI.
+      description: Cấu hình các máy chủ MCP và đưa công cụ của chúng vào Sofia.
       config-path: Tệp cấu hình
       runtime-title: Trạng thái thực thi
       empty: Chưa có máy chủ MCP nào. Nhấp "Thêm máy chủ" bên dưới để tạo một máy chủ, hoặc dán cấu hình qua "Chỉnh sửa JSON".
@@ -1299,7 +1299,7 @@ pages:
           placeholder: 'ví dụ: filesystem'
         transport:
           label: Loại
-          description: Cách AIRI kết nối với máy chủ này.
+          description: Cách Sofia kết nối với máy chủ này.
           stdio: Tiến trình cục bộ
           http: URL từ xa
         url:
@@ -1561,7 +1561,7 @@ pages:
     helpinfo:
       title: Lần đầu tới đây?
       description: >
-        {chat} AIRI cần ít nhất một nhà cung cấp để suy nghĩ và hoạt động đúng cách. Có thể coi nó như bộ não của nhân vật AIRI trong hệ thống.
+        {chat} Sofia cần ít nhất một nhà cung cấp để suy nghĩ và hoạt động đúng cách. Có thể coi nó như bộ não của nhân vật Sofia trong hệ thống.
     explained:
       chat: 'Nhà cung cấp mô hình tạo văn bản. Ví dụ: OpenRouter, OpenAI, Ollama.'
       Speech: 'Nhà cung cấp mô hình giọng nói (text-to-speech). Ví dụ: ElevenLabs, Azure Speech.'
@@ -1581,7 +1581,7 @@ pages:
         asset:
           title: Tệp mô hình
           unknown: Đang kiểm tra tệp…
-          bundled: Đi kèm AIRI
+          bundled: Đi kèm Sofia
           installed: Đã lưu trên thiết bị này
           missing: Tải khi sử dụng
           downloading: Đang tải xuống…
@@ -1701,7 +1701,7 @@ pages:
               description: Địa chỉ ComfyUI đang hoạt động
           cors:
             title: Yêu Cầu Bị Chặn Bởi CORS
-            description: ComfyUI mặc định chặn các yêu cầu từ các ứng dụng khác. Để cho phép AIRI kết nối, bạn phải bắt đầu ComfyUI với flag `--enable-cors-header "*"`.
+            description: ComfyUI mặc định chặn các yêu cầu từ các ứng dụng khác. Để cho phép Sofia kết nối, bạn phải bắt đầu ComfyUI với flag `--enable-cors-header "*"`.
           workflows:
             title: Mẫu Workflow
             upload: Tải Workflow
@@ -1712,7 +1712,7 @@ pages:
             remove: Xóa
             config_snippet: Đoạn cấu hình Nghệ thuật
             copy_json: Sao chép JSON
-            paste_hint: Dán nội dung này vào cấu hình Nghệ thuật của Thẻ AIRI để ghi đè các node này.
+            paste_hint: Dán nội dung này vào cấu hình Nghệ thuật của Thẻ Sofia để ghi đè các node này.
           upload:
             prompt: Kéo thả hoặc chọn tệp workflow_api.json
             invalid_json: JSON không hợp lệ
@@ -1875,13 +1875,13 @@ pages:
         description: Với Prompt API, bạn có thể gửi yêu cầu bằng ngôn ngữ tự nhiên đến mô hình cơ sở trong Chrome.
       official:
         title: Nhà Cung Cấp Chính Thức
-        description: Nhà cung cấp AI chính thức bởi AIRI.
+        description: Nhà cung cấp AI chính thức bởi Sofia.
         speech-title: Nhà cung cấp giọng nói chính thức
-        speech-description: Nhà cung cấp chuyển văn bản thành giọng nói chính thức của AIRI.
+        speech-description: Nhà cung cấp chuyển văn bản thành giọng nói chính thức của Sofia.
         speech-streaming-title: Nhà Cung Cấp Giọng Nói Thời Gian Thực (Streaming) Chính Thức
-        speech-streaming-description: Nhà cung cấp text-to-speech độ trễ thấp chính thức bởi AIRI (WebSocket hai chiều).
+        speech-streaming-description: Nhà cung cấp text-to-speech độ trễ thấp chính thức bởi Sofia (WebSocket hai chiều).
         transcription-title: Nhà Cung Cấp Phiên Âm Chính Thức
-        transcription-description: Nhà cung cấp speech-to-text chính thức bởi AIRI.
+        transcription-description: Nhà cung cấp speech-to-text chính thức bởi Sofia.
       transcriptions:
         playground:
           title: Thử nghiệm chuyển văn bản
@@ -1896,18 +1896,18 @@ pages:
       label: Địa chỉ máy chủ WebSocket
     server-hostname:
       label: Expose On Network
-      description: Choose whether the AIRI gateway only listens on this device or can be reached from your local network.
+      description: Choose whether the Sofia gateway only listens on this device or can be reached from your local network.
     server-auth-token:
       label: Auth Token
       description: >-
-        Security token required by remote clients that connect to this gateway. When left empty, AIRI generates a new token automatically.
+        Security token required by remote clients that connect to this gateway. When left empty, Sofia generates a new token automatically.
       placeholder: Tự động tạo
     qr:
       title: Connect from Stage Pocket
       description: >-
         Scan this QR code from Stage Pocket to try all reachable local network addresses and save the first working one.
       refresh: Làm mới
-      image-alt: AIRI server channel connection QR code
+      image-alt: Sofia server channel connection QR code
       candidates: Các địa chỉ khả dụng
       token-hint: >-
         The QR code includes the auth token so Stage Pocket can authenticate after connecting. Do not share it publicly.
@@ -1917,7 +1917,7 @@ pages:
     qr-scan:
       title: Kết nối nhanh
       description: Quét mã QR từ Tamagotchi để kết nối nhanh
-      instructions: Hướng camera vào mã QR kết nối AIRI.
+      instructions: Hướng camera vào mã QR kết nối Sofia.
       action: Quét
       success:
         title: Đã lưu địa chỉ kết nối
@@ -2047,8 +2047,8 @@ pages:
           presets:
             default:
               colors:
-                color-1: Xanh AIRI
-              description: Màu xanh lá mặc định do AIRI mang đến cho bạn!
+                color-1: Xanh Sofia
+              description: Màu xanh lá mặc định do Sofia mang đến cho bạn!
               title: Màu mặc định
             morandi:
               colors:
@@ -2149,7 +2149,7 @@ sections:
 theme:
   title: Chủ Đề
   description: |
-    Chuyển đổi chủ đề cơ bản của AIRI, Chế độ Sáng hoặc Chế độ Tối.
+    Chuyển đổi chủ đề cơ bản của Sofia, Chế độ Sáng hoặc Chế độ Tối.
   auto: Hệ thống
   light: Sáng
   dark: Tối

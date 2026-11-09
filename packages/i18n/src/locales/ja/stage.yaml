@@ -22,7 +22,7 @@ character-switcher:
   empty: キャラクターはまだいません
   failed: キャラクターを切り替えられませんでした。もう一度お試しください。
 mobile-tools:
-  sign-in: AIRI にログイン
+  sign-in: Sofia にログイン
   account-description: アカウントと設定
   sound: サウンド
   character-voice: キャラクターの声
@@ -65,7 +65,7 @@ chat:
     system-default: システムの既定値
     listen: 常時聞き取る
     push-to-talk: 押して話す
-    push-to-talk-unavailable: このデバイスにはプッシュトゥトークキーがないため、AIRIは聞き取りを行いません。聴覚の設定で入力モードを変更してください。
+    push-to-talk-unavailable: このデバイスにはプッシュトゥトークキーがないため、Sofiaは聞き取りを行いません。聴覚の設定で入力モードを変更してください。
     wake-word: ウェイクワードを聞き取る
     hearing-settings: 聴覚の詳細設定…
     options-hint: カーソルを合わせるか右クリックでオプションを表示
@@ -267,7 +267,7 @@ computer-use:
 status:
   preparing: マイクを準備中
   listening: 聞き取り中
-  paused: AIRIの発話中は聞き取りを一時停止
+  paused: Sofiaの発話中は聞き取りを一時停止
   transcribing: 文字起こし中
   hearing-error: 音声を文字起こしできませんでした
   no-transcript: 認識された音声はここに表示されます。

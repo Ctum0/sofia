@@ -10,8 +10,8 @@ animations:
 dialogs:
   onboarding:
     official:
-      title: AIRI 官方提供者
-    title: 歡迎來到 AIRI！
+      title: Sofia 官方提供者
+    title: 歡迎來到 Sofia！
     description: 讓我們先設定您的第一個服務來源來開始使用。
     selectProvider: 選擇服務來源
     configureProvider: 設定 {provider}
@@ -35,13 +35,13 @@ dialogs:
     retry: 重試
     credentialsSafeLabel: 請妥善保管 API 金鑰與憑證！
     credentialsSafeLocal: >-
-      AIRI 完全在您的電腦本機執行，我們絕不會竊取您用於 AI / LLM 提供者的憑證。但請注意，API 金鑰屬於敏感資訊，請妥善保管，切勿與他人分享。
+      Sofia 完全在您的電腦本機執行，我們絕不會竊取您用於 AI / LLM 提供者的憑證。但請注意，API 金鑰屬於敏感資訊，請妥善保管，切勿與他人分享。
     credentialsSafeOpenSource: >-
       AIRI 以 {github} 開放原始碼，如果您想了解我們如何處理您的憑證，歡迎檢視我們的程式碼。
     enableChatCheck: >-
       允許 airi 傳送「ping」訊息給第一個可用的聊天模型，以檢查是否可用
     start: 開始吧！
-    loginPrompt: 登入以使用 AIRI 官方服務，獲得最佳體驗。
+    loginPrompt: 登入以使用 Sofia 官方服務，獲得最佳體驗。
     loginAction: 登入
     setupWithoutSigningIn: 使用自己的服務供應商設定
     pricingLink: 定價
@@ -57,7 +57,7 @@ dialogs:
       notificationsTitle: 通知
       notificationsDescription: 允許提醒以及重要的狀態更新。
       microphoneTitle: 麥克風
-      microphoneDescription: 允許 AIRI 使用麥克風進行語音輸入和轉錄。
+      microphoneDescription: 允許 Sofia 使用麥克風進行語音輸入和轉錄。
       requestAction: 請求取得
       optionalHint: 即使沒有授予這些權限，您也可以繼續。
       stateGranted: 已授權
@@ -94,7 +94,7 @@ analytics:
   notice:
     title: 使用情況分析
     description: >-
-      AIRI 收集匿名使用情況資料，以了解應用程式的使用方式並改善穩定性，不會收集個人資料。
+      Sofia 收集匿名使用情況資料，以了解應用程式的使用方式並改善穩定性，不會收集個人資料。
     privacyPrefix: 閱讀
     privacyLink: 隱私權政策
     onboardingHint: 之後可在「設定 > 系統 > 通用」中關閉使用情況分析。
@@ -171,14 +171,14 @@ live2d:
   theme-color-from-model:
     title: 從模型中提取顏色
     description: >
-      從目前的渲染畫布提取主要顏色。點選顏色即可套用至 AIRI；若顏色不理想，請讓模型擺出不同姿勢後多次提取。
+      從目前的渲染畫布提取主要顏色。點選顏色即可套用至 Sofia；若顏色不理想，請讓模型擺出不同姿勢後多次提取。
     button-extract:
       title: 提取
   animation:
     title: 動畫
     motion-driver:
       title: 動作驅動器
-      description: 選擇 AIRI 產生待機身體與眼睛動作的方式。
+      description: 選擇 Sofia 產生待機身體與眼睛動作的方式。
       options:
         universal:
           title: 通用
@@ -218,7 +218,7 @@ live2d:
       description: 使用外部計時器強制播放眨眼動畫
     blink-mode:
       title: 眨眼模式
-      description: 選擇模型內建的眨眼，或 AIRI 的強制眨眼計時器。
+      description: 選擇模型內建的眨眼，或 Sofia 的強制眨眼計時器。
     idle-motion:
       title: 待機動畫
       no-motion: 沒有可用的動畫
@@ -273,7 +273,7 @@ pages:
     connections:
       tab: 已連結的帳戶
       title: 已連結的帳戶
-      description: 透過這些服務供應商登入 AIRI。解除連結可撤銷存取權，再次連結可改用其他帳戶。
+      description: 透過這些服務供應商登入 Sofia。解除連結可撤銷存取權，再次連結可改用其他帳戶。
       status:
         linked: 已連結
         notLinked: 未連結
@@ -290,7 +290,7 @@ pages:
         listFailed: 無法載入已連結的帳戶。
         unlinkFailed: 無法解除此帳戶的連結。
         linkFailed: 無法開始連結流程。
-        accountAlreadyLinkedToDifferentUser: 這個 OAuth 帳戶已經連結到另一個 AIRI 帳戶了。請選擇另一個第三方帳戶，或先在另一個 AIRI 帳戶中解除連結。
+        accountAlreadyLinkedToDifferentUser: 這個 OAuth 帳戶已經連結到另一個 Sofia 帳戶了。請選擇另一個第三方帳戶，或先在另一個 Sofia 帳戶中解除連結。
         oauthCallbackFailed: 暫時無法連結這個 OAuth 帳戶。請重試，或選擇另一個第三方帳戶。
         lastAccount: 這是你唯一的登入方式。解除連結前，請先設定密碼。
     security:
@@ -358,7 +358,7 @@ pages:
         pending: 等待上傳
         refused: 尚未上傳。帳戶沒有空間容納更多角色卡，因此此卡片會保留在這部裝置上。
       conflict_copy_name: '{name}（衝突副本）'
-      conflict_notice: 另一部裝置變更了同一個角色。AIRI 已將這部裝置上的版本保留為副本。
+      conflict_notice: 另一部裝置變更了同一個角色。Sofia 已將這部裝置上的版本保留為副本。
       history:
         tab: 歷史記錄
         empty: 此角色卡尚無歷史記錄。
@@ -434,7 +434,7 @@ pages:
     delete: 刪除
     delete_card: 刪除角色卡
     delete_confirmation: 確定要刪除此角色卡嗎？
-    description: 管理 AIRI 角色卡
+    description: 管理 Sofia 角色卡
     description_label: 描述
     drop_here: 放開以上傳檔案
     create_card: 建立新角色卡
@@ -519,7 +519,7 @@ pages:
       model: 聲音 / 模型
       voice: 聲音 / 聲線
     systemprompt: 系統提示詞
-    title: AIRI 角色卡
+    title: Sofia 角色卡
     try_different_search: 嘗試使用其他關鍵字搜尋
     export: 匯出
     exported: 角色卡套件已匯出
@@ -528,13 +528,13 @@ pages:
     import_missing_file: 角色卡套件缺少必要檔案
     import_invalid_file: 角色卡套件檔案無效
     upload: 上傳
-    upload_desc: 點擊或拖曳 AIRI 角色卡套件以匯入
+    upload_desc: 點擊或拖曳 Sofia 角色卡套件以匯入
   memory:
     description: 存放記憶的地方，以及策略
     title: 記憶體
   data:
     title: 資料
-    description: 管理已儲存的 AIRI 資料、匯出與重置作業
+    description: 管理已儲存的 Sofia 資料、匯出與重置作業
     sections:
       chats:
         title: 對話紀錄
@@ -569,11 +569,11 @@ pages:
         delete: 刪除所有資料
       desktop-folder:
         title: 開啟應用程式資料夾
-        description: 在檔案管理器中開啟 AIRI 的資料夾。
+        description: 在檔案管理器中開啟 Sofia 的資料夾。
         open: 開啟資料夾
       desktop:
         title: 重設桌面設定與狀態
-        description: 清除 AIRI 桌面設定與執行階段狀態
+        description: 清除 Sofia 桌面設定與執行階段狀態
         center: 將桌面視窗移至中央
         reset: 重設桌面資料
     confirmations:
@@ -670,7 +670,7 @@ pages:
           name: Nano Banana（預覽）
           description: 使用 Google AI Studio 進行圖像預覽與回應。
       card:
-        description: 設定 AIRI 生成圖像與視覺內容的方式。
+        description: 設定 Sofia 生成圖像與視覺內容的方式。
         comfyui_empty: 尚未設定 ComfyUI 工作流程。前往「設定 → 提供者 → ComfyUI」上傳工作流程範本。
         exposed_fields: '已公開 {count} 個欄位'
         open_on_replicate: 在 Replicate 上開啟
@@ -753,14 +753,14 @@ pages:
             thinking:
               label: 思考
               required-description: 此模型必須啟用思考。
-              provider-default-description: AIRI 未提供此模型的推理設定，將使用 OpenRouter 的預設值。
+              provider-default-description: Sofia 未提供此模型的推理設定，將使用 OpenRouter 的預設值。
       title: 意識
     description: 思維、視覺、語音綜合、遊戲等
     gaming-factorio:
       description: 一起玩 Factorio！
       title: 異星工廠 Factorio
       enable: 啟用異星工廠集成
-      enable-description: 允許 AIRI 與異星工廠遊戲互動
+      enable-description: 允許 Sofia 與異星工廠遊戲互動
       server-address: 伺服器地址
       server-address-description: 異星工廠伺服器的 IP 地址或主機名稱
       server-address-placeholder: 輸入伺服器地址（例如：localhost 或 192.168.1.100）
@@ -833,30 +833,30 @@ pages:
             error: 無法使用麥克風
           input-device:
             label: 輸入裝置
-            description: 選擇 AIRI 使用的麥克風。
+            description: 選擇 Sofia 使用的麥克風。
             playground-description: 聽覺模組與測試區使用此麥克風。
             placeholder: 選擇麥克風
           auto-send:
             title: 轉錄文字
-            description: 選擇 AIRI 如何處理你的語音轉錄文字。
+            description: 選擇 Sofia 如何處理你的語音轉錄文字。
             label: 自動傳送
-            label-description: AIRI 會在延遲後將轉錄文字傳送至對話。停用可先閱讀與編輯文字，每則傳送的訊息都會消耗 token。
+            label-description: Sofia 會在延遲後將轉錄文字傳送至對話。停用可先閱讀與編輯文字，每則傳送的訊息都會消耗 token。
             delay: 傳送延遲
-            delay-description: AIRI 傳送轉錄文字前的等待時間。
+            delay-description: Sofia 傳送轉錄文字前的等待時間。
             immediate: 立即
           input-mode:
             title: 輸入模式
-            description: 選擇麥克風開啟時，AIRI 開始聆聽的方式。
+            description: 選擇麥克風開啟時，Sofia 開始聆聽的方式。
             label: 開始聆聽
             always-on: 持續開啟
-            always-on-description: AIRI 持續聆聽，並在你說話時回應。
+            always-on-description: Sofia 持續聆聽，並在你說話時回應。
             push-to-talk: 按住說話
-            push-to-talk-description: AIRI 僅在你按住「按住說話」按鍵時聆聽，麥克風也只在按住期間開啟。
+            push-to-talk-description: Sofia 僅在你按住「按住說話」按鍵時聆聽，麥克風也只在按住期間開啟。
             push-to-talk-unavailable: 此處無法使用。這部裝置上的應用程式未提供「按住說話」按鍵。
             stranded-title: 此處無法使用「按住說話」
-            stranded-description: 這部裝置上的應用程式未提供「按住說話」按鍵，因此 AIRI 不會聆聽。請選擇「持續開啟」或「喚醒詞」來對話。
+            stranded-description: 這部裝置上的應用程式未提供「按住說話」按鍵，因此 Sofia 不會聆聽。請選擇「持續開啟」或「喚醒詞」來對話。
             wake-word: 喚醒詞
-            wake-word-description: 麥克風保持開啟，但 AIRI 只會在你說出角色的喚醒詞後聆聽。
+            wake-word-description: 麥克風保持開啟，但 Sofia 只會在你說出角色的喚醒詞後聆聽。
             wake-word-status:
               no-words: 尚無角色設定喚醒詞，請在對話中請角色設定。
               unconfigured: 麥克風開啟時，會開始偵測喚醒詞。
@@ -865,9 +865,9 @@ pages:
               error: '無法使用喚醒詞模型：{error}'
           end-judge:
             title: 說完判定
-            description: 你停頓時，對話模型會讀取轉錄文字，判斷你是否說完了。如果還沒說完，AIRI 會再等 3 秒讓你繼續說。
+            description: 你停頓時，對話模型會讀取轉錄文字，判斷你是否說完了。如果還沒說完，Sofia 會再等 3 秒讓你繼續說。
             enabled: 判斷我是否說完了
-            enabled-description: 每次停頓時的轉錄文字會傳送給修正所用的模型。關閉後，AIRI 會在短暫停頓後結束這次語音輸入。
+            enabled-description: 每次停頓時的轉錄文字會傳送給修正所用的模型。關閉後，Sofia 會在短暫停頓後結束這次語音輸入。
           rephrase:
             title: 轉錄文字修正
             description: 對話模型會在建立草稿前修正辨識錯誤並移除贅詞，原始文字仍會保留。
@@ -909,7 +909,7 @@ pages:
     messaging-discord:
       description: Discord 訊息與語音聊天
       enable: 啟用 Discord 集成
-      enable-description: 允許 AIRI 透過 Discord 進行互動
+      enable-description: 允許 Sofia 透過 Discord 進行互動
       token: 機器人權杖
       token-description: 您的 Discord 機器人权杖
       token-placeholder: 輸入您的 Discord 機器人权杖
@@ -992,7 +992,7 @@ pages:
     x:
       description: X / Twitter 的瀏覽與使用
       enable: 啟用 X / Twitter 集成
-      enable-description: 允許 AIRI 與 X / Twitter 互動
+      enable-description: 允許 Sofia 與 X / Twitter 互動
       api-key: API 金鑰
       api-key-description: 您的 X / Twitter API 金鑰
       api-key-placeholder: 輸入您的 X / Twitter API 金鑰
@@ -1075,9 +1075,9 @@ pages:
         airi-agree: '是'
         airi-disagree: 不用了，謝謝
     home-assistant:
-      description: 讓 AIRI 讀取並控制你的 Home Assistant 裝置。
+      description: 讓 Sofia 讀取並控制你的 Home Assistant 裝置。
       enable: 啟用 Home Assistant
-      enable-description: 允許 AIRI 讀取與控制裝置
+      enable-description: 允許 Sofia 讀取與控制裝置
       base-url:
         label: 位址
         description: 你的 Home Assistant 執行個體位址。
@@ -1104,15 +1104,15 @@ pages:
         failed-policy-rollback: 儲存遭拒。裝置清單未傳至執行工具的視窗，因此模型無法存取任何裝置。請再試一次。
       access:
         label: 裝置存取權
-        description: 選擇 AIRI 可以讀取與控制的裝置。
+        description: 選擇 Sofia 可以讀取與控制的裝置。
         mode-all: 所有裝置
         mode-allow: 允許清單
         mode-deny: 封鎖清單
-        all-hint: AIRI 可存取所有裝置，選擇清單即可限制存取範圍。
+        all-hint: Sofia 可存取所有裝置，選擇清單即可限制存取範圍。
         rule-allow: 僅可存取你選擇的裝置。
         rule-deny: 可存取所有裝置，但你選擇的裝置除外。
         selected-count: '已選取 {count} 個'
-        empty-warning: 請至少選擇一個裝置。在選擇前，AIRI 無法存取任何裝置。
+        empty-warning: 請至少選擇一個裝置。在選擇前，Sofia 無法存取任何裝置。
         search: 搜尋裝置
         reload: 重新載入裝置
         loading: 正在載入裝置…
@@ -1254,16 +1254,16 @@ pages:
         zone: 區域
     web-search:
       title: 網路搜尋
-      description: 讓 AIRI 連網搜尋最新資訊
+      description: 讓 Sofia 連網搜尋最新資訊
       enable: 啟用網路搜尋
-      enable-description: 允許 AIRI 在對話中連網搜尋
+      enable-description: 允許 Sofia 在對話中連網搜尋
       api-key: Tavily API 金鑰
       api-key-description: 網路搜尋由 Tavily 提供支援，可在 tavily.com 免費取得 API 金鑰。
       api-key-placeholder: 輸入您的 Tavily API 金鑰
       configured: 網路搜尋已就緒！
     mcp-server:
       title: MCP 伺服器
-      description: 設定 MCP 伺服器並將其工具帶入 AIRI。
+      description: 設定 MCP 伺服器並將其工具帶入 Sofia。
       config-path: 設定檔
       runtime-title: 執行狀態
       empty: 尚無 MCP 伺服器 — 點擊下方「新增伺服器」建立一個，或透過「編輯 JSON」貼上設定。
@@ -1303,7 +1303,7 @@ pages:
           placeholder: 例如：filesystem
         transport:
           label: 類型
-          description: AIRI 連線至此伺服器的方式。
+          description: Sofia 連線至此伺服器的方式。
           stdio: 本機程序
           http: 遠端 URL
         url:
@@ -1337,7 +1337,7 @@ pages:
         placeholder: 在此貼上 mcp.json…
       test:
         title: 測試連線
-        description: AIRI 會短暫連線至伺服器，列出其提供的工具。
+        description: Sofia 會短暫連線至伺服器，列出其提供的工具。
         pick-server-label: 伺服器
         no-servers: 尚無可測試的伺服器
         no-server-selected: 請先選擇伺服器。
@@ -1565,7 +1565,7 @@ pages:
     helpinfo:
       title: 第一次使用？
       description: >
-        AIRI 需要設定至少一個 {chat} 服務來源，才能正常思考與運作。你可以把它看作是 AIRI 系統中角色的大腦。
+        Sofia 需要設定至少一個 {chat} 服務來源，才能正常思考與運作。你可以把它看作是 Sofia 系統中角色的大腦。
     explained:
       chat: 文字生成模型服務來源，例如 OpenRouter、OpenAI、Ollama
       Speech: 語音（文字轉語音）模型服務來源，例如 ElevenLabs、Azure Speech
@@ -1585,7 +1585,7 @@ pages:
         asset:
           title: 模型檔案
           unknown: 正在檢查檔案…
-          bundled: AIRI 內建
+          bundled: Sofia 內建
           installed: 已儲存在這部裝置上
           missing: 使用時下載
           downloading: 正在下載…
@@ -1706,7 +1706,7 @@ pages:
               description: ComfyUI 執行所在的位址
           cors:
             title: 偵測到 CORS 封鎖
-            description: ComfyUI 預設封鎖其他應用程式的請求。若要允許 AIRI 連線，請使用 `--enable-cors-header "*"` 參數啟動 ComfyUI。
+            description: ComfyUI 預設封鎖其他應用程式的請求。若要允許 Sofia 連線，請使用 `--enable-cors-header "*"` 參數啟動 ComfyUI。
           workflows:
             title: 工作流程範本
             upload: 上傳工作流程
@@ -1717,7 +1717,7 @@ pages:
             remove: 移除
             config_snippet: 繪圖設定片段
             copy_json: 複製 JSON
-            paste_hint: 將此片段貼至 AIRI 角色卡的繪圖設定，以覆寫這些節點。
+            paste_hint: 將此片段貼至 Sofia 角色卡的繪圖設定，以覆寫這些節點。
           upload:
             prompt: 拖放或選擇 workflow_api.json 檔案
             invalid_json: 無效 JSON
@@ -1891,13 +1891,13 @@ pages:
         description: 您可以使用 Prompt API，將自然語言要求傳送至 Chrome 中的基礎模型。
       official:
         title: 官方服務供應商
-        description: AIRI 提供的官方 AI 服務。
+        description: Sofia 提供的官方 AI 服務。
         speech-title: 官方語音服務供應商
-        speech-description: AIRI 提供的官方文字轉語音服務。
+        speech-description: Sofia 提供的官方文字轉語音服務。
         speech-streaming-title: 官方串流語音服務供應商
-        speech-streaming-description: AIRI 提供的官方低延遲文字轉語音服務（雙向 WebSocket）。
+        speech-streaming-description: Sofia 提供的官方低延遲文字轉語音服務（雙向 WebSocket）。
         transcription-title: 官方語音轉文字服務供應商
-        transcription-description: AIRI 提供的官方語音轉文字服務。
+        transcription-description: Sofia 提供的官方語音轉文字服務。
       transcriptions:
         playground:
           title: 實驗平台
@@ -1912,18 +1912,18 @@ pages:
       label: WebSocket 伺服器位址
     server-hostname:
       label: Expose On Network
-      description: Choose whether the AIRI gateway only listens on this device or can be reached from your local network.
+      description: Choose whether the Sofia gateway only listens on this device or can be reached from your local network.
     server-auth-token:
       label: Auth Token
       description: >-
-        Security token required by remote clients that connect to this gateway. When left empty, AIRI generates a new token automatically.
+        Security token required by remote clients that connect to this gateway. When left empty, Sofia generates a new token automatically.
       placeholder: 自動產生
     qr:
       title: Connect from Stage Pocket
       description: >-
         Scan this QR code from Stage Pocket to try all reachable local network addresses and save the first working one.
       refresh: 重新整理
-      image-alt: AIRI server channel connection QR code
+      image-alt: Sofia server channel connection QR code
       candidates: 候選位址
       token-hint: >-
         The QR code includes the auth token so Stage Pocket can authenticate after connecting. Do not share it publicly.
@@ -1933,7 +1933,7 @@ pages:
     qr-scan:
       title: 快速連線
       description: 掃描桌面版的 QR 碼以快速連線
-      instructions: 將攝影機對準 AIRI 連線 QR 碼。
+      instructions: 將攝影機對準 Sofia 連線 QR 碼。
       action: 掃描
       success:
         title: 已儲存連線位址
@@ -2063,8 +2063,8 @@ pages:
           presets:
             default:
               colors:
-                color-1: AIRI 綠
-              description: AIRI 為您帶來的預設綠色系主題色彩！
+                color-1: Sofia 綠
+              description: Sofia 為您帶來的預設綠色系主題色彩！
               title: 預設色彩
             morandi:
               colors:
@@ -2165,7 +2165,7 @@ sections:
 theme:
   title: 主題
   description: |
-    切換 AIRI 的基礎主題，亮色模式或暗色模式。
+    切換 Sofia 的基礎主題，亮色模式或暗色模式。
   auto: 系統
   light: 淺色
   dark: 深色

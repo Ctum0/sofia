@@ -10,8 +10,8 @@ animations:
 dialogs:
   onboarding:
     official:
-      title: AIRI 官方提供商
-    title: 欢迎来到 AIRI！
+      title: Sofia 官方提供商
+    title: 欢迎来到 Sofia！
     description: 让我们设置您的第一个服务来源来开始使用。
     selectProvider: 选择服务来源
     configureProvider: 配置 {provider}
@@ -35,13 +35,13 @@ dialogs:
     retry: 重试
     credentialsSafeLabel: 保证您的 API 密钥和凭据的安全！
     credentialsSafeLocal: >-
-      AIRI 完全本地运行在您的电脑中，我们绝不窃取您对大模型提供商的凭据。但请牢记，您的 API 密钥属于敏感信息。务必妥善保管，切勿与他人分享。
+      Sofia 完全本地运行在您的电脑中，我们绝不窃取您对大模型提供商的凭据。但请牢记，您的 API 密钥属于敏感信息。务必妥善保管，切勿与他人分享。
     credentialsSafeOpenSource: >-
       AIRI 在 {github} 开源，如果您想确认我们如何存储您的凭据，您可以自由浏览源码。
     enableChatCheck: >-
-      允许 AIRI 向第一个可用的聊天模式发送「ping」消息以检查可用性
+      允许 Sofia 向第一个可用的聊天模式发送「ping」消息以检查可用性
     start: 开始吧！
-    loginPrompt: 登录并使用 AIRI 官方提供的服务以获得最佳体验。
+    loginPrompt: 登录并使用 Sofia 官方提供的服务以获得最佳体验。
     loginAction: 登录
     setupWithoutSigningIn: 配置您自己的 AI 服务来源
     pricingLink: 价格
@@ -58,7 +58,7 @@ dialogs:
       notificationsTitle: 通知
       notificationsDescription: 允许提醒以及重要的状态更新。
       microphoneTitle: 麦克风
-      microphoneDescription: 允许 AIRI 使用麦克风进行语音输入和转写。
+      microphoneDescription: 允许 Sofia 使用麦克风进行语音输入和转写。
       requestAction: 请求获取
       optionalHint: 即使没有授予这些权限，您也可以继续。
       stateGranted: 已授权
@@ -95,7 +95,7 @@ analytics:
   notice:
     title: 使用数据及崩溃分析
     description: >-
-      AIRI 开发者将会收集脱敏的匿名使用数据，以及崩溃及错误细节，以帮助我们了解应用程序是如何使用和提高稳定性的，不会收集任何个人数据。
+      Sofia 开发者将会收集脱敏的匿名使用数据，以及崩溃及错误细节，以帮助我们了解应用程序是如何使用和提高稳定性的，不会收集任何个人数据。
     privacyPrefix: 阅读
     privacyLink: 隐私政策
     onboardingHint: 您可以稍后在「设置」>「系统」>「通用」中关闭使用数据及崩溃分析。
@@ -183,14 +183,14 @@ live2d:
   theme-color-from-model:
     title: 从模型提取主题颜色
     description: >
-      从当前渲染画布提取主要颜色。点击颜色即可应用到 AIRI；如果颜色不理想，请让模型摆出不同姿势后多次提取。
+      从当前渲染画布提取主要颜色。点击颜色即可应用到 Sofia；如果颜色不理想，请让模型摆出不同姿势后多次提取。
     button-extract:
       title: 提取
   animation:
     title: 动画
     motion-driver:
       title: 动作驱动器
-      description: 选择 AIRI 如何生成空闲身体和眼部动作。
+      description: 选择 Sofia 如何生成空闲身体和眼部动作。
       options:
         universal:
           title: 通用
@@ -230,7 +230,7 @@ live2d:
       description: 使用外部计时器强制播放眨眼动画
     blink-mode:
       title: 眨眼模式
-      description: 选择模型内置眨眼或 AIRI 的强制眨眼计时器。
+      description: 选择模型内置眨眼或 Sofia 的强制眨眼计时器。
     idle-motion:
       title: 空闲动画
       no-motion: 没有可用动画
@@ -285,7 +285,7 @@ pages:
     connections:
       tab: 已关联的帐户
       title: 已关联的账户
-      description: 可以通过第三方帐户登录至 AIRI。解除关联即可撤回对第三方帐户的授权，也可以通过解除关联来关联至另一个帐户。
+      description: 可以通过第三方帐户登录至 Sofia。解除关联即可撤回对第三方帐户的授权，也可以通过解除关联来关联至另一个帐户。
       status:
         linked: 已关联
         notLinked: 未关联
@@ -302,7 +302,7 @@ pages:
         listFailed: 暂时无法加载已关联的帐户
         unlinkFailed: 无法解除此帐户的关联
         linkFailed: 暂时无法开始关联的流程，要之后再试试吗？
-        accountAlreadyLinkedToDifferentUser: 这个 OAuth 帐户已经关联到另一个 AIRI 帐户了。请选择另一个第三方帐户，或者先在另一个 AIRI 帐户中解除关联。
+        accountAlreadyLinkedToDifferentUser: 这个 OAuth 帐户已经关联到另一个 Sofia 帐户了。请选择另一个第三方帐户，或者先在另一个 Sofia 帐户中解除关联。
         oauthCallbackFailed: 暂时无法关联这个 OAuth 帐户。请重试，或选择另一个第三方帐户。
         lastAccount: 这是你当前唯一的登录方式，请务必先设置密码再解除关联哦
     sync:
@@ -462,7 +462,7 @@ pages:
     delete: 删除
     delete_card: 删除角色卡
     delete_confirmation: 确定要删除这张角色卡吗？
-    description: 管理 AIRI 角色卡
+    description: 管理 Sofia 角色卡
     description_label: 描述
     drop_here: 松手以上传文件
     create_card: 创建新角色卡
@@ -564,7 +564,7 @@ pages:
       model: 声音 / 模型
       voice: 声音 / 声线
     systemprompt: 系统提示词
-    title: AIRI 角色卡
+    title: Sofia 角色卡
     try_different_search: 尝试使用其他关键词搜索
     export: 导出
     exported: 角色卡已导出
@@ -573,13 +573,13 @@ pages:
     import_missing_file: 角色卡缺少必需文件
     import_invalid_file: 角色卡文件无效
     upload: 上传
-    upload_desc: 点击或拖动 AIRI 角色卡包以导入
+    upload_desc: 点击或拖动 Sofia 角色卡包以导入
   memory:
     description: 存放记忆的地方，以及策略
     title: 记忆体
   data:
     title: 数据
-    description: 管理存储 AIRI 数据、导出和重置
+    description: 管理存储 Sofia 数据、导出和重置
     sections:
       chats:
         title: 聊天会话
@@ -615,11 +615,11 @@ pages:
         delete: 删除所有数据
       desktop-folder:
         title: 打开应用数据文件夹
-        description: 在文件管理器中打开 AIRI 的数据文件夹。
+        description: 在文件管理器中打开 Sofia 的数据文件夹。
         open: 打开文件夹
       desktop:
         title: 重置桌面设置和状态
-        description: 清除 AIRI 桌面设置和运行状态。
+        description: 清除 Sofia 桌面设置和运行状态。
         center: 将桌面窗口移至中央
         reset: 重置桌面数据
     confirmations:
@@ -673,7 +673,7 @@ pages:
         blink-options:
           off: '关闭'
           model: 使用模型自带
-          airi: AIRI 计时
+          airi: Sofia 计时
       reset: 重置
       back: 返回
       clear-cache-confirm:
@@ -763,7 +763,7 @@ pages:
           name: Nano Banana（预览）
           description: 使用 Google AI Studio 进行图像预览和响应。
       card:
-        description: 配置 AIRI 生成图像和视觉内容的方式。
+        description: 配置 Sofia 生成图像和视觉内容的方式。
         comfyui_empty: 未配置 ComfyUI 工作流。前往设置 → 提供商 → ComfyUI 上传工作流模板。
         exposed_fields: '{count} 个公开字段'
         open_on_replicate: 在 Replicate 打开
@@ -846,14 +846,14 @@ pages:
             thinking:
               label: 思考
               required-description: 此模型必须启用思考。
-              provider-default-description: AIRI 未提供此模型的推理设置，将使用 OpenRouter 的默认设置。
+              provider-default-description: Sofia 未提供此模型的推理设置，将使用 OpenRouter 的默认设置。
       title: 意识
     description: 思维，视觉，言语综合，游戏等
     gaming-factorio:
       description: 一起玩 Factorio！
       title: 异星工厂 Factorio
       enable: 启用异星工厂集成
-      enable-description: 允许AIRI与异星工厂游戏互动
+      enable-description: 允许Sofia与异星工厂游戏互动
       server-address: 服务器地址
       server-address-description: 异星工厂服务器的IP地址或主机名
       server-address-placeholder: 输入服务器地址（例如：localhost或192.168.1.100）
@@ -919,13 +919,13 @@ pages:
           unresolved: 还没有角色回应这个发音。
       voiceprint:
         title: 声纹
-        description: 登记你的声音，让 AIRI 能认出你。
+        description: 登记你的声音，让 Sofia 能认出你。
         intro: 声纹是声纹模型从你的语音中算出的一组数字。它不包含音频，但能识别出你。
-        privacy: AIRI 只把你的声纹保存在这台设备上。导出角色卡不会带上它，AIRI 也不会上传它。要删除它，可以使用本页的「删除声纹」，或数据设置中的「删除所有数据」。
+        privacy: Sofia 只把你的声纹保存在这台设备上。导出角色卡不会带上它，Sofia 也不会上传它。要删除它，可以使用本页的「删除声纹」，或数据设置中的「删除所有数据」。
         download: 第一次登记时会下载声纹模型，约 28 MB。
         speaker-recognition:
           label: 说话人识别
-          description: 把由说话或唤醒词开始的每次语音输入和你的声纹比对，并把分数记录在这次输入的 IO trace 中。「按住说话」的输入没有分数。任何人的声音仍然可以开始输入，聊天模型也收不到这个分数。AIRI 聆听期间，声纹模型会一直留在内存中。
+          description: 把由说话或唤醒词开始的每次语音输入和你的声纹比对，并把分数记录在这次输入的 IO trace 中。「按住说话」的输入没有分数。任何人的声音仍然可以开始输入，聊天模型也收不到这个分数。Sofia 聆听期间，声纹模型会一直留在内存中。
           needs-voiceprint: 登记声纹后才能开启说话人识别。
         status:
           none: 你还没有声纹。
@@ -933,7 +933,7 @@ pages:
           outdated: 声纹模型已更新。请重新登记，才能使用你的声纹。
         instructions: 请一个人待在麦克风旁边。点击「开始录音」，然后用平时的声音读出下面的句子。
         sentence-1: 今天我想看看天气，读一下消息，再安排好接下来要做的事情。
-        sentence-2: 我一般在晚上和 AIRI 聊天，那时候房间很安静，我也有空。
+        sentence-2: 我一般在晚上和 Sofia 聊天，那时候房间很安静，我也有空。
         sentence-3: 请记住我的声音，这样你就能知道是我在说话。
         progress: '已录到 {seconds} 秒语音。登记至少需要 {min} 秒。'
         start: 开始录音
@@ -956,18 +956,18 @@ pages:
             error: 麦克风不可用
           microphone-switch:
             label: 启用麦克风
-            description: 关闭后，AIRI 的所有功能都不能使用麦克风。
+            description: 关闭后，Sofia 的所有功能都不能使用麦克风。
           listen:
             label: 聆听
-            description: AIRI 按上面的输入模式聆听。需要启用麦克风。
+            description: Sofia 按上面的输入模式聆听。需要启用麦克风。
           input-device:
             label: 输入设备
-            description: 选择 AIRI 使用的麦克风。
+            description: 选择 Sofia 使用的麦克风。
             playground-description: 听觉和测试区都使用这个麦克风。
             placeholder: 选择麦克风
             system-default: 系统默认
             allow: 允许使用麦克风
-            allow-description: 允许访问后，AIRI 才能列出你的麦克风。
+            allow-description: 允许访问后，Sofia 才能列出你的麦克风。
             allow-action: 允许
             blocked: 浏览器阻止了麦克风
             blocked-description: 请在浏览器的网站设置里允许这个网站使用麦克风，然后再试一次。
@@ -975,26 +975,26 @@ pages:
             missing: 没有找到麦克风。请连接麦克风后重新打开这个页面。
           auto-send:
             title: 转写文本
-            description: 选择 AIRI 如何处理识别出的文字。
+            description: 选择 Sofia 如何处理识别出的文字。
             label: 自动发送
-            label-description: AIRI 会在延迟后把转写文本发送到聊天。关闭后可以先阅读和编辑文字。每条发送的消息都会消耗 token。
+            label-description: Sofia 会在延迟后把转写文本发送到聊天。关闭后可以先阅读和编辑文字。每条发送的消息都会消耗 token。
             delay: 发送延迟
-            delay-description: AIRI 发送转写文本之前等待的时间。
+            delay-description: Sofia 发送转写文本之前等待的时间。
             immediate: 立即
           input-mode:
             title: 输入模式
-            description: 选择麦克风开启时 AIRI 如何开始聆听。
+            description: 选择麦克风开启时 Sofia 如何开始聆听。
             label: 开始聆听
-            call-only: 在小屏幕上，AIRI 只在语音通话时聆听。要开始通话，请点聊天输入框旁的添加按钮。
+            call-only: 在小屏幕上，Sofia 只在语音通话时聆听。要开始通话，请点聊天输入框旁的添加按钮。
             always-on: 持续聆听
-            always-on-description: AIRI 一直聆听，你说话时就会回应。
+            always-on-description: Sofia 一直聆听，你说话时就会回应。
             push-to-talk: 按住说话
-            push-to-talk-description: 只有按住「按住说话」按键时 AIRI 才会聆听。麦克风只在按住期间开启。
+            push-to-talk-description: 只有按住「按住说话」按键时 Sofia 才会聆听。麦克风只在按住期间开启。
             push-to-talk-unavailable: 此处不可用。此应用在当前设备上没有「按住说话」按键。
             stranded-title: 此处无法使用按住说话
-            stranded-description: 此应用在当前设备上没有「按住说话」按键，所以 AIRI 不会聆听。如需在此处与 AIRI 对话，请选择「持续聆听」或「唤醒词」。
+            stranded-description: 此应用在当前设备上没有「按住说话」按键，所以 Sofia 不会聆听。如需在此处与 Sofia 对话，请选择「持续聆听」或「唤醒词」。
             wake-word: 唤醒词
-            wake-word-description: 麦克风保持开启，但只有说出角色的唤醒词后 AIRI 才会聆听。
+            wake-word-description: 麦克风保持开启，但只有说出角色的唤醒词后 Sofia 才会聆听。
             wake-word-status:
               no-words: 还没有角色设置唤醒词。可以在聊天中请角色设置它的唤醒词。
               unconfigured: 麦克风开启后开始检测唤醒词。
@@ -1003,9 +1003,9 @@ pages:
               error: '唤醒词模型不可用：{error}'
           end-judge:
             title: 说完判定
-            description: 你停顿时，对话模型会读取转写文本，判断你是否说完了。如果还没说完，AIRI 会再等 3 秒让你继续说。
+            description: 你停顿时，对话模型会读取转写文本，判断你是否说完了。如果还没说完，Sofia 会再等 3 秒让你继续说。
             enabled: 判断我是否说完了
-            enabled-description: 每次停顿时的转写文本会发送给改写所用的模型。关闭后，AIRI 会在短暂停顿后结束这次语音输入。
+            enabled-description: 每次停顿时的转写文本会发送给改写所用的模型。关闭后，Sofia 会在短暂停顿后结束这次语音输入。
           rephrase:
             title: 转写改写
             description: 在转写成为草稿之前，由对话模型修正识别错误并去掉口头禅。原始文本会被保留。
@@ -1132,7 +1132,7 @@ pages:
     messaging-discord:
       description: Discord 发消息和语音聊天
       enable: 启用Discord集成
-      enable-description: 允许AIRI通过Discord进行互动
+      enable-description: 允许Sofia通过Discord进行互动
       token: 机器人令牌
       token-description: 您的Discord机器人令牌
       token-placeholder: 输入您的Discord机器人令牌
@@ -1216,7 +1216,7 @@ pages:
     x:
       description: X / Twitter 的浏览和使用
       enable: 启用X / Twitter集成
-      enable-description: 允许AIRI与X / Twitter互动
+      enable-description: 允许Sofia与X / Twitter互动
       api-key: API密钥
       api-key-description: 您的X / Twitter API密钥
       api-key-placeholder: 输入您的X / Twitter API密钥
@@ -1299,9 +1299,9 @@ pages:
         airi-agree: '赞同'
         airi-disagree: 拒绝
     home-assistant:
-      description: 让 AIRI 读取和控制你的 Home Assistant 设备。
+      description: 让 Sofia 读取和控制你的 Home Assistant 设备。
       enable: 启用 Home Assistant
-      enable-description: 允许 AIRI 读取和控制你的设备
+      enable-description: 允许 Sofia 读取和控制你的设备
       base-url:
         label: 地址
         description: 你的 Home Assistant 实例地址。
@@ -1328,15 +1328,15 @@ pages:
         failed-policy-rollback: 保存被拒绝，设备名单也没能同步回运行工具的窗口，模型现在访问不到任何设备，请重试。
       access:
         label: 设备访问范围
-        description: 选择 AIRI 可以读取和控制的设备。
+        description: 选择 Sofia 可以读取和控制的设备。
         mode-all: 全部设备
         mode-allow: 白名单
         mode-deny: 黑名单
-        all-hint: AIRI 可以访问全部设备。选择一个名单即可限制范围。
+        all-hint: Sofia 可以访问全部设备。选择一个名单即可限制范围。
         rule-allow: 只有你勾选的设备可以访问。
         rule-deny: 除了你勾选的设备，其他设备都可以访问。
         selected-count: '已选 {count} 个'
-        empty-warning: 至少勾选一个设备，否则 AIRI 无法访问任何设备。
+        empty-warning: 至少勾选一个设备，否则 Sofia 无法访问任何设备。
         search: 搜索设备
         reload: 重新加载设备
         loading: 正在加载设备……
@@ -1494,9 +1494,9 @@ pages:
       deleted: '已删除 {name} 的模板。这个工具下次调用，或你展开它的调用时，会重新做一份。'
     web-search:
       title: 网络搜索
-      description: 让 AIRI 联网搜索最新信息
+      description: 让 Sofia 联网搜索最新信息
       enable: 启用网络搜索
-      enable-description: 允许 AIRI 在对话中联网搜索
+      enable-description: 允许 Sofia 在对话中联网搜索
       provider: 搜索服务
       deepseek:
         api-key: DeepSeek API 密钥
@@ -1508,7 +1508,7 @@ pages:
       configured: 网络搜索已就绪！
     mcp-server:
       title: MCP 集成
-      description: 配置其他 MCP 服务器并将能力拓展至 AIRI
+      description: 配置其他 MCP 服务器并将能力拓展至 Sofia
       config-path: 配置文件
       runtime-title: 运行状态
       empty: 尚无已配置的 MCP 集成 - 点击「添加服务器」来创建一个，或者通过「编辑 JSON」直接粘贴配置
@@ -1548,7 +1548,7 @@ pages:
           placeholder: 例如：filesystem
         transport:
           label: 类型
-          description: AIRI 连接这个服务器的方式。
+          description: Sofia 连接这个服务器的方式。
           stdio: 本地进程
           http: 远程地址
         url:
@@ -1583,7 +1583,7 @@ pages:
         placeholder: 在这里粘贴 mcp.json...
       test:
         title: 测试连接
-        description: AIRI 会临时连接一次，确认服务器可用并列出它提供的工具
+        description: Sofia 会临时连接一次，确认服务器可用并列出它提供的工具
         pick-server-label: 服务器
         no-servers: 还没有可以测试的服务器
         no-server-selected: 先选一个服务器吧
@@ -1819,7 +1819,7 @@ pages:
     helpinfo:
       title: 第一次使用？
       description: >
-        AIRI 需要配置至少一个 {chat} 服务来源，才能正常思考和运作。你可以把它看作是 AIRI 系统中角色的大脑。
+        Sofia 需要配置至少一个 {chat} 服务来源，才能正常思考和运作。你可以把它看作是 Sofia 系统中角色的大脑。
     explained:
       chat: 文本生成模型服务来源，例如 OpenRouter, OpenAI, Ollama
       Speech: 语音（文本转语音）模型服务来源，例如 ElevenLabs, Azure Speech
@@ -1839,7 +1839,7 @@ pages:
         asset:
           title: 模型文件
           unknown: 正在检查文件…
-          bundled: AIRI 已内置
+          bundled: Sofia 已内置
           installed: 已存储在此设备上
           missing: 使用时下载
           downloading: 正在下载…
@@ -1963,7 +1963,7 @@ pages:
               description: ComfyUI 正在运行的地址
           cors:
             title: 检测到 CORS 阻止
-            description: ComfyUI 默认会阻止来自其他应用程序的请求。若要允许 AIRI 连接，必须使用 --enable-cors-header "*" 参数启动 ComfyUI。
+            description: ComfyUI 默认会阻止来自其他应用程序的请求。若要允许 Sofia 连接，必须使用 --enable-cors-header "*" 参数启动 ComfyUI。
           workflows:
             title: 工作流模板
             upload: 上传工作流
@@ -1974,7 +1974,7 @@ pages:
             remove: 移除
             config_snippet: 绘图配置片段
             copy_json: 复制 JSON
-            paste_hint: 将其粘贴到 AIRI 角色卡绘图配置中，以覆盖这些节点。
+            paste_hint: 将其粘贴到 Sofia 角色卡绘图配置中，以覆盖这些节点。
           upload:
             prompt: 拖放或选择 workflow_api.json 文件
             invalid_json: 无效的 JSON
@@ -2178,13 +2178,13 @@ pages:
       prompt-api:
         description: 借助 Prompt API，您可以向 Chrome 中的基础模型发送自然语言请求。
       official:
-        title: AIRI官方提供商
+        title: Sofia官方提供商
         description: 登录后即可使用的服务来源
-        speech-title: AIRI 官方语音合成服务
+        speech-title: Sofia 官方语音合成服务
         speech-description: 登录后即可使用的发声单元服务
         speech-streaming-title: 官方流式语音服务提供商
-        speech-streaming-description: AIRI 官方低延迟文本转语音服务提供商（双向 WebSocket）。
-        transcription-title: AIRI 官方语音识别服务
+        speech-streaming-description: Sofia 官方低延迟文本转语音服务提供商（双向 WebSocket）。
+        transcription-title: Sofia 官方语音识别服务
         transcription-description: 登录后即可使用的听觉单元服务
       transcriptions:
         playground:
@@ -2204,14 +2204,14 @@ pages:
     server-auth-token:
       label: 配对令牌
       description: >-
-        其他设备使用此令牌与服务器配对。如果此字段为空，AIRI 会生成一个令牌。
+        其他设备使用此令牌与服务器配对。如果此字段为空，Sofia 会生成一个令牌。
       placeholder: 自动生成
     qr:
       title: 配对
       description: >-
         使用移动应用扫描此二维码。应用会尝试每个本地地址，并保存第一个可用地址。
       refresh: 刷新
-      image-alt: AIRI 配对二维码
+      image-alt: Sofia 配对二维码
       candidates: 备选连接地址
       token-hint: >-
         二维码包含配对令牌。请勿公开分享此二维码。
@@ -2225,7 +2225,7 @@ pages:
       action: 扫描
       success:
         title: 连接地址已更新
-        description: '现在配对到的 AIRI 主端 {url}'
+        description: '现在配对到的 Sofia 主端 {url}'
       errors:
         title: 二维码扫描失败
         failed: 扫描或连接二维码失败。
@@ -2412,8 +2412,8 @@ pages:
           presets:
             default:
               colors:
-                color-1: AIRI 绿
-              description: 默认的绿色主题，由 AIRI 为您带来！
+                color-1: Sofia 绿
+              description: 默认的绿色主题，由 Sofia 为您带来！
               title: 默认颜色
             morandi:
               colors:
@@ -2681,7 +2681,7 @@ tachie:
 websocket-secure-enabled:
   title: 作为安全 WebSocket (WSS) 提供服务
   description: >-
-    使用 WSS 建立安全的移动端连接。AIRI 会创建一个自签名证书。
+    使用 WSS 建立安全的移动端连接。Sofia 会创建一个自签名证书。
 wip:
   title: 正在开发中
   description: >-

@@ -22,7 +22,7 @@ character-switcher:
   empty: 尚無角色
   failed: 無法切換角色，請再試一次。
 mobile-tools:
-  sign-in: 登入 AIRI
+  sign-in: 登入 Sofia
   account-description: 帳戶與偏好設定
   sound: 聲音
   character-voice: 角色聲音
@@ -65,7 +65,7 @@ chat:
     system-default: 系統預設
     listen: 持續聆聽
     push-to-talk: 按住說話
-    push-to-talk-unavailable: 此裝置沒有按住說話按鍵，因此 AIRI 不會聆聽。請在聽覺設定中變更輸入模式。
+    push-to-talk-unavailable: 此裝置沒有按住說話按鍵，因此 Sofia 不會聆聽。請在聽覺設定中變更輸入模式。
     wake-word: 聆聽喚醒詞
     hearing-settings: 更多聽覺設定…
     options-hint: 將游標移至此處或按右鍵以查看選項
@@ -267,7 +267,7 @@ computer-use:
 status:
   preparing: 正在準備麥克風
   listening: 聆聽中
-  paused: AIRI 說話時暫停聆聽
+  paused: Sofia 說話時暫停聆聽
   transcribing: 正在轉錄
   hearing-error: 無法轉錄音訊
   no-transcript: 辨識到的語音會顯示在此處。
