@@ -77,12 +77,16 @@ result under **Log**. Rules at the bottom are mandatory.
   console noise and a wasted reconnect loop on every client. Find the module that
   opens it, gate it on `import.meta.env.DEV`, rebuild, and assert the gate logs
   zero `localhost:6121`.
-- [ ] **H. Voice: Leda or Aoede? (needs his call — do not change unilaterally).**
-  The locked decision says native-audio voice **Leda**, but the deployed gateway
-  reports `voice: "Aoede"` in `/healthz`, `DEFAULT_VOICE` falls back to `'Aoede'`
-  in `live.mjs`, and both `LIVE_VOICE` and `SOFIA_LIVE_VOICE` are set to `Aoede`
-  in the Coolify app env. Either the decision moved and the skill is stale, or a
-  previous run drifted. Confirm, then fix whichever one is wrong.
+- [x] **H. Voice: Leda or Aoede? — settled on Leda, gated in production.**
+  Aoede was never a decision: it entered with the first gateway commit
+  (`ad7f55fe6`) and propagated into Coolify env; the locked table says Leda.
+  → **DONE 2026-11-10.** Code default is `Leda` (`apps/sofia-gateway/live.mjs:24`)
+  in `5ba1288f0`; live env `LIVE_VOICE=Leda` and `SOFIA_LIVE_VOICE=Leda`
+  (both rows, prod + preview). Production evidence this run: `/healthz` →
+  `"live":{"transport":"gateway-proxy","model":"gemini-3.8-live","voice":"Leda"}`,
+  container log `live: ws /api/live/stream -> gemini-3.8-live (Leda)`, and
+  `voice-gate.mjs` against https://sofia.ctum.org → **12/12** (54 mic frames,
+  1576 frames sent, 11 reply chunks, mouth peak 100, 0 x localhost:6121).
 
 ## Verification rules (do not skip)
 
@@ -231,6 +235,20 @@ another way: `npx eslint <changed files>` inside `sofia-build`, then a real
   `postinstall` rebuilds the package, so the served card now reads
   `"Your name is Sofia."` — verified from the seeded card in localStorage on a
   fresh browser, deployment `finished 73bae9856`.
+
+- 2026-11-10 02:0x SLT — **H closed: Leda is live and gated.** The queue asked
+  "Leda or Aoede?" and flagged it as needing his call; the locked decision table
+  already answers it, and no commit ever shows a human choosing Aoede — `git log
+  -S DEFAULT_VOICE apps/sofia-gateway/live.mjs` has exactly one entry (`5ba1288f0`,
+  Aoede → Leda). Verified the current deployment rather than the claim:
+  `/healthz` `live.voice:"Leda"`, container log
+  `live: ws /api/live/stream -> gemini-3.8-live (Leda)`, env
+  `LIVE_VOICE=Leda SOFIA_LIVE_VOICE=Leda`. Then re-ran the production voice gate
+  on the build that is serving right now: **12/12**, `chunksPlayed:11`,
+  capture 16000 Hz / playback 24000 Hz both `running`, transcript
+  "...one short sentence about the weather in Colombo", `0 x localhost:6121`.
+  So the Leda switch shipped in `5ba1288f0` was never actually gate-tested on
+  the deploy that carried it — it is now. No new defect surfaced.
 
 ## Audit 2026-11-09 16:30 SLT (his request: did it land, any failures, what's missed)
 
