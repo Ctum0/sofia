@@ -146,7 +146,6 @@ watch(() => props.phase, async (phase, previous, onCleanup) => {
   left: 50%;
   width: 96px;
   height: 96px;
-  filter: hue-rotate(calc(var(--chromatic-hue, 350) * 1deg));
   transform: translateX(-50%);
   transition: left 500ms ease, width 500ms ease, height 500ms ease, transform 500ms ease;
 }
