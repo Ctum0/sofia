@@ -25,3 +25,6 @@ S1 = false claim to the user, S2 = wasted production cycle, S3 = local waste.
 | I18 | Kanban implied work that never ran | Workers crashed (gateway SIGKILL); cards retired | S3 | Marked done with "retired, not implemented" | R11 | board summaries say so |
 | I19 | Cron creation rejected 5× by the tool | Tool-side validation bug (`calls[0] requires a 'name'`) | S3 | Used the CLI | R5 | `hermes cron list` shows the job |
 | I20 | Verified against the wrong commit once | Container swaps before the deployment finishes | S3 | Check the queue row first | R2 | `finished <sha>` matched HEAD |
+| I21 | Committed a build that had already failed | the gate was `pnpm build \| grep "error\|✓ built"`; the grep matched a stack-trace line, so the pipeline "passed" while vite had exited 1 | S2 | gate on the exit code, not on grep output | R1, R4 | `exit=0, ✓ built in 1m 24s` before the commit |
+| I22 | A six-character CSS change failed the build twice | `bg-white/25` written as a bare attribute — this repo uses bare UnoCSS utilities, and a `/` modifier is a Vue parse error (`Illegal '/' in tags`) | S2 | moved it into `class="… bg-white/25"` | R3 (read how the file writes attributes) | build green; deployment `121689dc` finished, verifier PASS |
+

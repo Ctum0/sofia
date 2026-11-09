@@ -77,3 +77,8 @@ key or password, not even to prove it changed. (standing rule)
 Finishing an audit is not permission to redesign. Name the next item and stop.
 (standing rule; violated once on 2026-11-09 by touching a machine that was not
 in scope)
+
+## R15 — A build's exit code is the gate, its output is not
+`cmd | grep "✓ built"` matches whatever you tell it to match. Twice now a grep
+match has been read as a passing build while `vite build` had exited 1. Run the
+build into a log, check `$?`, and only then commit. (I21)
