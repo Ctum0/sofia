@@ -111,6 +111,16 @@ run_gate() {
     "$PW" node "$1" 2>&1
 }
 voice=$(run_gate voice-gate.mjs)
+# One retry, said out loud. The Live slot is shared: when another gate or his
+# own tab holds a session the first turn comes back with 0 audio chunks and
+# the second is fine (13/13 at 888c5892a, 12/13 on the next run). A real
+# regression fails both attempts, so this buys determinism without hiding it.
+voice_try=$(echo "$voice" | grep -oE '[0-9]+/[0-9]+' | tail -1)
+if [ -n "$voice_try" ] && [ "${voice_try%%/*}" != "${voice_try##*/}" ]; then
+  echo "  note: first voice attempt ${voice_try}, retrying once in 8 s (shared Live slot)"
+  sleep 8
+  voice=$(run_gate voice-gate.mjs)
+fi
 # Parse the count, do not grep for a substring: "11/12" contains "12" and a
 # loose pattern let a partially failing gate through once.
 # Require every check to pass, not a hardcoded 12: the lanes add checks, and a
