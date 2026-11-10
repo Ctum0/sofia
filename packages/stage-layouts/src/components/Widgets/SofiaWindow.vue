@@ -33,24 +33,35 @@ let startY = 0
 let originX = 0
 let originY = 0
 
-function onDown(event: PointerEvent) {
-  // Only the bar drags; the body belongs to the page/ image inside.
-  if ((event.target as HTMLElement).closest('button')) return
+// Plain mouse events with document listeners. Pointer capture on a child of a
+// `position: fixed` layer did not fire in headless Chromium — the first gate run
+// could neither raise nor drag a window.
+function onMove(event: MouseEvent) {
+  if (!dragging.value)
+    return
+  const x = Math.max(0, Math.min(window.innerWidth - props.win.w, originX + event.clientX - startX))
+  const y = Math.max(0, Math.min(window.innerHeight - 80, originY + event.clientY - startY))
+  emit('move', { id: props.win.id, x, y })
+}
+
+function onUp() {
+  dragging.value = false
+  document.removeEventListener('mousemove', onMove)
+  document.removeEventListener('mouseup', onUp)
+}
+
+function onDown(event: MouseEvent) {
+  if ((event.target as HTMLElement).closest('button'))
+    return
+  emit('focus', props.win.id)
   dragging.value = true
   startX = event.clientX
   startY = event.clientY
   originX = props.win.x
   originY = props.win.y
-  ;(event.target as HTMLElement).setPointerCapture?.(event.pointerId)
-  emit('focus', props.win.id)
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
 }
-function onMove(event: PointerEvent) {
-  if (!dragging.value) return
-  const x = Math.max(0, Math.min(window.innerWidth - props.win.w, originX + event.clientX - startX))
-  const y = Math.max(0, Math.min(window.innerHeight - 80, originY + event.clientY - startY))
-  emit('move', { id: props.win.id, x, y })
-}
-function onUp() { dragging.value = false }
 
 function openExternal() {
   window.open(props.win.url, '_blank', 'noopener,noreferrer')
@@ -66,9 +77,9 @@ function openExternal() {
     class="sofia-window"
     :class="{ 'sofia-window--active': active, 'sofia-window--dragging': dragging }"
     :style="{ left: `${win.x}px`, top: `${win.y}px`, width: `${win.w}px`, height: `${win.h}px`, zIndex: win.z }"
-    @pointerdown="emit('focus', win.id)"
+    @mousedown="emit('focus', win.id)"
   >
-    <header class="sofia-window__bar" @pointerdown="onDown" @pointermove="onMove" @pointerup="onUp" @pointercancel="onUp">
+    <header class="sofia-window__bar" @mousedown="onDown">
       <span class="sofia-window__dot" aria-hidden="true" />
       <span class="sofia-window__title">{{ win.title || host }}</span>
       <span class="sofia-window__host">{{ host }}</span>
@@ -120,7 +131,8 @@ function openExternal() {
   background: transparent;
   color: #c98b8b;
   border-radius: 7px;
-  width: 1.6rem; height: 1.6rem;
+  width: 1.6rem;
+  height: 1.6rem;
   cursor: pointer;
 }
 .sofia-window__btn:hover { background: #2a1a1e; color: #f5e6d3; }
@@ -130,8 +142,13 @@ function openExternal() {
 .sofia-window__wtitle { color: #f5e6d3; font-size: 0.95rem; }
 .sofia-window__note { color: #8f7a72; font-size: 0.76rem; max-width: 26rem; }
 .sofia-window__open {
-  border: 1px solid #7b1f2b; background: #7b1f2b; color: #f5e6d3;
-  border-radius: 999px; padding: 0.4rem 0.95rem; font-size: 0.78rem; cursor: pointer;
+  border: 1px solid #7b1f2b;
+  background: #7b1f2b;
+  color: #f5e6d3;
+  border-radius: 999px;
+  padding: 0.4rem 0.95rem;
+  font-size: 0.78rem;
+  cursor: pointer;
 }
 .sofia-window__open:hover { background: #a3283a; }
 </style>
