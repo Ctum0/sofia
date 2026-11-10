@@ -186,7 +186,7 @@ export class LiveBridge {
       }
 
       if (msg.serverContent?.turnComplete)
-        console.log(`[sofia-gateway] live: turn ended (${this.chunks || 0} audio chunks, ${this.tools || 0} tool calls)`)
+        console.log(`[sofia-gateway] live: turn ended (${this.chunks || 0} audio chunks, ${this.toolCalls || 0} tool calls)`)
 
       if (msg.serverContent) {
         const sc = msg.serverContent
@@ -214,6 +214,7 @@ export class LiveBridge {
         // Without this line a silent turn is indistinguishable from a slow one:
         // "0 chunks" could be a dead socket, a tool call the client never
         // answered, or a 40-second ask_hermes. Name it, time it.
+        this.toolCalls = (this.toolCalls || 0) + (msg.toolCall.functionCalls || []).length
         for (const call of msg.toolCall.functionCalls || [])
           console.log(`[sofia-gateway] live: tool ${call.name} (${this.chunks || 0} audio chunks before it)`)
         this.emit({ type: 'toolCall', functionCalls: msg.toolCall.functionCalls || [] })
