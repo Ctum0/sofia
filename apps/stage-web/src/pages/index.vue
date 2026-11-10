@@ -90,14 +90,19 @@ function showPanel(payload: { kind?: 'image' | 'web', url: string, title?: strin
   const existing = windows.value.find(w => w.url === payload.url)
   if (existing) { focusWindow(existing.id); return }
   const n = windows.value.length
+  const w = kind === 'web' ? 560 : 620
+  // She keeps the left of the stage; what she opens takes the right. A window
+  // dropped in the middle covers the avatar, which is the thing he asked not to
+  // happen. Each new window cascades inward from the right edge.
+  const x = Math.max(24, window.innerWidth - w - 48 - n * 30)
   windows.value = [...windows.value, {
     id: `w${Date.now().toString(36)}${n}`,
     kind,
     url: payload.url,
     title: payload.title || '',
-    x: 72 + n * 34,
-    y: 96 + n * 30,
-    w: kind === 'web' ? 560 : 620,
+    x,
+    y: 104 + n * 28,
+    w,
     h: kind === 'web' ? 320 : 440,
     z: ++nextZ,
   }]
