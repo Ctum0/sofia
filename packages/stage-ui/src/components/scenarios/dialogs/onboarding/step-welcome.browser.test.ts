@@ -10,7 +10,7 @@ import { createI18n } from 'vue-i18n'
 
 import StepWelcome from './step-welcome.vue'
 
-import { AIRI_FLUX_URL, AIRI_TERMS_URL } from '../../../../constants/public-links'
+import { AIRI_FLUX_URL } from '../../../../constants/public-links'
 import { useAuthStore } from '../../../../stores/auth'
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 
@@ -102,11 +102,13 @@ describe('desktop onboarding sign-in', () => {
 })
 
 describe('onboarding public links', () => {
-  it('links to public pricing and terms without requiring sign-in', async () => {
+  it('links to public pricing without requiring sign-in, and to no foreign legal page', async () => {
     const screen = await renderWelcomeStep(true)
 
     await expect.element(screen.getByRole('link', { name: 'Pricing' })).toHaveAttribute('href', AIRI_FLUX_URL)
-    await expect.element(screen.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', AIRI_TERMS_URL)
+    // Upstream's terms/privacy pages used to be presented as this app's own.
+    // Sofia publishes no policy, so the honest state is the absence of the link.
+    await expect.element(screen.getByRole('link', { name: 'Terms of Service' })).not.toBeInTheDocument()
   })
 })
 

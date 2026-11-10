@@ -134,6 +134,12 @@ const main = async () => {
   const violations = []
   let hits = 0
   let excused = 0
+  // A second brand property, asserted the same way: no page belonging to another
+  // product may be presented as this app's terms or privacy policy. It is not an
+  // "AIRI" string (the URL says `airi.moeru.ai`, lower-case, inside an href), so
+  // the AIRI scan above never sees it -- that is exactly how three upstream legal
+  // links survived every earlier gate.
+  let foreignLegal = (html.match(/airi\.moeru\.ai\/docs\/en\/about\/(?:terms|privacy)/g) || []).length
 
   while (queue.length && seen.size < MAX_CHUNKS) {
     const path = queue.shift()
@@ -144,6 +150,7 @@ const main = async () => {
     if (res.status !== 200)
       continue
     const js = res.body.toString('utf8')
+    foreignLegal += (js.match(/airi\.moeru\.ai\/docs\/en\/about\/(?:terms|privacy)/g) || []).length
     for (const m of js.matchAll(/(?:\.\/|\/)?(assets\/[A-Za-z0-9_.-]+\.js)/g)) {
       const next = `/${m[1]}`
       if (!seen.has(next))
@@ -169,6 +176,7 @@ const main = async () => {
     console.log(`  ${v.path} … ${v.window}`)
   step('no user-visible AIRI left in the served bundle', violations.length === 0, `${hits} hits, ${excused} allowlisted`)
   step('crawl actually reached the lazy chunks', seen.size > 20, `${seen.size} chunks`)
+  step('links no foreign product\'s legal pages', foreignLegal === 0, `${foreignLegal} airi.moeru.ai/docs/en/about/{terms,privacy} reference(s)`)
 
   const passed = results.filter(Boolean).length
   console.log(`\n${passed}/${results.length}`)

@@ -10,7 +10,7 @@ import { useI18n } from 'vue-i18n'
 
 import onboardingLogo from '../../../../assets/onboarding.avif'
 
-import { AIRI_FLUX_URL, AIRI_TERMS_URL } from '../../../../constants/public-links'
+import { AIRI_FLUX_URL } from '../../../../constants/public-links'
 import { useAuthStore } from '../../../../stores/auth'
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 import { useSettingsGeneral } from '../../../../stores/settings'
@@ -172,15 +172,6 @@ function handleLocalSetup() {
         :class="['underline-offset-4 transition-colors hover:text-neutral-700 hover:underline dark:hover:text-neutral-200']"
       >
         {{ t('settings.dialogs.onboarding.pricingLink') }}
-      </a>
-      <span aria-hidden="true" :class="['size-0.5 rounded-full bg-current']" />
-      <a
-        :href="AIRI_TERMS_URL"
-        target="_blank"
-        rel="noopener noreferrer"
-        :class="['underline-offset-4 transition-colors hover:text-neutral-700 hover:underline dark:hover:text-neutral-200']"
-      >
-        {{ t('settings.dialogs.onboarding.termsLink') }}
       </a>
     </nav>
   </div>

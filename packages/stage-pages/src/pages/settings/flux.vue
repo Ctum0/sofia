@@ -4,7 +4,6 @@ import type { FluxBalanceBucket } from '@proj-airi/stage-ui/composables/use-anal
 import { isFluxPurchaseDisabled, isStageTamagotchi } from '@proj-airi/stage-shared'
 import { client } from '@proj-airi/stage-ui/composables/api'
 import { useAnalytics } from '@proj-airi/stage-ui/composables/use-analytics'
-import { AIRI_PRIVACY_URL, AIRI_TERMS_URL } from '@proj-airi/stage-ui/constants/public-links'
 import { isSigningIn } from '@proj-airi/stage-ui/libs/auth'
 import { useAuthStore } from '@proj-airi/stage-ui/stores/auth'
 import { Alert, Button, SelectTab, Skeleton } from '@proj-airi/ui'
@@ -727,18 +726,6 @@ async function handleBuy(stripePriceId: string) {
           @click="fetchAuditHistory(true)"
         />
       </div>
-    </div>
-
-    <div v-if="!isAuthenticated" flex="~ wrap items-center justify-center gap-x-5 gap-y-2" mt-auto pb-2 pt-6 text="xs neutral-500">
-      <a :href="AIRI_TERMS_URL" target="_blank" rel="noreferrer" hover:text-primary-500>
-        {{ t('settings.pages.flux.terms') }}
-      </a>
-      <a :href="AIRI_PRIVACY_URL" target="_blank" rel="noreferrer" hover:text-primary-500>
-        {{ t('settings.pages.flux.privacy') }}
-      </a>
-      <a href="mailto:airi@moeru.ai" hover:text-primary-500>
-        airi@moeru.ai
-      </a>
     </div>
   </div>
 </template>

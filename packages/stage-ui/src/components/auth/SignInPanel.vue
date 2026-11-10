@@ -6,8 +6,6 @@ import { Alert, Button, Callout } from '@proj-airi/ui'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { AIRI_PRIVACY_URL, AIRI_TERMS_URL } from '../../constants/public-links'
-
 const props = withDefaults(defineProps<{
   title?: string
   subtitle?: string
@@ -100,18 +98,6 @@ function handleSelect(provider: OAuthProvider) {
       <Alert v-else tone="warning" :title="t('server.auth.signIn.error.noProviders.title')">
         {{ t('server.auth.signIn.error.noProviders.description') }}
       </Alert>
-
-      <footer :class="['text-xs leading-5 text-neutral-500 dark:text-neutral-400']">
-        By continuing, you agree to our
-        <a :href="AIRI_TERMS_URL" :class="['font-medium text-neutral-700 underline-offset-4 hover:underline dark:text-neutral-200']">
-          Terms
-        </a>
-        and
-        <a :href="AIRI_PRIVACY_URL" :class="['font-medium text-neutral-700 underline-offset-4 hover:underline dark:text-neutral-200']">
-          Privacy Policy
-        </a>
-        .
-      </footer>
     </div>
   </section>
 </template>
