@@ -31,11 +31,19 @@ const state = () => page.evaluate(() => {
       img: (() => { const i = w.querySelector('img'); return i ? i.naturalWidth : 0 })() }
   })
   const chat = document.querySelector('[data-testid=chat-empty-state]')
+  // `18273e680` moved the windows to the right shoulder so they stop landing on
+  // her. That is only a claim until a rectangle says so, so the column she is
+  // drawn in comes back with every reading.
+  const col = document.querySelector('.stage-column')
+  const cb = col ? col.getBoundingClientRect() : null
   return {
     layerFixed: layer ? getComputedStyle(layer).position : null,
     count: wins.length, wins,
     chatVisible: !!chat,
     insideChatColumn: layer ? !!layer.closest('.stage-column') : null,
+    vw: innerWidth,
+    vh: innerHeight,
+    col: cb ? { x: Math.round(cb.x), w: Math.round(cb.width), right: Math.round(cb.right) } : null,
   }
 })
 
@@ -77,6 +85,18 @@ try {
     two.wins.find(w => w.kind === 'web')?.title || 'none')
   step('windows are NOT inside the chat column', two.insideChatColumn === false, `layer position ${two.layerFixed}`)
   step('the chat yields while windows are open', two.chatVisible === false)
+  // Property, not pixel count: she stands at the centre of the stage column, so
+  // anything she opens must begin in its right shoulder. Measured on the build
+  // that introduced the change: column 0..806, windows at 772 and 802 — the
+  // canvas sliver they clip is background, not her (crop read back by eye).
+  const colCentre = two.col ? two.col.x + two.col.w / 2 : null
+  const shoulder = two.col ? two.col.x + two.col.w * 0.75 : null
+  step('what she opens stays in the right shoulder, never over her centre',
+    two.wins.length > 0 && two.wins.every(w => w.x >= shoulder),
+    `column ${two.col?.x}..${two.col?.right} centre ${Math.round(colCentre ?? 0)} shoulder≥${Math.round(shoulder ?? 0)}, windows ${JSON.stringify(two.wins.map(w => w.x))}`)
+  step('no window spills past the viewport edge',
+    two.wins.every(w => w.x >= 0 && w.x + w.w <= two.vw),
+    `vw ${two.vw}, right edges ${JSON.stringify(two.wins.map(w => w.x + w.w))}`)
 
   // raise the first window by clicking its bar
   const first = two.wins[0]
@@ -96,6 +116,20 @@ try {
   const after = moved.wins.find(w => w.id === first.id)
   step('a window can be dragged', !!after && (after.x !== first.x || after.y !== first.y),
     `${first.x},${first.y} → ${after?.x},${after?.y}`)
+
+  // The clamp added with the plain-mouse drag: pushed hard at the left edge the
+  // window must stop on screen, because a window off the viewport cannot be
+  // grabbed back.
+  const barX = after.x + 60
+  await page.mouse.move(barX, after.y + 20)
+  await page.mouse.down()
+  await page.mouse.move(2, after.y + 20, { steps: 8 })
+  await page.mouse.up()
+  await page.waitForTimeout(300)
+  const clamped = (await state()).wins.find(w => w.id === first.id)
+  step('a window dragged at the edge stops instead of leaving the screen',
+    !!clamped && clamped.x >= 0 && clamped.y >= 0 && clamped.x + clamped.w <= two.vw,
+    `${after.x},${after.y} → ${clamped?.x},${clamped?.y} (w ${clamped?.w}, vw ${two.vw})`)
 
   // close one
   await page.click('[data-testid=sofia-window] [data-testid=sofia-window-close]')

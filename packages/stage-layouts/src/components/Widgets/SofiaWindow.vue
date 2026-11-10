@@ -102,6 +102,7 @@ function openExternal() {
 <style scoped>
 .sofia-window {
   position: fixed;
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
