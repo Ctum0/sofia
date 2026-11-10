@@ -34,7 +34,7 @@ export const LIVE_TOOLS = [
           type: 'OBJECT',
           properties: {
             kind: { type: 'STRING', enum: ['image', 'web'], description: 'image for a picture, web for a website.' },
-            url: { type: 'STRING', description: 'An absolute https URL, or a path on this site such as /brand/og.png.' },
+            url: { type: 'STRING', description: 'An absolute https URL, or a path on this site. Only PUBLIC paths work without a session, e.g. /og.png.' },
             title: { type: 'STRING', description: 'A short human title for the panel.' },
           },
           required: ['kind', 'url'],
