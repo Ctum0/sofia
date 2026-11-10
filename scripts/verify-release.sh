@@ -134,7 +134,7 @@ note "$brand_ok brand assets"
 # The two gates that catch the failures this project actually has: a window
 # that cannot be clicked, and a browser that stops answering. Both run against
 # production, both parse their own count.
-for g in windows-gate.mjs browser-gate.mjs; do
+for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs; do
   out=$(run_gate "$g")
   count=$(echo "$out" | grep -oE '[0-9]+/[0-9]+' | tail -1)
   got=${count%%/*}; want=${count##*/}

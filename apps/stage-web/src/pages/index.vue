@@ -139,11 +139,37 @@ function onRetitle(payload: { id: string, title: string, url: string }) {
     : w)
 }
 const panel = computed(() => windows.value.length > 0)
+
+// The chat takes a fifth of the width and never yields below 1024 px. With one
+// window that is tight; with three it is unusable. A toggle gives the space
+// back, and remembers the choice.
+const CHAT_KEY = 'sofia-chat-hidden'
+const chatHidden = ref(false)
+onMounted(() => {
+  try { chatHidden.value = localStorage.getItem(CHAT_KEY) === '1' }
+  catch {}
+})
+function toggleChat() {
+  chatHidden.value = !chatHidden.value
+  try { localStorage.setItem(CHAT_KEY, chatHidden.value ? '1' : '0') }
+  catch {}
+}
 function onPanelEvent(event: Event) {
   showPanel((event as CustomEvent<{ kind?: 'image' | 'web' | 'live', url: string, title?: string, sid?: string }>).detail)
 }
 onMounted(() => {
   window.addEventListener('sofia:panel', onPanelEvent)
+  // Typed turns go to Hermes and have no tools, so the gateway pushes windows
+  // out of band on this stream. Without it a typed "open github" opened nothing
+  // while she described a page she never had.
+  try {
+    const events = new EventSource('/api/events')
+    events.onmessage = (event) => {
+      try { showPanel(JSON.parse(event.data)) }
+      catch {}
+    }
+  }
+  catch {}
   ;(window as unknown as { __sofiaPanel: typeof showPanel }).__sofiaPanel = showPanel
 })
 onBeforeUnmount(() => window.removeEventListener('sofia:panel', onPanelEvent))
@@ -234,7 +260,23 @@ const router = useRouter()
           />
         </div>
         <!-- A fixed width keeps the chat panel narrow on wide screens. A percentage minimum overrode the maximum there. -->
-        <InteractiveArea v-if="!isMobile && !panel" :class="['absolute right-4 h-[85dvh] w-[min(440px,45%)] flex flex-col']" />
+        <InteractiveArea
+          v-if="!isMobile && !panel && !chatHidden"
+          :class="['absolute right-4 h-[85dvh] w-[min(440px,45%)] flex flex-col']"
+        />
+        <!-- One control, always in the same place: give the stage its width
+             back, or bring the conversation back. -->
+        <button
+          v-if="!isMobile"
+          type="button"
+          data-testid="sofia-chat-toggle"
+          class="sofia-chat-toggle"
+          :title="chatHidden ? 'Show chat' : 'Hide chat'"
+          :aria-pressed="chatHidden ? 'true' : 'false'"
+          @click="toggleChat"
+        >
+          {{ chatHidden ? '‹' : '›' }}
+        </button>
         <!-- She moves aside rather than being covered: the column above narrows,
              and what she wants to show takes the space she gave up. Mounted on
              every width: the dock only exists on desktop, so a phone can only
@@ -269,6 +311,26 @@ meta:
 </route>
 
 <style scoped>
+.sofia-chat-toggle {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  z-index: 45;
+  transform: translateY(-50%);
+  width: 1.35rem;
+  height: 3.4rem;
+  border: 1px solid #3a2226;
+  border-right: none;
+  border-radius: 9px 0 0 9px;
+  background: #171012e6;
+  color: #c98b8b;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+.sofia-chat-toggle:hover { background: #2a1a1e; color: #f5e6d3; }
+
 .stage-column {
   transition: max-width 0.45s cubic-bezier(0.16, 1, 0.3, 1), flex-basis 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   max-width: 100%;

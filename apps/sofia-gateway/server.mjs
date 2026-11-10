@@ -264,7 +264,27 @@ function requestFor(target) {
 }
 
 /** Proxy everything under /v1 to Hermes, adding the key on this side. */
-function proxyToHermes(req, res, url) {
+// Buffered only for chat turns: the body is small JSON, and the text path needs
+// to be read before it is forwarded (see maybeOpenFromText).
+function readRequestBody(req, limit = 2000000) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    let size = 0
+    req.on('data', (chunk) => {
+      size += chunk.length
+      if (size > limit) {
+        reject(new Error('body too large'))
+        req.destroy()
+        return
+      }
+      chunks.push(chunk)
+    })
+    req.on('end', () => resolve(Buffer.concat(chunks)))
+    req.on('error', reject)
+  })
+}
+
+function proxyToHermes(req, res, url, body) {
   const key = hermesKey()
   if (!key) {
     sendJson(res, 503, { error: 'gateway has no Hermes key (set HERMES_KEY or HERMES_KEY_FILE)' })
@@ -285,6 +305,8 @@ function proxyToHermes(req, res, url) {
   delete headers.referer
   headers.authorization = `Bearer ${key}`
   headers['x-sofia-via'] = 'gateway'
+  if (body)
+    headers['content-length'] = String(body.length)
 
   const reqChunks = []
   if (TRACE) {
@@ -353,7 +375,10 @@ function proxyToHermes(req, res, url) {
     else res.end()
   })
 
-  req.pipe(upstream)
+  if (body)
+    upstream.end(body)
+  else
+    req.pipe(upstream)
 }
 
 function serveFrom(req, res, base, relPath) {
@@ -642,6 +667,16 @@ self.addEventListener('activate', (event) => {
   }
 
   if (url.pathname.startsWith('/v1/')) {
+    // A typed turn has no tools: the gateway does the one thing a window needs
+    // before handing the message to Hermes.
+    if (url.pathname.endsWith('/chat/completions') && req.method === 'POST') {
+      const body = await readRequestBody(req).catch(() => null)
+      if (body) {
+        maybeOpenFromText(body).catch(() => {})
+        proxyToHermes(req, res, url, body)
+        return
+      }
+    }
     proxyToHermes(req, res, url)
     return
   }
@@ -651,10 +686,113 @@ self.addEventListener('activate', (event) => {
     return
   }
 
-  // --- her eyes and hands on the web --------------------------------------
+  // --- stage events -----------------------------------------------------------
+// Voice answers arrive on the Live socket and carry their own tool results.
+// A typed message goes to Hermes over /v1 and has no tools at all, so a window
+// opened in text has to be pushed out of band. One SSE stream, one subscriber
+// per tab, same session cookie as everything else.
+const stageClients = new Set()
+
+function broadcastToStage(event) {
+  const line = `data: ${JSON.stringify(event)}\n\n`
+  for (const res of stageClients) {
+    try { res.write(line) }
+    catch { stageClients.delete(res) }
+  }
+}
+
+const OPEN_VERB = /\b(?:open|show|pull up|bring up|go to|take me to)\b/i
+const SITES = {
+  github: 'https://github.com',
+  gitlab: 'https://gitlab.com',
+  youtube: 'https://youtube.com',
+  google: 'https://google.com',
+  gmail: 'https://mail.google.com',
+  reddit: 'https://reddit.com',
+  x: 'https://x.com',
+  twitter: 'https://x.com',
+  wikipedia: 'https://wikipedia.org',
+  notion: 'https://notion.so',
+  maps: 'https://maps.google.com',
+  hn: 'https://news.ycombinator.com',
+  hackernews: 'https://news.ycombinator.com',
+  stackoverflow: 'https://stackoverflow.com',
+}
+
+/** "open github for me and show" -> https://github.com, or null. */
+function urlFromText(text) {
+  const said = String(text || '')
+  if (!OPEN_VERB.test(said))
+    return null
+  const direct = said.match(/https?:\/\/[^\s'"]+/i)
+  if (direct)
+    return direct[0].replace(/[.,;:!)]+$/, '')
+  const words = said.toLowerCase().match(/[a-z0-9.-]+\.[a-z]{2,}/g)
+  if (words) {
+    for (const candidate of words) {
+      if (!/^(sir|ok|okay|well|please)$/.test(candidate))
+        return `https://${candidate}`
+    }
+  }
+  for (const key of Object.keys(SITES)) {
+    if (new RegExp(`\\b${key}\\b`).test(said.toLowerCase()))
+      return SITES[key]
+  }
+  return null
+}
+
+async function maybeOpenFromText(body) {
+  let payload
+  try { payload = JSON.parse(body.toString('utf8')) }
+  catch { return }
+  const messages = Array.isArray(payload?.messages) ? payload.messages : []
+  const lastUser = [...messages].reverse().find(m => m?.role === 'user')
+  const text = typeof lastUser?.content === 'string'
+    ? lastUser.content
+    : Array.isArray(lastUser?.content) ? lastUser.content.map(p => p?.text || '').join(' ') : ''
+  const target = urlFromText(text)
+  if (!target)
+    return
+  const base = process.env.BROWSER_URL || 'http://sofia-browser:8790'
+  try {
+    const up = await fetch(`${base}/open`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: target }),
+      signal: AbortSignal.timeout(45000),
+    })
+    const page = await up.json()
+    if (!up.ok)
+      throw new Error(page.error || `status ${up.status}`)
+    console.log(`[sofia-gateway] text: opened ${page.url}`)
+    broadcastToStage({ kind: 'live', sid: page.sid, url: page.url || target, title: page.title || '' })
+  }
+  catch (error) {
+    console.log(`[sofia-gateway] text: could not open ${target} (${String(error.message || error).slice(0, 90)})`)
+  }
+}
+
+// --- her eyes and hands on the web --------------------------------------
   // A real Chromium lives beside the gateway (container `sofia-browser`). Each
   // window gets one page there; the window shows a screenshot and relays the
   // pointer back. Nothing is iframed, because almost no real site allows it.
+  if (url.pathname === '/api/events') {
+    res.writeHead(200, {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-store',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+    })
+    res.write(': connected\n\n')
+    stageClients.add(res)
+    const beat = setInterval(() => {
+      try { res.write(': ping\n\n') }
+      catch { clearInterval(beat); stageClients.delete(res) }
+    }, 25000)
+    req.on('close', () => { clearInterval(beat); stageClients.delete(res) })
+    return
+  }
+
   if (url.pathname.startsWith('/api/browse/')) {
     const base = process.env.BROWSER_URL || 'http://sofia-browser:8790'
     try {
