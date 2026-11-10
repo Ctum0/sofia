@@ -16,7 +16,7 @@ if (!chromium)
   throw new Error(`playwright did not export chromium (${process.env.PLAYWRIGHT_MODULE || 'playwright'})`)
 
 const PORT = Number(process.env.PORT || 8790)
-const MAX_PAGES = Number(process.env.MAX_PAGES || 4)
+const MAX_PAGES = Number(process.env.MAX_PAGES || 8)
 const VIEWPORT = { width: 1280, height: 800 }
 
 /** Refuse to fetch the VPS's own network, metadata endpoints, and localhost. */
@@ -35,7 +35,7 @@ async function assertPublic(url) {
 
 let browser
 const pages = new Map() // sid -> { page, ctx, used }
-const IDLE_MS = Number(process.env.IDLE_MS || 600000)
+const IDLE_MS = Number(process.env.IDLE_MS || 180000)
 
 // A gate that forgets to close leaves a page behind, and four of those turn
 // every later "open" into "no room: 4 pages open" (seen 2026-11-10). Pages are
@@ -62,8 +62,21 @@ async function getBrowser() {
 }
 
 async function newPage(url) {
-  if (pages.size >= MAX_PAGES)
-    throw new Error(`no room: ${pages.size} pages open`)
+  // A full slate must never turn into an error the user sees: the oldest page
+  // is the one nobody is looking at. (Four leaked pages made every "open" fail
+  // with "no room" on 2026-11-10.)
+  if (pages.size >= MAX_PAGES) {
+    let oldest = null
+    for (const [sid, entry] of pages) {
+      if (!oldest || (entry.used || 0) < (oldest[1].used || 0))
+        oldest = [sid, entry]
+    }
+    if (oldest) {
+      pages.delete(oldest[0])
+      await oldest[1].ctx.close().catch(() => {})
+      console.log(`[sofia-browser] evicted ${oldest[0]} to make room`)
+    }
+  }
   const safe = await assertPublic(url)
   const b = await getBrowser()
   const ctx = await b.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, locale: 'en-US' })
