@@ -260,7 +260,17 @@ try {
     await page.waitForTimeout(250)
   }
   const closed = await state()
-  step('closing all restores the chat', closed.count === 0 && closed.chatVisible === true)
+  // The chat comes back on the same patch that removes the last window, but the
+  // DOM settles a frame later: read it before that and a correct close reads as
+  // a failure (measured once: `count 0, chat visible: false`). Wait for the state,
+  // bounded, then assert it — a chat that never returns still fails.
+  await page.waitForFunction(
+    () => !document.querySelector('[data-testid=sofia-window]') && !!document.querySelector('[data-testid=chat-empty-state]'),
+    { timeout: 4000 },
+  ).catch(() => {})
+  const settled2 = await state()
+  step('closing all restores the chat', settled2.count === 0 && settled2.chatVisible === true,
+    `${settled2.count} window(s) left, chat visible: ${settled2.chatVisible}`)
 } catch (error) {
   step('gate ran without throwing', false, String(error).slice(0, 200))
 } finally {
