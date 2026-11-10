@@ -1133,6 +1133,71 @@ end-to-end, not just written; only the crontab line is his (item X).
    narrower and is now in item X: today's tarball lacks it, tomorrow's should not,
    and that is something to verify rather than something to fix.
 
+- 2026-11-10 14:49–15:3x SLT — **Windows, plural, verified in production — and two
+  gates were reading a contract the app no longer has.**
+  *What the queue did not know.* Three commits landed after the last Log entry
+  and none of them was recorded here: `d2ca14812` (she moves aside),
+  `3417ad948` (windows, plural — several at once, movable, each closable) and
+  `7a1bd9378` (import the component the template actually uses — the previous
+  build imported a `SofiaPanel.vue` that `3417ad948` had deleted). Deploy `126`
+  went out for `3417ad948`; deploy **`127` finished for `7a1bd9378`** (09:22Z),
+  container `…T091648` Up (healthy), `/healthz` `ok:true hermes:"reachable"
+  voice:"Leda"`. So the plural-window feature had shipped twice without a gate
+  ever reading it.
+
+  *Defect 1 — `windows-gate.mjs` clicked through an overlay.* First run on the
+  serving build: **10/12**, the two failures being "clicking a window raises it"
+  and "a window can be dragged". Not the component: `elementFromPoint()` at the
+  window's own title bar returned **`section.startup-screen`**, which is
+  `position: fixed; z-index: 10000` and stays mounted **12.6–13.7 s** after login
+  on a cold load. A real pointer event never reached the window; a *synthetic*
+  `dispatchEvent` did raise it, which is what separated "hit-testing" from
+  "logic". The gate now waits for `section.startup-screen` to **detach**
+  (timeout not swallowed — a splash that never leaves is a real failure) and
+  asserts the stage takes pointer events before touching anything.
+  Re-run on the same build: **13/13** — 2 windows at once, newest on top,
+  cascade `72,96 / 106,126`, image decoded **1200 px**, web card offers
+  `Open github.com`, layer `position: fixed` **outside** the chat column, chat
+  yields, click raises (`image:true`), drag moves `72,96 → 212,186`, closing one
+  leaves one, closing all restores the chat.
+  *Product truth worth stating:* for those first ~13 s the splash owns the
+  viewport, so a window opened before it detaches is visible but not clickable.
+  Transient and inherent to having a splash; not fixed, recorded.
+
+  *Defect 2 — `panel-live-gate.mjs` was pinned to deleted DOM.* It waited for
+  `[data-testid=sofia-panel]` and read `.sofia-panel__title`; `3417ad948`
+  renamed both to `sofia-window` / `.sofia-window__title`. Left alone it would
+  have printed `panel on screen: NO` on a working feature — the same class as
+  the earlier `auth-gate` pinning upstream's amber. Fixed, and it now also
+  requires a non-zero rectangle, so a zero-sized element cannot pass as a
+  window. **Re-run on deploy 127: PASS** — `tool:show_panel` → `panel:image` →
+  `tool:show_panel`, window on screen `kind=image title="Sofia" 620x440`, from a
+  real Live session (Google → gateway → model → tool → DOM), not a synthetic
+  event.
+
+  *Regressions on `7a1bd9378`:* voice **13/13** (54 mic frames, `in:This is
+  Sithem.`, 14 chunks, capture 16000 / playback 24000 both `running`, mouth peak
+  100, `0 x localhost:6121`), windows **13/13**, panel-live **PASS**.
+
+  *Corrections to earlier claims in this file.* (1) END STATE said
+  `silenceDurationMs: 500`; the shipping value is **1100** — `700` cut a natural
+  thinking pause, and `97ef5bbee` shipped 1100 with the curve. No
+  `LIVE_SILENCE_MS` in the container env, so the code default is what runs.
+  (2) Item W's account of the panel is now historical: `panel-gate.mjs` and
+  `SofiaPanel.vue` were deleted by the plural-window commit, so W's "9/9" is a
+  reading of a file that no longer exists. `windows-gate.mjs` replaces it.
+  (3) The W entry's path description (`{type:'panel'}` → `sofia:panel` →
+  `SofiaPanel.vue`) still holds for the transport, but the renderer is
+  `SofiaWindows.vue` / `SofiaWindow.vue`.
+
+  *Own traps this run.* (i) The deploy queue row says `finished` several seconds
+  before the new container is healthy, so a gate run across that swap reads as a
+  product failure — poll the container, not just the row. (ii) `execute_code` is
+  blocked in cron runs; every edit here was the patch/write tool plus `scp`. (iii) Three tuning containers from the VAD
+  sweep (`sofia-vad1100`, `sofia-vadoff`, `sofia-pausesweep`) are still Up and
+  unhealthy, holding their memory limits — not touched, they are not this run's
+  artefacts; they should be `docker rm -f`'d when someone is looking.
+
 ## END STATE — 2026-11-10
 
 The product is feature-complete against the plan in Notion:
@@ -1140,8 +1205,9 @@ The product is feature-complete against the plan in Notion:
 | Capability | Evidence |
 | --- | --- |
 | Brain | Hermes answers through the gateway (`healthz hermes: reachable`) |
-| Voice | Live audio, `Leda`, 12/12 gate; `silenceDurationMs: 500` hangover, owner confirms the pace |
+| Voice | Live audio, `Leda`, **13/13** gate on `7a1bd9378`; `silenceDurationMs: 1100` (500 answered 1.8 s before he finished a sentence; 700 cut a natural thinking pause) |
 | Turn-taking | barge-in 10/10 — `interrupted` clears the queue and drops the tail |
+| Windows | she opens room on stage: `windows-gate` **13/13** on `7a1bd9378` (two at once, cascade, movable `72,96 → 212,186`, closable, outside the chat column) and `panel-live-gate` **PASS** from a real Live session |
 | Long sessions | resumption + context compression across Google's ~10-min socket cap |
 | Hands | `local_time` and `ask_hermes` execute server-side; key never reaches the browser |
 | Presence | zero `AIRI` in the DOM, burgundy default, brand 13/13, icons regenerated |
@@ -1175,3 +1241,8 @@ Cloudflare-only (root firewall; exact commands in Q).
   Defect found while proving it: the tool description suggested `/brand/og.png`,
   which is a private route — the panel rendered a broken image. Public assets
   only (`/og.png`), and the description now says so.
+  → **SUPERSEDED 2026-11-10 by the plural-window commit `3417ad948`.** The
+  single `SofiaPanel.vue` and its `panel-gate.mjs` (the "9/9" above) were both
+  deleted; the renderer is now `SofiaWindows.vue` + `SofiaWindow.vue` and the
+  browser half is `windows-gate.mjs` (13/13 on `7a1bd9378`, see the Log). The
+  transport described here is unchanged and still accurate.

@@ -30,6 +30,17 @@ note() { echo "  $*"; }
 echo "== 1. repository =="
 dirty=$(git status --porcelain | wc -l | tr -d ' ')
 [ "$dirty" = "0" ] || fail 1 "working tree has $dirty uncommitted path(s); commit or stash first"
+# The build container bind-mounts this tree and writes into it as root, and a
+# tracked source file once came back as `SofiaWindow.vue -> /proc/self/fd/0`
+# (a pipe: its content is whatever stdin happened to be). `git status` said only
+# "typechange", and a commit would have shipped the pipe. Refuse while any
+# tracked link points at a pipe or outside the tree. `.claude/skills` is a
+# legitimate relative link and must stay allowed.
+bad_links=$(git ls-files -s | awk '$1=="120000"{print $4}' | while read -r p; do
+  t=$(readlink "$p" 2>/dev/null || true)
+  case "$t" in /proc/*|/dev/*|/*) echo "$p -> $t" ;; esac
+done)
+[ -z "$bad_links" ] || fail 1 "tracked symlink(s) point outside the tree: $(echo "$bad_links" | tr '\n' ' ')"
 head_sha=$(git rev-parse HEAD)
 git fetch -q origin main 2>/dev/null || true
 remote_sha=$(git rev-parse origin/main 2>/dev/null || echo none)
