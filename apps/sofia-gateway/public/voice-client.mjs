@@ -175,6 +175,11 @@ export class SofiaVoice {
       lastError: '',
       lastEvent: '',
       errors: [],
+      // One entry per finished turn, exactly as the gateway counted it. The
+      // gateway's log line is not readable from a browser, and a session total
+      // printed under a per-turn label reads as a lie; this is the same number
+      // the gate asserts against the running total.
+      turns: [],
     }
   }
 
@@ -220,6 +225,12 @@ export class SofiaVoice {
           this.stopPlayback()
           this.muteUntil = Date.now() + INTERRUPT_TAIL_MS
           this.emit('interrupted')
+          return
+        }
+        if (msg.type === 'turnComplete') {
+          // The gateway sent the numbers for THIS turn, not the session.
+          this.stats.turns.push({ chunks: msg.chunks || 0, toolCalls: msg.toolCalls || 0 })
+          this.emit('turnComplete', { chunks: msg.chunks || 0, toolCalls: msg.toolCalls || 0, turns: this.stats.turns.length })
           return
         }
         if (msg.type === 'error') {

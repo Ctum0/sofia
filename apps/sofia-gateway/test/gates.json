@@ -53,6 +53,10 @@
       "auto": false,
       "why": "spends a real Live session"
     },
+    "turn-counter-gate.mjs": {
+      "auto": false,
+      "why": "spends a real Live session and waits for two full turns (~60 s)"
+    },
     "ui-gate.mjs": {
       "auto": false,
       "why": "broad UI sweep; slow, run before a release"

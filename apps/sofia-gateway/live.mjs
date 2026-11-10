@@ -185,15 +185,12 @@ export class LiveBridge {
         return
       }
 
-      if (msg.serverContent?.turnComplete)
-        console.log(`[sofia-gateway] live: turn ended (${this.chunks || 0} audio chunks, ${this.toolCalls || 0} tool calls)`)
-
       if (msg.serverContent) {
         const sc = msg.serverContent
         for (const part of sc.modelTurn?.parts || []) {
           if (part.inlineData?.data) {
-            this.chunks = (this.chunks || 0) + 1
-        this.emit({ type: 'audio', data: part.inlineData.data, mimeType: part.inlineData.mimeType || 'audio/pcm;rate=24000' })
+            this.turnChunks = (this.turnChunks || 0) + 1
+            this.emit({ type: 'audio', data: part.inlineData.data, mimeType: part.inlineData.mimeType || 'audio/pcm;rate=24000' })
           }
           else if (part.text) {
             this.emit({ type: 'text', text: part.text })
@@ -203,10 +200,26 @@ export class LiveBridge {
           this.emit({ type: 'transcript', dir: 'out', text: sc.outputTranscription.text })
         if (sc.inputTranscription?.text)
           this.emit({ type: 'transcript', dir: 'in', text: sc.inputTranscription.text })
-        if (sc.interrupted)
+        if (sc.interrupted) {
           this.emit({ type: 'interrupted' })
-        if (sc.turnComplete)
-          this.emit({ type: 'turnComplete' })
+          // A barge-in ends the turn without a turnComplete; without this reset
+          // the next turn inherits the counts of the one that was cut off.
+          this.turnChunks = 0
+          this.turnToolCalls = 0
+        }
+        if (sc.turnComplete) {
+          // Counted per TURN, and carried on the event as well as the log. Read
+          // straight off the session totals, two one-tool turns print (0,1) then
+          // (0,2) under a per-turn label — which is how reading this line once
+          // produced a wrong diagnosis of the model. `turn-counter-gate.mjs`
+          // asserts the entry is not the running total.
+          const chunks = this.turnChunks || 0
+          const toolCalls = this.turnToolCalls || 0
+          console.log(`[sofia-gateway] live: turn ended (${chunks} audio chunks, ${toolCalls} tool calls)`)
+          this.emit({ type: 'turnComplete', chunks, toolCalls })
+          this.turnChunks = 0
+          this.turnToolCalls = 0
+        }
         return
       }
 
@@ -214,9 +227,9 @@ export class LiveBridge {
         // Without this line a silent turn is indistinguishable from a slow one:
         // "0 chunks" could be a dead socket, a tool call the client never
         // answered, or a 40-second ask_hermes. Name it, time it.
-        this.toolCalls = (this.toolCalls || 0) + (msg.toolCall.functionCalls || []).length
+        this.turnToolCalls = (this.turnToolCalls || 0) + (msg.toolCall.functionCalls || []).length
         for (const call of msg.toolCall.functionCalls || [])
-          console.log(`[sofia-gateway] live: tool ${call.name} (${this.chunks || 0} audio chunks before it)`)
+          console.log(`[sofia-gateway] live: tool ${call.name} (${this.turnChunks || 0} audio chunks before it)`)
         this.emit({ type: 'toolCall', functionCalls: msg.toolCall.functionCalls || [] })
         return
       }
