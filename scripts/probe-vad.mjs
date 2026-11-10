@@ -24,7 +24,7 @@ const vad = MODE === 'minimal'
       silenceDurationMs: 500,
       prefixPaddingMs: 300,
       startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
-      endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
+      endOfSpeechSensitivity: process.env.LIVE_END_SENSITIVITY || 'END_SENSITIVITY_HIGH',
     }
 
 const setup = {

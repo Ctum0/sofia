@@ -20,10 +20,22 @@
 //     "[0:a]atrim=0:1.9,asplit=2[x1][x2];[x1][1:a][x2][2:a]concat=n=4:v=0:a=1[out]" \
 //     -map "[out]" -ar 16000 -ac 1 mic-pause600.wav        # -> 10.40 s
 //
+// The pause-length variant is the same command with one parameter changed:
+//   -t 0.6 -> -t 1.0   (and SPEECH_END_S=4.80 instead of 4.40)  # -> 10.80 s
+// mic-pause1000.wav is what proved 700 ms cuts a natural thinking pause.
+//
 // The pause is deliberately 600 ms: shorter than the 800 ms Gemini default on
 // purpose, so a client that "works" here works for a real speaker who pauses.
+// The fixture is a parameter, not a constant: the same gate must be able to ask
+// "how long a pause does this threshold survive?", and the only thing that
+// changes between those questions is the length of the silence inside the turn.
+//   FIXTURE=/qa/mic-pause1000.wav SPEECH_END_S=4.80 node vad-cutoff-gate.mjs
+// The rule the fixture must obey: its trailing silence has to be longer than the
+// threshold under test, or the model never sees an end-of-turn at all and the
+// gate reports "frames>0, no reply" — the fixture failing, not the product.
 const BASE = process.env.BASE || 'http://127.0.0.1:3005'
 const PASSWORD = process.env.SOFIA_PASSWORD || ''
+const FIXTURE = process.env.FIXTURE || '/qa/mic-pause600.wav'
 const SPEECH_END_S = Number(process.env.SPEECH_END_S || 4.40)
 
 const { chromium } = await import('playwright')
@@ -39,7 +51,7 @@ const browser = await chromium.launch({
     '--no-sandbox',
     '--use-fake-device-for-media-stream',
     '--use-fake-ui-for-media-stream',
-    '--use-file-for-fake-audio-capture=/qa/mic-pause600.wav',
+    `--use-file-for-fake-audio-capture=${FIXTURE}`,
     '--autoplay-policy=user-gesture-required',
   ],
 })
@@ -102,7 +114,15 @@ try {
 
   step('she did not answer over him — reply comes after the whole turn',
     v.t.firstPlayed >= speechEnd, `${early} ms early`)
-  step('she still answered (turn was not swallowed)', hangover < 15000, `${hangover} ms after speech end`)
+  step('she still answered (turn was not swallowed)', Math.abs(hangover) < 15000,
+    early > 0 ? `${early} ms early` : `${hangover} ms after speech end`)
+  // Timing alone is not the failure he feels: the cost of ending a turn early is
+  // that the rest of his sentence never reaches the model. The fixture's second
+  // clause opens with "Hey", so its presence in the input transcript is the
+  // difference between "answered early" and "did not hear half of it".
+  const heard = v.transcripts.filter(t => t.startsWith('in:')).join(' ')
+  step('the second clause reached the transcript', /hey/i.test(heard),
+    heard.slice(0, 120) || 'no input transcript')
   step('no page errors', consoleErrors.length === 0, consoleErrors.slice(0, 2).join(' | ') || 'none')
 }
 catch (err) {

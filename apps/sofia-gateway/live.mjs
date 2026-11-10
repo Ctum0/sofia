@@ -96,27 +96,46 @@ export class LiveBridge {
     // this payload reaching setupComplete on gemini-3.8-live, while an unknown
     // field closes the socket with 1007 before setup ever completes.
     //
-    // 700 ms is the measured compromise between the two failures below, not a
-    // preference. Both numbers come from gates that run against a real Live
-    // session on the serving build:
-    //   vad-latency-gate  one burst of speech, then 20 s of silence
-    //     -> speech end to first audio 1123 ms, inside phase 0.5's 1200 ms
-    //   vad-cutoff-gate   one turn with a 600 ms breath inside it
-    //     -> 500 ms: she answered 1689 ms BEFORE he finished, and the second
-    //        clause never reached the transcript at all
-    //     -> 700 ms: she waited for the whole turn and answered 1123 ms later
-    // Lower is faster and talks over him; that is not worth 200 ms.
+    // 1100 ms. A threshold is a clock, and a clock cannot tell a finished
+    // sentence from a breath: any value T cuts every pause longer than T. The
+    // question is therefore not "what is fastest" but "which pauses are real
+    // speech", and that is measurable — a fixture with silence inside the turn
+    // asks it directly (`vad-cutoff-gate.mjs`, `SPEECH_END_S` set to the true
+    // end of both clauses).
+    //
+    // Measured on gemini-3.8-live (scratch containers from the serving image,
+    // one Live session at a time; "hangover" = true speech end -> first audio
+    // on a clean single turn, from vad-latency-gate):
+    //   setting              hango.  600 ms breath   1000 ms pause
+    //   500 ms                1192    cut -1689 ms    (not tested)
+    //   700 ms (was shipped)  1309    survives        cut -1762 ms, clause lost
+    //   Gemini defaults       1450    (not tested)    cut -1595 ms
+    //   1100 + END_LOW        1467    survives        cut -1745 ms (sensitivity
+    //                                                 is not a timer: no effect)
+    //   1100 ms               1467    survives        7/7, both clauses
+    // 1000 ms is an ordinary thinking pause. Paying 158 ms once per turn to stop
+    // answering half a sentence is the trade; 700 -> 1100 costs less than the
+    // 500 -> 700 step did. Both 700 and Gemini's own default cut the 1 s pause,
+    // so this is not over-tuning a working default - the default fails too.
     //   LIVE_VAD=off        -> leave Gemini's defaults alone
-    //   LIVE_SILENCE_MS     -> the hangover (default 700)
+    //   LIVE_SILENCE_MS     -> the hangover (default 1100)
     //   LIVE_PREFIX_PAD_MS  -> audio kept from *before* speech was detected
+    //   LIVE_END_SENSITIVITY-> END_SENSITIVITY_{LOW,HIGH}; accepted by the API
+    //                          but measured to change nothing here.
     const vadOff = (process.env.LIVE_VAD || '').toLowerCase() === 'off'
-    const silenceMs = Number(process.env.LIVE_SILENCE_MS || 700)
+    const silenceMs = Number(process.env.LIVE_SILENCE_MS || 1100)
     const padMs = Number(process.env.LIVE_PREFIX_PAD_MS || 300)
+    // Sensitivity is the *evidence* knob, silenceDurationMs is the *clock*. A
+    // clock can only be beaten by waiting longer, which taxes every real turn;
+    // asking for more certainty that he stopped is a different trade, so it is
+    // kept separately tunable and sent only when set (empty = Gemini's default).
+    const endSens = (process.env.LIVE_END_SENSITIVITY || '').trim()
     if (!vadOff && Number.isFinite(silenceMs)) {
       setup.realtimeInputConfig = {
         automaticActivityDetection: {
           silenceDurationMs: silenceMs,
           ...(Number.isFinite(padMs) ? { prefixPaddingMs: padMs } : {}),
+          ...(endSens ? { endOfSpeechSensitivity: endSens } : {}),
         },
       }
     }
