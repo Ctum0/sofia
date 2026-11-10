@@ -131,4 +131,18 @@ brand_pass=${brand_ok%%/*}; brand_all=${brand_ok##*/}
 [ -n "$brand_ok" ] && [ "$brand_pass" = "$brand_all" ] || { echo "$brand_px" | tail -14; fail 6 "brand assets are not Sofia's (${brand_ok:-no count})"; }
 note "$brand_ok brand assets"
 
+# The two gates that catch the failures this project actually has: a window
+# that cannot be clicked, and a browser that stops answering. Both run against
+# production, both parse their own count.
+for g in windows-gate.mjs browser-gate.mjs; do
+  out=$(run_gate "$g")
+  count=$(echo "$out" | grep -oE '[0-9]+/[0-9]+' | tail -1)
+  got=${count%%/*}; want=${count##*/}
+  if [ -z "$count" ] || [ "$got" != "$want" ]; then
+    echo "$out" | grep -E '^FAIL' | head -6
+    fail 7 "$g ${count:-did not report a count}"
+  fi
+  note "$g $count"
+done
+
 echo "PASS ${head_sha:0:9} — tree clean, deployed, healthy, gated, on-brand"

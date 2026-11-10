@@ -1,0 +1,100 @@
+name: ci
+
+# Every failure this workflow catches has already happened once by hand.
+# The guards are static and named after the incident; the build is the real
+# compiler; the image job is what Coolify will actually run.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  guards:
+    name: guards (seconds)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: incident guards
+        run: node scripts/ci/guards.mjs
+      - name: gateway parses
+        run: |
+          for f in apps/sofia-gateway/*.mjs apps/sofia-gateway/browse-service/*.mjs; do
+            node --check "$f" || exit 1
+          done
+          echo "all gateway files parse"
+      - name: release script is valid shell
+        run: bash -n scripts/verify-release.sh
+
+  build:
+    name: build (minutes)
+    needs: guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: install
+        run: pnpm install --frozen-lockfile
+      - name: lint the files this fork owns
+        run: pnpm exec eslint apps/stage-web/src packages/stage-layouts/src/components/Widgets apps/sofia-gateway --max-warnings=0
+      - name: build the stage
+        run: pnpm -F @proj-airi/stage-web build
+      - name: the built page is not the login page
+        run: |
+          test -f apps/stage-web/dist/index.html
+          bytes=$(wc -c < apps/stage-web/dist/index.html)
+          echo "index.html ${bytes} bytes"
+          test "$bytes" -gt 2000
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage-web-dist
+          path: apps/stage-web/dist
+          retention-days: 3
+
+  image:
+    name: image (what Coolify builds)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: docker build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: sofia:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: the image answers /healthz
+        run: |
+          docker run -d --name sofia-ci -p 3005:3005 \
+            -e SOFIA_PASSWORD=ci-only -e HERMES_URL=http://127.0.0.1:1 \
+            sofia:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3005/healthz > /tmp/healthz.json; then break; fi
+            sleep 2
+          done
+          cat /tmp/healthz.json
+          grep -q '"ok":true' /tmp/healthz.json
+          docker rm -f sofia-ci

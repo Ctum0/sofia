@@ -1,0 +1,77 @@
+{
+  "_why": "A gate nobody runs is a gate that never fails. Every file here is either run by scripts/verify-release.sh (auto) or has a written reason it cannot be.",
+  "gates": {
+    "about-gate.mjs": {
+      "auto": false,
+      "why": "needs a signed-in browser and a build that ships the about pane"
+    },
+    "auth-gate.mjs": {
+      "auto": false,
+      "why": "runs against a local dev server; production auth is covered by auth-surface-gate"
+    },
+    "auth-surface-gate.mjs": {
+      "auto": false,
+      "why": "manual: lockouts would block the automated runs that follow"
+    },
+    "auto-start-gate.mjs": {
+      "auto": false,
+      "why": "needs a real gesture chain; flaky in headless"
+    },
+    "barge-in-gate.mjs": {
+      "auto": false,
+      "why": "refuses https by design (mixed content); must run against http://127.0.0.1:3005"
+    },
+    "brand-assets-gate.mjs": {
+      "auto": true,
+      "why": "manual"
+    },
+    "brand-copy-gate.mjs": {
+      "auto": false,
+      "why": "covered by brand-assets-gate inside the verifier"
+    },
+    "browser-gate.mjs": {
+      "auto": true,
+      "why": "the browser service is a separate container and can go silent on its own"
+    },
+    "latency-gate.mjs": {
+      "auto": false,
+      "why": "timing-sensitive; a loaded VPS makes it lie"
+    },
+    "panel-live-gate.mjs": {
+      "auto": false,
+      "why": "spends a real Live session; run by hand before a release"
+    },
+    "rate-limit-gate.mjs": {
+      "auto": false,
+      "why": "deliberately trips the login lockout"
+    },
+    "session-longevity-gate.mjs": {
+      "auto": false,
+      "why": "long-running; run before a release, not on every push"
+    },
+    "tool-gate.mjs": {
+      "auto": false,
+      "why": "spends a real Live session"
+    },
+    "ui-gate.mjs": {
+      "auto": false,
+      "why": "broad UI sweep; slow, run before a release"
+    },
+    "vad-cutoff-gate.mjs": {
+      "auto": false,
+      "why": "timing-sensitive measurement; abandoned as unreliable in headless"
+    },
+    "voice-gate.mjs": {
+      "auto": true,
+      "why": "manual"
+    },
+    "windows-gate.mjs": {
+      "auto": true,
+      "why": "the window layer is the thing most often broken; runs in ~30 s"
+    },
+    "windows-responsive-gate.mjs": {
+      "auto": false,
+      "why": "needs several viewports; slow"
+    }
+  }
+}

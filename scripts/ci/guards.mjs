@@ -22,6 +22,10 @@ function check(name, fn) {
   }
 }
 
+function sofiaWorkflow(name) {
+  return name.startsWith('sofia-')
+}
+
 function assert(condition, message) {
   if (!condition)
     throw new Error(message)
@@ -90,14 +94,21 @@ check('G4 no opacity utilities as bare attributes', () => {
   return 'none'
 })
 
-// G5 — a gate nobody runs is a gate that never fails. browser-gate.mjs existed
-// for a day outside verify-release.sh.
-check('G5 every gate is wired into the release verifier', () => {
+// G5 — a gate nobody runs is a gate that never fails. There are eighteen gate
+// files and the verifier runs a few, so the decision of which is automatic is
+// written down in apps/sofia-gateway/test/gates.json, with a reason for every
+// manual one. A new gate that is not in the manifest fails this check.
+check('G5 every gate is declared, and every automatic one is wired', () => {
+  const dir = join(root, 'apps/sofia-gateway/test')
+  const files = readdirSync(dir).filter(f => f.endsWith('-gate.mjs'))
+  const manifest = JSON.parse(readFileSync(join(dir, 'gates.json'), 'utf8')).gates
+  const undeclared = files.filter(f => !manifest[f])
+  assert(undeclared.length === 0, `not declared in gates.json: ${undeclared.join(', ')}`)
   const verifier = read('scripts/verify-release.sh')
-  const gates = readdirSync(join(root, 'apps/sofia-gateway/test')).filter(f => f.endsWith('-gate.mjs'))
-  const orphans = gates.filter(g => !verifier.includes(g))
-  assert(orphans.length === 0, `not run by verify-release.sh: ${orphans.join(', ')}`)
-  return `${gates.length} gates`
+  const unwired = Object.entries(manifest).filter(([f, v]) => v.auto && !verifier.includes(f)).map(([f]) => f)
+  assert(unwired.length === 0, `marked automatic but not run by verify-release.sh: ${unwired.join(', ')}`)
+  const auto = Object.entries(manifest).filter(([, v]) => v.auto).map(([f]) => f)
+  return `${files.length} gates, ${auto.length} automatic`
 })
 
 // G6 — a kind the tools can ask for must be a kind the window can render.
@@ -149,6 +160,20 @@ check('G10 the Dockerfile still builds the stage', () => {
   const dockerfile = read('Dockerfile')
   assert(/stage-web/.test(dockerfile), 'Dockerfile does not mention stage-web')
   return 'ok'
+})
+
+// G11 — upstream ships its own workflows. Adding one is fine; rewriting the
+// fork's `ci.yml` is not, and that happened on 2026-11-10 (an 80-line file
+// replaced a 387-line pipeline). Ours live under their own name.
+check('G11 the upstream CI is untouched and ours is separate', () => {
+  const upstream = read('.github/workflows/ci.yml')
+  assert(/^name: CI/m.test(upstream), 'upstream ci.yml was replaced — it should still start with "name: CI"')
+  const workflows = readdirSync(join(root, '.github/workflows')).filter(f => /ya?ml$/.test(f))
+  const ours = workflows.filter(f => sofiaWorkflow(f))
+  assert(ours.length > 0, 'no sofia-*.yml workflow runs the guards')
+  const runs = ours.filter(f => read(join('.github/workflows', f)).includes('guards.mjs'))
+  assert(runs.length > 0, 'a sofia workflow exists but does not run scripts/ci/guards.mjs')
+  return `${runs.join(', ')} runs the guards`
 })
 
 for (const line of passes)
