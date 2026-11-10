@@ -97,10 +97,13 @@ try {
     const prefix = turns.slice(0, i + 1).reduce((a, b) => a + b.chunks, 0)
     return i > 0 && t.chunks === prefix
   })
-  step('no turn line is the running total', turns.length >= TURNS_WANTED && cumulative === -1,
-    cumulative === -1
-      ? 'per-turn counts'
-      : `entry ${cumulative} (${turns[cumulative].chunks}) equals the prefix sum — the counter never resets`)
+  step('no turn line is the running total',
+    turns.length >= TURNS_WANTED && cumulative === -1,
+    turns.length < TURNS_WANTED
+      ? `only ${turns.length} turn(s): the build did not report per-turn counts at all`
+      : (cumulative === -1
+          ? 'per-turn counts'
+          : `entry ${cumulative} (${turns[cumulative].chunks}) equals the prefix sum — the counter never resets`))
 }
 catch (err) {
   step('gate completed without throwing', false, err.message)
