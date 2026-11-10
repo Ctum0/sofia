@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { errorMessageFromUnknown } from '@proj-airi/stage-shared'
 import { useSpeakingStore } from '@proj-airi/stage-ui/stores/audio'
-import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 
 /**
  * Sofia's live voice dock.
@@ -196,6 +196,33 @@ function tick() {
   frame = requestAnimationFrame(tick)
 }
 
+// One press is consent. After that the stage comes back listening on the next
+// visit, which is what "always listening" means in a product where the browser
+// still demands a gesture: the first pointer-down or key anywhere on the page
+// counts, so he never hunts for a button.
+const AUTO_KEY = 'sofia-voice-auto'
+
+function armAutoStart() {
+  try {
+    if (localStorage.getItem(AUTO_KEY) !== '1')
+      return
+  }
+  catch { return }
+  const fire = (event: Event) => {
+    // A press on the button itself is handled by toggle(); starting here too
+    // would race it and read as "connecting…" then immediately stop.
+    const target = event.target as HTMLElement | null
+    if (target?.closest?.('#sofia-talk'))
+      return
+    document.removeEventListener('pointerdown', fire, true)
+    document.removeEventListener('keydown', fire, true)
+    if (status.value === 'idle' && !voice.value)
+      void start()
+  }
+  document.addEventListener('pointerdown', fire, true)
+  document.addEventListener('keydown', fire, true)
+}
+
 async function start() {
   status.value = 'connecting'
   detail.value = ''
@@ -217,6 +244,8 @@ async function start() {
     await client.connect()
     await client.startMic()
     status.value = 'live'
+    try { localStorage.setItem(AUTO_KEY, '1') }
+    catch {}
     frame = requestAnimationFrame(tick)
   }
   catch (error) {
@@ -247,10 +276,14 @@ async function stop() {
 }
 
 function toggle() {
-  if (status.value === 'live' || status.value === 'connecting') {
+  if (status.value === 'live') {
     void stop()
     return
   }
+  // Already connecting (auto-start beat this click to it): ignore rather than
+  // tearing down a session that has not finished opening.
+  if (status.value === 'connecting')
+    return
   // Synchronously, inside the gesture: an AudioContext created or resumed after
   // an await is denied on Safari and silently suspended on Chrome, which is how
   // a working session ends up mute.
@@ -258,6 +291,8 @@ function toggle() {
   target?.unlock()
   void start()
 }
+
+onMounted(armAutoStart)
 
 onBeforeUnmount(() => {
   void stop()
