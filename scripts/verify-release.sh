@@ -94,8 +94,11 @@ run_gate() {
     "$PW" node "$1" 2>&1
 }
 voice=$(run_gate voice-gate.mjs)
-echo "$voice" | grep -qE "12/12|ALL .*PASS|checks passed" || { echo "$voice" | tail -15; fail 5 "voice gate failed"; }
-note "$(echo "$voice" | grep -oE '[0-9]+/12|[0-9]+ checks passed' | tail -1)"
+# Parse the count, do not grep for a substring: "11/12" contains "12" and a
+# loose pattern let a partially failing gate through once.
+voice_ok=$(echo "$voice" | grep -oE '[0-9]+/12' | tail -1)
+[ "$voice_ok" = "12/12" ] || { echo "$voice" | grep -E '^FAIL' | head -5; fail 5 "voice gate ${voice_ok:-unknown}"; }
+note "$voice_ok"
 
 echo "== 5. brand =="
 brand=$(run_gate dark-check.mjs)
