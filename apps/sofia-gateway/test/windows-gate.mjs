@@ -1,5 +1,13 @@
 // windows-gate.mjs — the stage's windows: several at once, above the page, not
 // inside the chat column, each movable and closable.
+//
+// Readiness trap, measured 2026-11-10: `section.startup-screen` is
+// `position: fixed; z-index: 10000` and stays mounted for ~12.6 s after login
+// on a cold load. While it is up, elementFromPoint() at a window's own title bar
+// returns the splash, so a real click never reaches the window and both the
+// raise and the drag report as product failures — they were the gate clicking
+// through an overlay. Wait for the splash to DETACH before asserting pointer
+// interaction; a timeout here is a genuine failure and must not be swallowed.
 import { chromium } from 'playwright'
 
 const BASE = process.env.BASE || 'https://sofia.ctum.org'
@@ -32,11 +40,22 @@ const state = () => page.evaluate(() => {
 })
 
 try {
+  const t0 = Date.now()
   await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   const f = await page.$('input[type=password]')
   if (f) { await f.fill(PASSWORD); await page.click('button[type=submit], button'); await page.waitForLoadState('domcontentloaded') }
   await page.waitForSelector('textarea, [placeholder*="Say something"]', { timeout: 120000 })
-  await page.waitForTimeout(2500)
+
+  // The splash is above everything until the startup resources finish; wait for
+  // it to leave the DOM, then confirm nothing intercepts the top of the stage.
+  await page.waitForSelector('section.startup-screen', { state: 'detached', timeout: 90000 })
+  const splashGoneAt = Date.now() - t0
+  const topHit = await page.evaluate(() => {
+    const el = document.elementFromPoint(200, 200)
+    return el ? `${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ').filter(Boolean).slice(0, 2).join('.')}` : null
+  })
+  step('the startup splash is gone and the stage takes pointer events', !/startup-screen/.test(topHit || ''), `splash detached at +${splashGoneAt} ms, hit ${topHit}`)
+  await page.waitForTimeout(400)
 
   const before = await state()
   step('no windows at rest', before.count === 0, `chat visible: ${before.chatVisible}`)
@@ -61,16 +80,16 @@ try {
 
   // raise the first window by clicking its bar
   const first = two.wins[0]
-  await page.mouse.click(first.x + 60, first.y + 8)
+  await page.mouse.click(first.x + 60, first.y + 20)
   await page.waitForTimeout(400)
   const raised = await state()
   step('clicking a window raises it', raised.wins.find(w => w.id === first.id)?.active === 'true',
     JSON.stringify(raised.wins.map(w => `${w.id}:${w.active}`)))
 
   // drag it
-  await page.mouse.move(first.x + 120, first.y + 8)
+  await page.mouse.move(first.x + 60, first.y + 20)
   await page.mouse.down()
-  await page.mouse.move(first.x + 260, first.y + 90, { steps: 8 })
+  await page.mouse.move(first.x + 200, first.y + 110, { steps: 10 })
   await page.mouse.up()
   await page.waitForTimeout(400)
   const moved = await state()
