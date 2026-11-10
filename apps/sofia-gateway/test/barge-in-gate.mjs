@@ -27,6 +27,16 @@ import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 
 const BASE = process.env.BASE || 'http://127.0.0.1:3005'
+// A gate that fails for the wrong reason is worse than no gate: pointed at the
+// https domain it opens a ws:// mock from an https page, which the browser
+// blocks as mixed content, and the run reports `gateway live socket error`
+// 1/2 — indistinguishable from a product regression. Refuse the wrong origin
+// loudly instead (this cost an hour on 2026-11-10).
+if (BASE.startsWith('https://')) {
+  console.error(`REFUSING: BASE=${BASE} is https. This gate hosts a mock Live socket on ws://127.0.0.1:${process.env.WS_PORT || 8799}, and an https page may not open it (mixed content).`)
+  console.error('Run it against the local gateway: BASE=http://127.0.0.1:3005')
+  process.exit(2)
+}
 const WS_PORT = Number(process.env.WS_PORT || 8799)
 const PASSWORD = process.env.SOFIA_PASSWORD || (() => {
   try { return readFileSync('/home/ctum/secrets/sofia-password', 'utf8').trim() }

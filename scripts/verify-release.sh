@@ -60,7 +60,9 @@ note "status ${status} · commit ${commit:0:9}"
 # Docs, evidence and gate scripts do not change the container. What must be
 # deployed is the newest commit that touched runtime code (rule R2, finessed:
 # a docs-only commit must not demand a five-minute rebuild).
-deploy_target=$(git log -1 --format=%H -- apps packages server services plugins Dockerfile pnpm-lock.yaml)
+# Gate files are not runtime: a change under `apps/sofia-gateway/test/` must not
+# demand a five-minute rebuild. Everything else under those paths must.
+deploy_target=$(git log -1 --format=%H -- apps packages server services plugins Dockerfile pnpm-lock.yaml ':(exclude)apps/sofia-gateway/test')
 note "runtime HEAD ${deploy_target:0:9}"
 [ "$status" = "finished" ] || fail 3 "latest deployment is '${status}', not finished (rule R2)"
 case "$commit" in
