@@ -216,6 +216,23 @@ result under **Log**. Rules at the bottom are mandatory.
   `0600` and the tarball is pulled off-box by Parrot, but it is still an
   unencrypted secret copy), and the tarball itself is deleted after the Parrot
   pull, so the drill can only be run against the staging directory.
+  → **RE-RUN 2026-11-10 14:15 SLT on a fresher archive, with the dumps actually
+  parsed.** `tar` **42 M**, extract **165 files**, `sha256sum -c MANIFEST.txt`
+  **164/164 OK**. Row counts read out of the dumps rather than counting `CREATE
+  TABLE`: `coolify-db` **90 tables / 38 non-empty** (`applications 1`,
+  `application_deployment_queues 111`, `environment_variables 44`), `honcho-db`
+  13/11, `litellm-db` 99/15, `iriswebapp_db` 79/39, `n8n` **167 tables /
+  `execution_entity 3291` / 4 workflows / 5 credentials**, `Caddyfile` 1 745 B
+  with every host present. Parser kept: `ops/restore-drill.py`.
+  *New finding yesterday's drill could not see:* **Sofia's own state is in no
+  archive.** She mounts `zp31…-sofia-data → /app/data` — `sofia.db` 344 064 B,
+  a **4 128 272 B WAL**, 41 MP3s — and the archive holds only the mount metadata.
+  Copying the `.db` alone reads back **81 messages / 39 runs / 23 live_usage**
+  versus **124 / 44 / 263** live: **35 % of the conversation and 91 % of the
+  telemetry live only in the WAL**, and would be lost by any file-copy backup.
+  Fixed and proven in `ops/backup-sofia-data.sh` (`VACUUM INTO` inside the live
+  container, then read the result back): 23 tables, 124/44/263,
+  `pragma integrity_check → ok`, 52 K gzipped, 409 600 B restored.
 - [x] **K(c). Cover `/opt/data` in the nightly backup — DONE 2026-11-10.**
   First finding: `/opt/data` is not on the VPS host at all — it lives inside the
   `hermes` container, so a host-side `tar` of it produces a 45-byte empty
@@ -235,33 +252,6 @@ result under **Log**. Rules at the bottom are mandatory.
   edits a cron-driven script): add a `tar czf $STAGING/hermes/profile.tar.gz
   --exclude=cache --exclude=images /opt/data/{memories,skills,profiles}` step,
   then prove it by listing the archive. Not done unattended.
-  → **PREPARED 2026-11-10, blocked on him → item L(a).** The step exists twice
-  over: `~/scripts/hermes-profile-backup.sh` (standalone, proven: **45 MB /
-  2463 entries / 8 s, exit 0**) and `~/scripts/vps-backup-hermes-step.patch`
-  (`patch -p1 --dry-run` exit 0, `bash -n` clean). The gap is real and measured:
-  `vps-backup.sh` copies only `hermes/config.yaml`, `env/hermes-data.env` and
-  `hermes/telegram-config.yaml` (lines 78/103/104/105) — `memories/`, `skills/`,
-  `profiles/` and the session store are in no archive. Applying it edits a
-  cron-driven script that *is* the safety net, so it stays his hand.
-- [x] **K(a). Restore drill — DONE 2026-11-10 14:15 SLT.** The archive was
-  opened for the first time and every number below came from reading it, not
-  from listing it. Round trip: `tar` **42 M** (matching the log's own `(42M)`),
-  extract **165 files**, `sha256sum -c MANIFEST.txt` → **164/164 OK, 0 failures**.
-  Dumps opened: `coolify-db` **90 tables / 38 non-empty** (`applications 1`,
-  `application_deployment_queues 111`, `environment_variables 44`), `honcho-db`
-  13/11, `litellm-db` 99/15, `iriswebapp_db` 79/39, `n8n` **167 tables /
-  `execution_entity 3291` / 4 workflows / 5 credentials**, `Caddyfile` 1 745 B
-  with `sofia.`/`hermes.`/`coolify.ctum.org` all present.
-  **What is not in it, named:** Sofia's `/app/data` (`sofia.db` + 4 MB WAL + 41
-  MP3 — **124 messages, 44 runs, 263 live_usage** live, none archived), Wazuh
-  indexer + manager logs, Splunk, MISP (`>100MB (skipped)` by its own log line),
-  karakeep, Portainer, Beszel, Grafana, Velociraptor, IRIS attachments, and
-  **Hermes `memories/`+`skills/`+`profiles/`** (zero entries → the K(c)/L(a)
-  patch). Two of my own claims died here and are retracted in the Log.
-  Delivered instead of a report: `~/scripts/backup-sofia-data.sh` — runs, and
-  its dump reads back **124/44/263, `integrity_check ok`**, versus a naive
-  `sofia.db` copy which reads **81/39/23** because 35 % of the conversation sits
-  in an un-checkpointed WAL.
   → **PREPARED 2026-11-10, blocked on him → item L(a).** The step exists twice
   over: `~/scripts/hermes-profile-backup.sh` (standalone, proven: **45 MB /
   2463 entries / 8 s, exit 0**) and `~/scripts/vps-backup-hermes-step.patch`
@@ -300,21 +290,29 @@ result under **Log**. Rules at the bottom are mandatory.
   `curl --resolve sofia.ctum.org:443:169.58.126.200 https://sofia.ctum.org/healthz`
   → expect a timeout/refusal from outside, 200 through the domain.
 
-- [ ] **X. Probe ordering: the drill measured two data gaps, and both are one
-  crontab line away.** Autonomous half is done — `~/scripts/backup-sofia-data.sh`
-  exists, runs clean, and verifies its own output (23 tables, counts read back
-  out of the finished dump, `integrity_check ok`); `~/scripts/hermes-profile-backup.sh`
-  already works too. What is missing is only the schedule, which is his hand
-  because it edits crontab:
+- [ ] **X. Sofia's DB is scheduled nowhere — one crontab line, and he owns it.**
+  The restore drill measured it: her state lives in a Docker volume that no
+  archive touches, and the WAL makes a plain file copy lossy (81/124 messages).
+  The script that fixes it exists, runs, and verifies its own output
+  (`ops/backup-sofia-data.sh` → `~/scripts/`, 52 K, 124/44/263 read back,
+  `integrity_check ok`). Only the schedule is missing, and crontab is his hand:
   `40 5 * * * /home/ctum/scripts/backup-sofia-data.sh >> /home/ctum/logs/sofia-backup.log 2>&1`
-  plus item L(a)'s patch for Hermes profile state. Prove on the next day:
-  `ls -l ~/backups/sofia/` shows a fresh `sofia-db-*.db.gz`, and `tar tzf` of the
-  vps-backup tarball lists `hermes/profile.tar.gz`.
-  *Also worth one line in `vps-backup.sh`:* its `find /home/ctum /opt/data
-  -maxdepth 5 -name config.yaml` returns **5** matches, three of them junk (two
-  `.gemini/config.yaml`, two archived copies under `~/archive/`). Harmless today
-  because Tier 2's `docker cp` runs after and overwrites — but the winner depends
-  on find order, so exclude `archive/` when he next touches the script.
+  Prove it the next day: `ls -l ~/backups/sofia/` shows a fresh
+  `sofia-db-*.db.gz`, and re-run `ops/restore-drill.py` against that day's
+  archive to confirm nothing else drifted.
+  *The Hermes-profile half needs no action* — K(c) landed at 06:30 today, so it
+  is code-true but **not yet observed in an archive**: today's 05:00 tarball
+  predates the edit by 90 minutes and carries 172 52-byte staging script, no
+  `hermes-profile.tar.gz`. The step itself was proven by hand this run
+  (`docker exec hermes tar czf - … memories skills profiles` → **38 M, 2 197
+  entries, `memories/MEMORY.md` reads back**), so tomorrow's 05:00 archive should
+  be the first with it. **Verify that, don't re-apply it.**
+  *One untidy line for whoever next edits `vps-backup.sh`:* its
+  `find /home/ctum /opt/data -maxdepth 5 -name config.yaml` returns **5**
+  matches, three junk (two `.gemini/config.yaml`, two archived copies under
+  `~/archive/`). Harmless today — Tier 2's `docker cp` runs later and wins, which
+  is why the archive holds v52 and not v46 — but the winner still depends on
+  find order. Exclude `archive/`.
 
 - [x] **R. Session longevity: does a Live session survive the documented cap?**
   Phase 0.5's done-when says "a session survives past 11 minutes". Code reading
@@ -1090,13 +1088,18 @@ own integrity line agrees).
   Meilisearch, **Portainer**, **Beszel**, **Grafana**, **Velociraptor**, and
   **IRIS** attachments (`server_data`, `downloads`, `user_templates`).
 - **Hermes profile state** — `memories/`, `skills/`, `profiles/`: **zero**
-  entries (`find … -name "*memor*" -o -name "*skill*"` → empty). That is the
-  unapplied K(c)/L(a) patch, now confirmed from the archive side. A hand-run
-  `~/scripts/hermes-profile-backup.sh` result does exist and is correct —
-  **47 MB, 2 463 entries, 919 skill files, memories for both profiles** at
-  `/tmp/vps-backup/hermes-profile/hermes-profile.tar.gz` (23:48 last night) —
-  but it sits in `/tmp`, inside no archive, and Parrot only pulls
-  `vps-backup-<date>.tar.gz`, so **nothing has ever carried it off the box.**
+  entries in *today's* archive (`find … -name "*memor*" -o -name "*skill*"` →
+  empty) — but **not because the step is missing.** K(c) landed at 06:30 today
+  (live `vps-backup.sh` is 18 319 B with the step at lines 108-123) and today's
+  tarball was cut at **05:00**, so the archive carries the *pre-edit* staging copy
+  (17 252 B — the `.bak`) and no `hermes-profile.tar.gz`. The gap is a
+  90-minute ordering artefact, not a hole.
+  Proven by running the live step by hand this run:
+  `docker exec hermes tar czf - -C /opt/data --exclude=cache --exclude=logs
+  --exclude=node_modules memories skills profiles` → **exit 0, 38 M, 2 197
+  entries, 9 under `memories/`**, and `memories/MEMORY.md` extracts with real
+  content (`Planner=Todoist …`). Tomorrow's 05:00 archive should be the first to
+  carry it; **verifying that is item X's job, not re-applying it.**
 
 **Fixed while drilling.** `~/scripts/backup-sofia-data.sh` (new file, does not
 touch the safety net): `VACUUM INTO` inside the live container so the WAL is
@@ -1122,6 +1125,13 @@ end-to-end, not just written; only the crontab line is his (item X).
    **correct** — `/opt/data/profiles/telegram/config.yaml` no longer exists after
    multiplexing; and `env/hermes-data.env` (Sep 25 09:28 UTC) *is* the live
    `/opt/data/.env` (Sep 25 11:28 local). No defect in either.
+3. *"Hermes profile state is in no archive — the K(c)/L(a) patch is unapplied."*
+   Half wrong, and the wrong half mattered: the patch **is** applied (06:30
+   today), today's archive simply predates it by 90 minutes. I read the *staged
+   copy of the script inside the archive* and took it for the live one — a
+   17 252 B file that is in fact the pre-edit `.bak`. The correct statement is
+   narrower and is now in item X: today's tarball lacks it, tomorrow's should not,
+   and that is something to verify rather than something to fix.
 
 ## END STATE — 2026-11-10
 
