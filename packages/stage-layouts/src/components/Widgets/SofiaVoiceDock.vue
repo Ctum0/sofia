@@ -29,6 +29,9 @@ interface VoiceEvent {
   text?: string
   message?: string
   model?: string
+  resumed?: boolean
+  retrying?: boolean
+  attempt?: number
 }
 
 interface VoiceStats {
@@ -117,8 +120,21 @@ function loadClient(): Promise<VoiceClientModule> {
 
 function handleEvent(event: VoiceEvent) {
   if (event.type === 'ready') {
+    // A second `ready` means the gateway swapped the Google socket underneath a
+    // conversation that is already open — the Talk button never moved.
     status.value = 'live'
-    detail.value = event.model || ''
+    detail.value = event.resumed ? '' : event.model || ''
+  }
+  else if (event.type === 'goAway' || event.type === 'reconnecting') {
+    // Not fatal: the server is re-opening the upstream socket with the stored
+    // resumption handle. Say so instead of leaving the dock lying about state.
+    detail.value = 'reconnecting…'
+  }
+  else if (event.type === 'gone' || (event.type === 'closed' && event.retrying === false)) {
+    // The gateway gave up after its retry budget: this really is over, and the
+    // person gets a sentence plus a Talk button that starts a fresh session.
+    status.value = 'error'
+    detail.value = String(event.message || `live session ended${event.type === 'closed' ? ' — press Talk to restart' : ''}`).slice(0, 120)
   }
   else if (event.type === 'error') {
     status.value = 'error'
