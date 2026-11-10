@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/* eslint-disable style/max-statements-per-line -- compact one-liners read better here than six-line guard clauses */
 import Header from '@proj-airi/stage-layouts/components/Layouts/Header.vue'
 import InteractiveArea from '@proj-airi/stage-layouts/components/Layouts/InteractiveArea.vue'
 import MobileInteractiveArea from '@proj-airi/stage-layouts/components/Layouts/MobileInteractiveArea.vue'

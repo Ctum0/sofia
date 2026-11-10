@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/* eslint-disable style/max-statements-per-line -- compact one-liners read better here than six-line guard clauses */
 import { errorMessageFromUnknown } from '@proj-airi/stage-shared'
 import { useSpeakingStore } from '@proj-airi/stage-ui/stores/audio'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'

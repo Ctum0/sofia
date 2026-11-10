@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/* eslint-disable style/max-statements-per-line -- compact one-liners read better here than six-line guard clauses */
 // One floating window. Not a chat bubble, not a column: a thing she opened on
 // the stage, which he can move, stack, and close.
 import { computed, onMounted, ref } from 'vue'
@@ -25,8 +26,12 @@ const emit = defineEmits<{
 }>()
 
 const host = computed(() => {
-  try { return new URL(props.win.url, window.location.origin).host || 'this site' }
-  catch { return 'this site' }
+  try {
+    return new URL(props.win.url, window.location.origin).host || 'this site'
+  }
+  catch {
+    return 'this site'
+  }
 })
 
 // --- a live page -------------------------------------------------------------
@@ -136,8 +141,12 @@ function openExternal() {
       <span class="sofia-window__dot" aria-hidden="true" />
       <span class="sofia-window__title">{{ win.title || host }}</span>
       <span class="sofia-window__host">{{ host }}</span>
-      <button v-if="win.kind === 'web'" type="button" class="sofia-window__btn" title="Open in a real tab" @click="openExternal">↗</button>
-      <button type="button" class="sofia-window__btn" data-testid="sofia-window-close" aria-label="Close window" @click="emit('close', win.id)">✕</button>
+      <button v-if="win.kind === 'web'" type="button" class="sofia-window__btn" title="Open in a real tab" @click="openExternal">
+        ↗
+      </button>
+      <button type="button" class="sofia-window__btn" data-testid="sofia-window-close" aria-label="Close window" @click="emit('close', win.id)">
+        ✕
+      </button>
     </header>
 
     <div v-if="win.kind === 'image'" class="sofia-window__body">
@@ -146,8 +155,12 @@ function openExternal() {
 
     <div v-else-if="win.kind === 'live'" class="sofia-window__body sofia-window__body--live">
       <div class="sofia-window__tools">
-        <button type="button" class="sofia-window__btn" title="Back" @click="act('back')">←</button>
-        <button type="button" class="sofia-window__btn" title="Reload" @click="act('reload')">⟳</button>
+        <button type="button" class="sofia-window__btn" title="Back" @click="act('back')">
+          ←
+        </button>
+        <button type="button" class="sofia-window__btn" title="Reload" @click="act('reload')">
+          ⟳
+        </button>
         <span class="sofia-window__urltab">{{ host }}</span>
       </div>
       <img
@@ -161,9 +174,15 @@ function openExternal() {
     </div>
 
     <div v-else class="sofia-window__body sofia-window__body--web">
-      <p class="sofia-window__wtitle">{{ win.title || host }}</p>
-      <p class="sofia-window__note">Sites refuse to be embedded, so this one opens in a real tab — or ask her to read it for you.</p>
-      <button type="button" class="sofia-window__open" @click="openExternal">Open {{ host }}</button>
+      <p class="sofia-window__wtitle">
+        {{ win.title || host }}
+      </p>
+      <p class="sofia-window__note">
+        Sites refuse to be embedded, so this one opens in a real tab — or ask her to read it for you.
+      </p>
+      <button type="button" class="sofia-window__open" @click="openExternal">
+        Open {{ host }}
+      </button>
     </div>
   </section>
 </template>

@@ -3,7 +3,9 @@
 // column: the avatar narrows, the chat steps back, and whatever she opened gets
 // the room. Several at once, each with its own focus order and close.
 import type { SofiaWindowState } from './SofiaWindow.vue'
+
 import { computed } from 'vue'
+
 import SofiaWindow from './SofiaWindow.vue'
 
 const props = defineProps<{ windows: SofiaWindowState[] }>()

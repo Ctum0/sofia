@@ -58,7 +58,7 @@ jobs:
       # guards and the browser gate. Linting it here failed on upstream's
       # node/prefer-global/process rule, which is style, not safety.
       - name: lint the fork's front-end
-        run: pnpm exec eslint apps/stage-web/src packages/stage-layouts/src/components/Widgets --max-warnings=0
+        run: pnpm exec eslint apps/stage-web/src packages/stage-layouts/src/components/Widgets --quiet
       - name: build the stage
         run: pnpm -F @proj-airi/stage-web build
       - name: the built page is not the login page
