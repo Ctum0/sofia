@@ -162,8 +162,14 @@ onMounted(() => {
   const clearOverlays = () => {
     document.getElementById('boot-splash')?.remove()
     const el = document.querySelector('.startup-screen')
-    if (el && !el.classList.contains('startup-screen-error'))
-      el.remove()
+    if (el && !el.classList.contains('startup-screen-error')) {
+      // Hide it, never remove it: it is rendered through a Vue <Teleport>, and
+      // deleting the node makes Vue throw "Cannot read properties of null
+      // (reading 'insertBefore')" on the next patch (seen in the drag probe).
+      el.style.display = 'none'
+      el.style.pointerEvents = 'none'
+      el.setAttribute('aria-hidden', 'true')
+    }
   }
   clearOverlays()
   for (const delay of [800, 2500, 5000])
