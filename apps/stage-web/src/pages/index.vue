@@ -84,9 +84,9 @@ function focusWindow(id: string) {
 function moveWindow(payload: { id: string, x: number, y: number }) {
   windows.value = windows.value.map(w => (w.id === payload.id ? { ...w, x: payload.x, y: payload.y } : w))
 }
-function showPanel(payload: { kind?: 'image' | 'web', url: string, title?: string } | null) {
+function showPanel(payload: { kind?: 'image' | 'web' | 'live', url: string, title?: string, sid?: string } | null) {
   if (!payload?.url) { windows.value = []; return }
-  const kind = payload.kind === 'web' ? 'web' : 'image'
+  const kind = payload.kind === 'live' ? 'live' : payload.kind === 'web' ? 'web' : 'image'
   const existing = windows.value.find(w => w.url === payload.url)
   if (existing) { focusWindow(existing.id); return }
   const n = windows.value.length
@@ -113,14 +113,16 @@ function showPanel(payload: { kind?: 'image' | 'web', url: string, title?: strin
   const shoulder = Math.round(herW * 0.75)
   const besideW = vw - shoulder - 48
   const beside = besideW >= 360
-  const w = beside ? Math.min(kind === 'web' ? 560 : 620, besideW) : vw - 48
+  const preferredW = kind === 'live' ? 680 : kind === 'web' ? 560 : 620
+  const w = beside ? Math.min(preferredW, besideW) : vw - 48
   const x = beside ? Math.min(Math.max(shoulder, vw - w - 48 - n * 30), vw - w - 16) : 24
   const y = beside ? 104 + n * 28 : Math.max(96, Math.round(vh * 0.42))
-  const h = Math.min(kind === 'web' ? 320 : 440, Math.max(240, vh - y - 24))
+  const h = Math.min(kind === 'live' ? 520 : kind === 'web' ? 320 : 440, Math.max(240, vh - y - 24))
   windows.value = [...windows.value, {
     id: `w${Date.now().toString(36)}${n}`,
     kind,
     url: payload.url,
+    sid: payload.sid || '',
     title: payload.title || '',
     x,
     y,
@@ -129,9 +131,15 @@ function showPanel(payload: { kind?: 'image' | 'web', url: string, title?: strin
     z: ++nextZ,
   }]
 }
+// The page navigated inside its window: keep the title bar honest.
+function onRetitle(payload: { id: string, title: string, url: string }) {
+  windows.value = windows.value.map(w => w.id === payload.id
+    ? { ...w, title: payload.title || w.title, url: payload.url || w.url }
+    : w)
+}
 const panel = computed(() => windows.value.length > 0)
 function onPanelEvent(event: Event) {
-  showPanel((event as CustomEvent<{ kind?: 'image' | 'web', url: string, title?: string }>).detail)
+  showPanel((event as CustomEvent<{ kind?: 'image' | 'web' | 'live', url: string, title?: string, sid?: string }>).detail)
 }
 onMounted(() => {
   window.addEventListener('sofia:panel', onPanelEvent)
@@ -205,7 +213,13 @@ const router = useRouter()
              every width: the dock only exists on desktop, so a phone can only
              receive a window through the gate hook — and a dropped event is
              worse than a small window (rule: no fabricated capability). -->
-        <SofiaWindows :windows="windows" @close="closeWindow" @focus="focusWindow" @move="moveWindow" />
+        <SofiaWindows
+          :windows="windows"
+          @close="closeWindow"
+          @focus="focusWindow"
+          @move="moveWindow"
+          @retitle="onRetitle"
+        />
       </div>
       <HoloCoupon />
     </div>

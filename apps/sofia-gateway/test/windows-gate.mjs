@@ -19,6 +19,7 @@ const state = () => page.evaluate(() => {
     const r = w.getBoundingClientRect()
     return { id: w.getAttribute('data-window-id'), kind: w.getAttribute('data-kind'), active: w.getAttribute('data-active'),
       x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height),
+      z: getComputedStyle(w).zIndex,
       title: w.querySelector('.sofia-window__title')?.textContent?.trim(),
       img: (() => { const i = w.querySelector('img'); return i ? i.naturalWidth : 0 })() }
   })
@@ -74,11 +75,11 @@ try {
 
   // raise the first window by clicking its bar
   const first = two.wins[0]
-  await page.mouse.click(first.x + 60, first.y + 8)
+  await page.mouse.click(first.x + Math.round(first.w / 2), first.y + 16)
   await page.waitForTimeout(400)
   const raised = await state()
   step('clicking a window raises it', raised.wins.find(w => w.id === first.id)?.active === 'true',
-    JSON.stringify(raised.wins.map(w => `${w.id}:${w.active}`)))
+    JSON.stringify(raised.wins.map(w => `${w.id}:${w.active}:z${w.z}`)))
 
   // drag it
   await page.mouse.move(first.x + 120, first.y + 8)
