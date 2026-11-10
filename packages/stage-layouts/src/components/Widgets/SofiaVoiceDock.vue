@@ -289,6 +289,12 @@ function toggle() {
   // a working session ends up mute.
   const target = voice.value ?? prepared.value
   target?.unlock()
+  // Consent is the press itself, recorded synchronously in the gesture. Writing
+  // it only after startMic() resolves leaves a window where the dock reads
+  // "live" (the `ready` event fires first) while nothing is stored, which is
+  // exactly what the auto-start gate caught.
+  try { localStorage.setItem(AUTO_KEY, '1') }
+  catch {}
   void start()
 }
 
