@@ -69,12 +69,24 @@ try {
   const nav = await navigated.json()
   nav.title && nav.title !== body.title ? ok('the page can navigate inside its window', nav.title) : fail('the page can navigate inside its window', JSON.stringify(nav).slice(0, 120))
 
-  // 5b. a click by visible text lands on the page
-  const clicked = await ctx.request.post(`${BASE}/api/browse/act`, { data: { sid: body.sid, action: 'clickText', text: 'More information', x: 640, y: 400 } })
-  const clickBody = await clicked.json()
-  clickBody.url && clickBody.url.includes('iana.org')
-    ? ok('a click by its text lands on the page', clickBody.url)
-    : fail('a click by its text lands on the page', JSON.stringify(clickBody).slice(0, 120))
+  // 5b. a click by visible text lands on the page. The link text is read from
+  // the page itself first — hardcoding "More information" broke when example.com
+  // dropped that link, and the gate blamed the feature for it.
+  await ctx.request.post(`${BASE}/api/browse/act`, { data: { sid: body.sid, action: 'goto', text: 'https://www.iana.org/help/example-domains' } })
+  const listed = await ctx.request.post(`${BASE}/api/browse/act`, { data: { sid: body.sid, action: 'links' } })
+  const listedBody = await listed.json()
+  const pick = (listedBody.links || []).find(l => l.text && l.text.length > 3 && l.text.length < 30 && !/^(Home|About|Contact)$/i.test(l.text))
+  if (!pick) {
+    fail('a click by its text lands on the page', 'no links on the page to click')
+  }
+  else {
+    const before = listedBody.url
+    const clicked = await ctx.request.post(`${BASE}/api/browse/act`, { data: { sid: body.sid, action: 'clickText', text: pick.text } })
+    const clickBody = await clicked.json()
+    clickBody.url && clickBody.url !== before
+      ? ok('a click by its text lands on the page', `"${pick.text}" → ${clickBody.url}`)
+      : fail('a click by its text lands on the page', JSON.stringify(clickBody).slice(0, 140))
+  }
 
   // 6. close releases the page
   await ctx.request.post(`${BASE}/api/browse/close`, { data: { sid: body.sid } })
