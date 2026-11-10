@@ -90,20 +90,36 @@ function showPanel(payload: { kind?: 'image' | 'web', url: string, title?: strin
   const existing = windows.value.find(w => w.url === payload.url)
   if (existing) { focusWindow(existing.id); return }
   const n = windows.value.length
-  const w = kind === 'web' ? 560 : 620
+  const vw = window.innerWidth
+  const vh = window.innerHeight
   // She keeps the left of the stage; what she opens takes the right. A window
   // dropped in the middle covers the avatar, which is the thing he asked not to
-  // happen. Each new window cascades inward from the right edge.
-  const x = Math.max(24, window.innerWidth - w - 48 - n * 30)
+  // happen.
+  //
+  // The shoulder is READ, not assumed: the first version placed windows by
+  // "viewport minus width minus 48" and the 620 px default only cleared her at
+  // >=1280 px. Measured on the live build 2026-11-10: at 1024 it started 74 px
+  // over her (356 vs shoulder 430) and at 768 it started 476 px over her
+  // (100 vs 576) — a 768-wide window is a tablet or a landscape phone, where
+  // the dock does mount. So: measure her column, and when no real window fits
+  // beside her, go low and wide instead of pretending — her head stays clear.
+  const col = document.querySelector('.stage-column')?.getBoundingClientRect()
+  const shoulder = col ? Math.round(col.x + col.width * 0.75) : Math.round(vw * 0.42)
+  const besideW = vw - shoulder - 48
+  const beside = besideW >= 360
+  const w = beside ? Math.min(kind === 'web' ? 560 : 620, besideW) : vw - 48
+  const x = beside ? Math.max(shoulder, vw - w - 48 - n * 30) : 24
+  const y = beside ? 104 + n * 28 : Math.max(96, Math.round(vh * 0.42))
+  const h = Math.min(kind === 'web' ? 320 : 440, Math.max(240, vh - y - 24))
   windows.value = [...windows.value, {
     id: `w${Date.now().toString(36)}${n}`,
     kind,
     url: payload.url,
     title: payload.title || '',
     x,
-    y: 104 + n * 28,
+    y,
     w,
-    h: kind === 'web' ? 320 : 440,
+    h,
     z: ++nextZ,
   }]
 }
@@ -179,8 +195,11 @@ const router = useRouter()
         <!-- A fixed width keeps the chat panel narrow on wide screens. A percentage minimum overrode the maximum there. -->
         <InteractiveArea v-if="!isMobile && !panel" :class="['absolute right-4 h-[85dvh] w-[min(440px,45%)] flex flex-col']" />
         <!-- She moves aside rather than being covered: the column above narrows,
-             and what she wants to show takes the space she gave up. -->
-        <SofiaWindows v-if="!isMobile" :windows="windows" @close="closeWindow" @focus="focusWindow" @move="moveWindow" />
+             and what she wants to show takes the space she gave up. Mounted on
+             every width: the dock only exists on desktop, so a phone can only
+             receive a window through the gate hook — and a dropped event is
+             worse than a small window (rule: no fabricated capability). -->
+        <SofiaWindows :windows="windows" @close="closeWindow" @focus="focusWindow" @move="moveWindow" />
       </div>
       <HoloCoupon />
     </div>
