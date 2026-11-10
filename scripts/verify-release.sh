@@ -102,8 +102,11 @@ run_gate() {
 voice=$(run_gate voice-gate.mjs)
 # Parse the count, do not grep for a substring: "11/12" contains "12" and a
 # loose pattern let a partially failing gate through once.
-voice_ok=$(echo "$voice" | grep -oE '[0-9]+/12' | tail -1)
-[ "$voice_ok" = "12/12" ] || { echo "$voice" | grep -E '^FAIL' | head -5; fail 5 "voice gate ${voice_ok:-unknown}"; }
+# Require every check to pass, not a hardcoded 12: the lanes add checks, and a
+# magic number turns a green 13/13 into a false failure (it did, 2026-11-10).
+voice_ok=$(echo "$voice" | grep -oE '[0-9]+/[0-9]+' | tail -1)
+voice_pass=${voice_ok%%/*}; voice_all=${voice_ok##*/}
+[ -n "$voice_ok" ] && [ "$voice_pass" = "$voice_all" ] || { echo "$voice" | grep -E '^FAIL' | head -5; fail 5 "voice gate ${voice_ok:-unknown}"; }
 note "$voice_ok"
 
 echo "== 5. brand =="
@@ -112,7 +115,9 @@ echo "$brand" | grep -q '"strayAIRI": false' || { echo "$brand" | tail -10; fail
 note "strayAIRI false · $(echo "$brand" | grep -oE '"anyWhiteSurfaces": [0-9]+')"
 
 brand_px=$(run_gate brand-assets-gate.mjs)
-echo "$brand_px" | grep -qE '^1[0-9]/1[0-9]|^13/13' || { echo "$brand_px" | tail -14; fail 6 "brand assets are not Sofia's"; }
-note "$(echo "$brand_px" | grep -oE '[0-9]+/13' | tail -1) brand assets"
+brand_ok=$(echo "$brand_px" | grep -oE '[0-9]+/[0-9]+' | tail -1)
+brand_pass=${brand_ok%%/*}; brand_all=${brand_ok##*/}
+[ -n "$brand_ok" ] && [ "$brand_pass" = "$brand_all" ] || { echo "$brand_px" | tail -14; fail 6 "brand assets are not Sofia's (${brand_ok:-no count})"; }
+note "$brand_ok brand assets"
 
 echo "PASS ${head_sha:0:9} — tree clean, deployed, healthy, gated, on-brand"
