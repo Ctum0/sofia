@@ -258,6 +258,47 @@ result under **Log**. Rules at the bottom are mandatory.
   conversation, so it needs a window; a key swap while Sofia is open breaks her
   brain until the gateway is back.
 
+- [ ] **Q. Close the origin to Cloudflare only.** `https://169.58.126.200:443`
+  answers `/healthz` **200** with a `--resolve` override, so the whole Cloudflare
+  layer (WAF, bot fight, and the 403 that stops a client forging
+  `CF-Connecting-IP`) is optional for anyone who knows the IP. Confirmed this run;
+  the app now counts on an unspoofable peer bucket, but the exposure is still
+  infra, not code. Needs his hand (root firewall):
+  `sudo ufw status numbered` then allow 443/80 only from
+  `https://www.cloudflare.com/ips-v4` + `ips-v6`, deny the rest, and re-prove with
+  `curl --resolve sofia.ctum.org:443:169.58.126.200 https://sofia.ctum.org/healthz`
+  → expect a timeout/refusal from outside, 200 through the domain.
+
+- [x] **P. Login limiter: measure it, and bound the path a forged header opens.**
+  → **DONE 2026-11-10 08:05 SLT.** New gate `apps/sofia-gateway/test/rate-limit-gate.mjs`
+  (node builtins only) grinds the public form and asserts the 429 appears, carries
+  `retry-after`, explains itself, and that the **correct** password is refused
+  while the lock holds. It deliberately leaves the runner's address locked for
+  five minutes when it passes — run it **last**.
+  *Correction to this item's own premise.* The opening finding — "20 consecutive
+  wrong passwords, zero 429s" — was an artefact of **where the probe ran**. The
+  limiter was already working: the same gate passes 5/6 against the pre-fix build
+  when run from `sofia-qa` (stable host-network egress), and 20/20 attempts from
+  the Hermes container never trip it because that path presents a different
+  upstream hop per request. Probe a rate limiter from a stable client or the
+  measurement is the variable.
+  *What was actually weak.* `clientIp()` keyed on the **leftmost**
+  `X-Forwarded-For` element. Through Cloudflare the header is not attacker-chosen,
+  but on the direct-origin path (see **Q**) a client controls it, and the key was
+  whatever that element said. Now two buckets: `ip:<cf-connecting-ip>` (precise —
+  CF overwrites it and answers **403** to a client that tries to set it, measured)
+  at 5 failures / 5 min, plus `peer:<tail XFF hop>` — the address Caddy appended,
+  the only element a client cannot choose — at 25 failures / 10 min as a backstop.
+  Both lock; a success clears both.
+  Deploy `114` `finished` for `c9d6bcab0`, container `…T022630` Up (healthy).
+  Gates on it: rate-limit **6/6** (locked at attempt 6, `retry-after 300`, correct
+  password refused while locked), auth **10/10**, auth-surface **33/33**, ui
+  **7/7**, brand-copy **9/9**, voice **12/12** (`chunksPlayed:12`, 0 localhost:6121).
+  *Closed while auditing:* the amber "S" glyph note in older runs is stale —
+  `grep -r e0a35c` over `/app/dist` and `/app/public` returns **nothing**; the
+  login mark is white on the wine gradient and the brass `#c8a06a` is a deliberate
+  accent in the palette, not an artefact.
+
 ## Verification rules (do not skip)
 
 0b. **A new container is not a finished deployment.** Coolify swaps the
@@ -673,3 +714,45 @@ Still open: the amber "S" logo glyph (asset, not CSS) and real-device voice
   gate can prove. Next autonomous candidate if he wants one: make the two
   remaining upstream help strings (`Ollama` provider docs link) point at
   something that exists — low value, his call.
+
+- 2026-11-10 07:49–08:20 SLT — **Loose end committed, then P: the login limiter got a
+  gate and an unspoofable backstop — and this run's own first finding was wrong.**
+  *Housekeeping first.* The previous run left NEXT.md edited but uncommitted (80
+  insertions). Committed `092bbda22`, pushed, `main...origin/main` = `0 0`.
+  *The finding, and its correction.* Twenty wrong-password POSTs to
+  `https://sofia.ctum.org/api/login` returned **zero 429s** while the identical
+  request from inside the container locked at the sixth. I read that as "the
+  limiter is inert in production" and started rewriting the key. It was not inert:
+  the **probe path was the variable**. Run from `sofia-qa` (host network, stable
+  egress) the same test locked at attempt 5 against the *pre-fix* build, and 20
+  attempts from the Hermes container never trip it because that container presents
+  a different upstream hop per request. Lesson recorded in the item: measure a
+  rate limiter from a stable client, or the measurement is the variable. The
+  DEFECT claim was retracted before it shipped as one.
+  *What did ship.* `clientIp()` keyed on the **leftmost** `X-Forwarded-For`
+  element — client-chosen on the direct-origin path. Now two buckets:
+  `ip:<cf-connecting-ip>` (5 failures / 5 min; CF overwrites the header and
+  answers **403** — code 1000 — to a client that sets it, measured) and
+  `peer:<tail XFF hop>`, the address Caddy appended and the only element a client
+  cannot choose, at 25 / 10 min as a backstop. Success clears both; either bucket
+  locks.
+  *New gate:* `test/rate-limit-gate.mjs`, node builtins only, six checks — wrong
+  password refused, 429 appears, lock holds, `retry-after` > 0, body explains
+  itself, and the **correct** password is refused while locked (a limiter that
+  lets the right credential through is a UI animation). It leaves the runner's
+  address locked ~5 minutes on purpose, so it runs **last**.
+  Deploy `114` `finished` for `c9d6bcab0` (finished 02:30:59Z), container
+  `…T022630` Up (healthy), `/healthz` `brand:"rewritten" hermes:"reachable"
+  voice:"Leda"`, image carries the new keying (`cf-connecting-ip` at
+  `server.mjs:448`). Gates on 114: rate-limit **6/6** (locked at attempt 6,
+  `retry-after 300`, correct password → 429), auth **10/10**, auth-surface
+  **33/33**, ui **7/7**, brand-copy **9/9** (551 chunks, 29 allowlisted hits, 0
+  violations, 0 legal-link references), voice **12/12** (`chunksPlayed:12`,
+  capture/playback `running`, 0 x localhost:6121).
+  *Opened as Q:* the origin answers **directly** — `curl --resolve
+  sofia.ctum.org:443:169.58.126.200 https://sofia.ctum.org/healthz` → **200** — so
+  Cloudflare is bypassable by anyone with the IP. That is infra, needs root, and
+  is the one thing that makes a header-based key matter at all.
+  *Closed as stale:* the "amber S glyph (#e0a35c)" leftover from earlier runs —
+  `grep -r e0a35c` over `/app/dist` and `/app/public` returns nothing; the login
+  mark is white on wine, and `#c8a06a` is a deliberate brass accent.
