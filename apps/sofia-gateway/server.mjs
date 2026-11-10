@@ -32,6 +32,7 @@ import { DEFAULT_MODEL, DEFAULT_VOICE, LiveBridge } from './live.mjs'
 import { LIVE_TOOLS, executeToolCall } from './tools.mjs'
 import { SseReasoningFilter, stripReasoningFromBody } from './reasoning-filter.mjs'
 import { checkPassword, clearCookie, isAuthed, loginPage, makeSession, sessionCookie } from './auth.mjs'
+import { ack as proactiveAck, fireNow as proactiveFire, pending as proactivePending, start as startProactive, status as proactiveStatus } from './proactive.mjs'
 
 const PORT = Number(process.env.PORT || 8787)
 const HOST = process.env.HOST || '127.0.0.1'
@@ -756,6 +757,7 @@ self.addEventListener('activate', (event) => {
           trace: TRACE,
           reasoning: KEEP_REASONING ? 'kept' : 'stripped',
           live: { transport: 'gateway-proxy', model: DEFAULT_MODEL, voice: DEFAULT_VOICE },
+          proactive: proactiveStatus(),
         })
       },
     )
@@ -857,6 +859,36 @@ self.addEventListener('activate', (event) => {
     catch (error) {
       sendJson(res, 502, { error: `the browser is not answering: ${String(error.message || error).slice(0, 120)}` })
     }
+    return
+  }
+
+  // --- she speaks first -----------------------------------------------------
+  // The clock is here; the words are the page's. A slot is handed over as a
+  // time, not a sentence, because a line composed at 07:00 and read at 14:00
+  // says "good morning" — the page interpolates the clock it actually has, and
+  // refuses a slot that has gone stale rather than opening with last night's
+  // verdict.
+  if (url.pathname === '/api/proactive/pending') {
+    sendJson(res, 200, { ok: true, items: proactivePending(), status: proactiveStatus() })
+    return
+  }
+  if (url.pathname === '/api/proactive/ack' && req.method === 'POST') {
+    const body = await readRequestBody(req).catch(() => null)
+    let ids = []
+    try { ids = JSON.parse(body || '{}').ids || [] } catch {}
+    sendJson(res, 200, { ok: true, cleared: proactiveAck(ids) })
+    return
+  }
+  if (url.pathname === '/api/proactive/fire' && req.method === 'POST') {
+    // The gate's hook, and the entry point a host cron would use later. The same
+    // session cookie as every other private route: firing a slot is not a new
+    // capability, it is a message she would have written on her own clock.
+    const body = await readRequestBody(req).catch(() => null)
+    let slot = 'manual'
+    try { slot = String(JSON.parse(body || '{}').slot || 'manual') } catch {}
+    const item = proactiveFire(slot)
+    console.log(`[sofia-gateway] proactive: ${slot} fired by hand (${item.id})`)
+    sendJson(res, 200, { ok: true, item })
     return
   }
 
@@ -994,4 +1026,7 @@ server.listen(PORT, HOST, () => {
   console.log(`[sofia-gateway] http://${HOST}:${PORT}  stage=${DIST}  hermes=${HERMES_BASE}`)
   console.log(`[sofia-gateway] key: ${hermesKey() ? 'loaded' : 'MISSING — /v1 will answer 503'}  trace=${TRACE}  reasoning=${KEEP_REASONING ? 'kept' : 'stripped'}`)
   console.log(`[sofia-gateway] live: ws /api/live/stream -> ${DEFAULT_MODEL} (${DEFAULT_VOICE})`)
+  const clock = proactiveStatus()
+  console.log(`[sofia-gateway] proactive: slots=${clock.slots.join(',')} (${clock.timezone}) now=${clock.now} state=${clock.statePath}`)
+  startProactive()
 })

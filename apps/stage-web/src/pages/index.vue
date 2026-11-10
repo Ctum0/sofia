@@ -13,6 +13,8 @@ import { HoloCoupon } from '@proj-airi/stage-ui/components'
 import { ViewControlSlider, WidgetStage } from '@proj-airi/stage-ui/components/scenes'
 import { useVoiceHoldKey } from '@proj-airi/stage-ui/composables/voice-hold'
 import { useVoiceListening, useVoicePushToTalk } from '@proj-airi/stage-ui/composables/voice-input-mode'
+import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
+import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { useStartupResourcesStore } from '@proj-airi/stage-ui/stores/startup-resources'
 import { breakpointsTailwind, useBreakpoints, useMouse } from '@vueuse/core'
@@ -358,6 +360,124 @@ onMounted(() => {
   ;(window as unknown as { __sofiaPanel: typeof showPanel }).__sofiaPanel = showPanel
 })
 onBeforeUnmount(() => window.removeEventListener('sofia:panel', onPanelEvent))
+
+// --- she speaks first -------------------------------------------------------
+// The stage can ask; something that is always up has to decide a moment has
+// arrived, because a tab that was closed at 07:00 can never know it missed it.
+// So the gateway holds the clock (apps/sofia-gateway/proactive.mjs) and hands
+// back a *slot and the time it fired*, never a finished sentence: the words are
+// composed here, from the clock this page actually has. A 07:00 slot collected
+// at 07:04 says good morning; one collected at noon is dropped, because "good
+// morning" at noon is a lie the product cannot afford.
+//
+// Delivery reuses the chat pipeline's own notice path — `notifyConversation`
+// stores her line as a proactive reply rather than owner speech — so this adds
+// no second way to talk to the model.
+const chatOrchestrator = useChatStore()
+const chatSessions = useChatSessionStore()
+
+type ProactiveKind = 'morning' | 'midday' | 'evening'
+const PROACTIVE_TEXTS: Record<ProactiveKind, (clock: string, day: string) => string> = {
+  morning: (clock, day) => `It is ${clock} on ${day}. Sithum has just opened the day and has not typed anything yet — you are speaking first, unprompted. In one or two short sentences, in your own voice: name the day and ask what he is starting with. Do not mention a schedule, a timer, or that anything is automated.`,
+  midday: (clock, day) => `It is ${clock} on ${day}. Midday, and you are speaking first, unprompted. In one or two sentences, ask what he has actually got done this morning and what the next thing is. Be concrete rather than encouraging.`,
+  evening: (clock, day) => `It is ${clock} on ${day}. The day is ending and you are speaking first. In one or two sentences, ask how the day actually went and what he would change tomorrow. No scorekeeping and no list of numbers.`,
+}
+
+function proactiveKind(slot: string): ProactiveKind {
+  const hour = Number(String(slot).split(':')[0])
+  if (!Number.isFinite(hour))
+    return 'midday'
+  if (hour < 11)
+    return 'morning'
+  if (hour < 18)
+    return 'midday'
+  return 'evening'
+}
+
+function textOf(message: { content?: unknown } | undefined) {
+  const content = message?.content
+  if (typeof content === 'string')
+    return content
+  if (Array.isArray(content))
+    return content.map((part: { text?: string }) => part?.text ?? '').join(' ').trim()
+  return ''
+}
+
+let deliveringProactive = false
+const proactiveAttempts = new Map<string, number>()
+
+async function ackProactive(ids: string[]) {
+  try {
+    await fetch('/api/proactive/ack', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    })
+  }
+  catch {}
+}
+
+async function deliverProactive() {
+  if (deliveringProactive)
+    return
+  deliveringProactive = true
+  try {
+    const res = await fetch('/api/proactive/pending', { headers: { accept: 'application/json' } })
+    if (!res.ok)
+      return
+    const data = await res.json() as { items?: Array<{ id: string, slot: string, at: number, expiresAt: number }> }
+    const items = data.items ?? []
+    if (!items.length)
+      return
+    const sessionId = chatSessions.activeSessionId || await chatSessions.ensureActiveSessionForCharacter()
+    if (!sessionId)
+      return
+    for (const item of items) {
+      const tries = proactiveAttempts.get(item.id) ?? 0
+      if (Date.now() > Number(item.expiresAt || 0) || tries >= 2) {
+        // Stale is a drop, not a late delivery, and a notice that fails twice is
+        // not going to succeed on the third: both are acknowledged so the queue
+        // cannot jam behind one message.
+        await ackProactive([item.id])
+        proactiveAttempts.delete(item.id)
+        continue
+      }
+      const kind = proactiveKind(item.slot)
+      const now = new Date()
+      const clock = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Colombo' })
+      const day = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Colombo' })
+      const before = chatSessions.getSessionMessages(sessionId)?.length ?? 0
+      console.info(`[sofia] proactive ${item.slot} -> ${kind} at ${clock}`)
+      await chatOrchestrator.notifyConversation(sessionId, { source: `proactive:${item.slot}`, text: PROACTIVE_TEXTS[kind](clock, day) })
+      const after = chatSessions.getSessionMessages(sessionId) ?? []
+      // `notifyConversation` swallows its own failures and logs a warning, so the
+      // store growing is the only evidence that she actually spoke.
+      if (after.length <= before) {
+        proactiveAttempts.set(item.id, tries + 1)
+        console.info(`[sofia] proactive ${item.slot} did not land (attempt ${tries + 1})`)
+        continue
+      }
+      const reply = [...after].reverse().find(message => message.role === 'assistant')
+      console.info(`[sofia] proactive ${item.slot} delivered: ${textOf(reply).slice(0, 120)}`)
+      await ackProactive([item.id])
+      proactiveAttempts.delete(item.id)
+    }
+  }
+  catch (error) {
+    console.info(`[sofia] proactive failed: ${String((error as Error)?.message || error).slice(0, 120)}`)
+  }
+  finally {
+    deliveringProactive = false
+  }
+}
+
+onMounted(() => {
+  // Not on the first frame: the provider and the card are still loading, and a
+  // send before they exist fails silently and burns an attempt.
+  const first = setTimeout(() => void deliverProactive(), 8000)
+  const timer = setInterval(() => void deliverProactive(), 60000)
+  onBeforeUnmount(() => { clearTimeout(first); clearInterval(timer) })
+})
 
 onMounted(() => {
   syncBackgroundTheme()

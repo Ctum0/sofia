@@ -85,6 +85,10 @@
       "auto": true,
       "catches": "a tool context rebuilt per call, so browse cannot see the page she opened",
       "runs": "inside the gateway container (docker cp + docker exec)"
+    },
+    "proactive-gate.mjs": {
+      "auto": false,
+      "why": "needs a real signed-in stage and the gateway clock; run by hand until it can be made deterministic"
     }
   }
 }
