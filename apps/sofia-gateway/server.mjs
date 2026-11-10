@@ -718,6 +718,9 @@ wss.on('connection', (ws) => {
           const result = await executeToolCall(call, {
             base: HERMES_BASE,
             key: hermesKey(),
+            // A tool can decide that something belongs on his screen. The
+            // browser renders it; the model only learns that it worked.
+            onPanel: (panel) => send({ type: 'panel', ...panel }),
             onProgress: (p) => send({ type: 'tool', name: call.name, state: 'running', ...p }),
           })
           send({ type: 'tool', name: call.name, state: 'done', ok: !String(result.response.result).startsWith('That did not work'), result: String(result.response.result).slice(0, 300) })

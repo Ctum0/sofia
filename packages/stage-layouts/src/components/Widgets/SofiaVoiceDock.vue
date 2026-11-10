@@ -119,6 +119,13 @@ function loadClient(): Promise<VoiceClientModule> {
 }
 
 function handleEvent(event: VoiceEvent) {
+  if (event.type === 'panel') {
+    // The gateway decided something should be on screen (a Live tool call).
+    // Broadcast it as a DOM event: the stage is a separate package and has no
+    // business importing the socket.
+    window.dispatchEvent(new CustomEvent('sofia:panel', { detail: event }))
+    return
+  }
   if (event.type === 'ready') {
     // A second `ready` means the gateway swapped the Google socket underneath a
     // conversation that is already open — the Talk button never moved.

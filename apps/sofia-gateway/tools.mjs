@@ -28,6 +28,19 @@ export const LIVE_TOOLS = [
         parameters: { type: 'OBJECT', properties: {} },
       },
       {
+        name: 'show_panel',
+        description: 'Put something on his screen beside you. Use it when he asks to see a picture, a logo, a screenshot, or a web page, or when showing is clearer than describing. kind "image" renders the picture inline; kind "web" shows a card that opens the site in a new tab (most sites refuse to be embedded).',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            kind: { type: 'STRING', enum: ['image', 'web'], description: 'image for a picture, web for a website.' },
+            url: { type: 'STRING', description: 'An absolute https URL, or a path on this site such as /brand/og.png.' },
+            title: { type: 'STRING', description: 'A short human title for the panel.' },
+          },
+          required: ['kind', 'url'],
+        },
+      },
+      {
         name: 'ask_hermes',
         description: 'Hand a real task to Hermes, the operator machine: it has the VPS, a shell, files, memory, web research, skills and scheduled jobs. Use it for anything that has to actually be done or looked up rather than answered from the conversation — check a service or server, run a command, read or write a file, search the web, research a topic, remember or recall a fact. Give it one complete, self-contained instruction, because it does not see this conversation.',
         parameters: {
@@ -168,7 +181,16 @@ export async function executeToolCall(call, ctx = {}) {
 
   let text
   try {
-    if (name === 'local_time') text = timeText()
+    if (name === 'show_panel') {
+      const url = String(args.url || '').trim()
+      const kind = String(args.kind || 'image').toLowerCase() === 'web' ? 'web' : 'image'
+      if (!url) throw new Error('no url was given')
+      if (kind === 'web' && !/^https?:\/\//i.test(url)) throw new Error('a web panel needs an http(s) url')
+      if (typeof ctx.onPanel !== 'function') throw new Error('this session cannot open panels')
+      ctx.onPanel({ kind, url, title: String(args.title || '').slice(0, 80) })
+      text = kind === 'image' ? 'The picture is on the screen beside you.' : 'The page card is on the screen beside you.'
+    }
+    else if (name === 'local_time') text = timeText()
     else if (name === 'ask_hermes') {
       const task = String(args.task || '').trim()
       if (!task) throw new Error('no task was given')

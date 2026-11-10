@@ -2,6 +2,7 @@
 import Header from '@proj-airi/stage-layouts/components/Layouts/Header.vue'
 import InteractiveArea from '@proj-airi/stage-layouts/components/Layouts/InteractiveArea.vue'
 import MobileInteractiveArea from '@proj-airi/stage-layouts/components/Layouts/MobileInteractiveArea.vue'
+import SofiaPanel from '@proj-airi/stage-layouts/components/Widgets/SofiaPanel.vue'
 
 import { BackgroundProvider } from '@proj-airi/stage-layouts/components/Backgrounds'
 import { useBackgroundThemeColor } from '@proj-airi/stage-layouts/composables/theme-color'
@@ -14,7 +15,7 @@ import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { useStartupResourcesStore } from '@proj-airi/stage-ui/stores/startup-resources'
 import { breakpointsTailwind, useBreakpoints, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -66,6 +67,25 @@ const backgroundSurface = useTemplateRef<InstanceType<typeof BackgroundProvider>
 const { stageModelRenderer } = storeToRefs(useSettings())
 
 const { syncBackgroundTheme } = useBackgroundThemeColor({ backgroundSurface, selectedOption, sampledColor })
+// --- the panel she opens beside herself -------------------------------------
+// The dock receives `{type:'panel'}` from the gateway (a Live tool call decided
+// it) and re-broadcasts it as a DOM event, so the stage does not have to know
+// anything about sockets. `window.__sofiaPanel` is the same entry point for the
+// gate, which cannot ask the model to call a tool on cue.
+const panel = ref<SofiaPanelPayload | null>(null)
+interface SofiaPanelPayload { kind?: 'image' | 'web', url: string, title?: string }
+function showPanel(payload: SofiaPanelPayload | null) {
+  panel.value = payload && payload.url ? payload : null
+}
+function onPanelEvent(event: Event) {
+  showPanel((event as CustomEvent<SofiaPanelPayload>).detail)
+}
+onMounted(() => {
+  window.addEventListener('sofia:panel', onPanelEvent)
+  ;(window as unknown as { __sofiaPanel: typeof showPanel }).__sofiaPanel = showPanel
+})
+onBeforeUnmount(() => window.removeEventListener('sofia:panel', onPanelEvent))
+
 onMounted(() => syncBackgroundTheme())
 
 // Small screens offer no control for continuous listening, so only a voice call listens there.
@@ -105,7 +125,7 @@ const router = useRouter()
       </div>
       <!-- page -->
       <div :class="['relative flex flex-1 flex-row gap-x-2 gap-y-0 <md:flex-col']">
-        <div :class="['relative min-w-1/2 flex-1']">
+        <div :class="['relative min-w-1/2 flex-1 stage-column', panel ? 'stage-column--narrow' : '']">
           <div
             v-if="!isMobile || stageModelRenderer !== 'live2d'"
             :class="[
@@ -126,7 +146,10 @@ const router = useRouter()
           />
         </div>
         <!-- A fixed width keeps the chat panel narrow on wide screens. A percentage minimum overrode the maximum there. -->
-        <InteractiveArea v-if="!isMobile" :class="['absolute right-4 h-[85dvh] w-[min(440px,45%)] flex flex-col']" />
+        <InteractiveArea v-if="!isMobile && !panel" :class="['absolute right-4 h-[85dvh] w-[min(440px,45%)] flex flex-col']" />
+        <!-- She moves aside rather than being covered: the column above narrows,
+             and what she wants to show takes the space she gave up. -->
+        <SofiaPanel v-if="panel && !isMobile" :panel="panel" @close="panel = null" />
       </div>
       <HoloCoupon />
     </div>
@@ -147,3 +170,16 @@ meta:
   stageTransition:
     name: bubble-wave-out
 </route>
+
+<style scoped>
+.stage-column {
+  transition: max-width 0.45s cubic-bezier(0.16, 1, 0.3, 1), flex-basis 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 100%;
+}
+.stage-column--narrow {
+  max-width: 56%;
+}
+@media (max-width: 768px) {
+  .stage-column--narrow { max-width: 100%; }
+}
+</style>
