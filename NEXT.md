@@ -1246,3 +1246,92 @@ Cloudflare-only (root firewall; exact commands in Q).
   deleted; the renderer is now `SofiaWindows.vue` + `SofiaWindow.vue` and the
   browser half is `windows-gate.mjs` (13/13 on `7a1bd9378`, see the Log). The
   transport described here is unchanged and still accurate.
+
+- 2026-11-10 15:35–16:0x SLT — **Windows verified on the build that ships them,
+  the shoulder became a gate, and the work order's own Phases ID was wrong.**
+  *What the queue showed first.* Only **K(c)**, **K(b)/L**, **Q** and **X** are
+  unchecked, and every one of them is his hand. But three commits had landed
+  since the last Log entry and none was gated: `09150eff8` (drag/focus on plain
+  mouse events), `18273e680` (windows open on the right) and `b4af81cf1` (the
+  window takes pointer events, the layer does not). Deploy **129 `finished`** for
+  `18273e680`, **130 `finished`** for `b4af81cf1` (10:15:17Z → container
+  `…T101016`), `/healthz` → `ok:true hermes:"reachable" key:"set" voice:"Leda"`.
+
+  *The gap this closed.* `18273e680`'s message says "so they never cover her" —
+  and no gate read that property. `windows-gate` only asserted that windows are
+  outside the chat column and cascade, which is true both before and after the
+  change. Two new assertions, both a property rather than a value: **every
+  window starts at or right of `col.x + 0.75 × col.w`** (605 px on a 1440×900
+  viewport) and **no window spills past the viewport**; plus the clamp that came
+  with the mouse-event rewrite — **dragged hard at the left edge it stops at 0**
+  instead of leaving the screen where it cannot be grabbed back.
+  *Evidence, production:* `windows-gate` **13/13** on deploy 129 (the existing
+  assertions, real pointer input — click-raise and drag both pass, so the
+  pointer-capture defect is genuinely fixed), then **16/16** on 129 and again
+  **16/16 on 130**: two windows at once, cascade `772,104 / 802,132`, newest on
+  top, image decoded `1200`, drag `772,104 → 820,194`, clamp `820 → 0`, close one
+  leaves one, close all restores the chat.
+
+  *The measurement behind the claim.* With two windows open the stage column is
+  `0..806` (it narrows to 56 %), centre 403; the image window occupies
+  `772..1392` and the web window `802..1362`. So the windows do clip a **34 px**
+  (image) and **4 px** (web) sliver of the canvas — the *canvas*, not her body:
+  a 1440×900 screenshot read back shows her unobstructed on the left with a
+  clear patterned band between her and the stack. Recorded rather than hidden,
+  because 34 px of canvas is the kind of number the next reader will find and
+  assume was an oversight.
+
+  *Is the new assertion discriminating? Yes, measured, not argued.* A probe opened
+  a window at the shipped position and then dragged it to where the previous build
+  put windows: `as shipped: x=772 shoulder=605 -> PASS`, `over her: x=72
+  shoulder=605 -> FAIL`. A gate written against the old layout would have
+  certified the defect it was supposed to catch.
+
+  *Concurrency, live.* My edited `windows-gate.mjs` (scp'd into the tree) was
+  swept into **another agent's commit** `b4af81cf1` — 34 insertions, my exact
+  change — which then pushed and deploys 130. Pitfall 23 in the wild: no
+  force-push, no duplicate commit; I verified the content on `origin/main`
+  through the GitHub API instead of racing it. `main...origin/main` = `0 0`,
+  tree clean.
+
+  *Notion: the work order named a page that does not exist.* The queue says
+  Phases `412c8a93adb5-8043-…`; the real page is
+  **`412c8a93-adb5-8143-804b-f8ded2c3779e`** (`…8043…` returns 404). Found by
+  search, not by guessing digits. Both pages updated and **read back**:
+  - **Phases** — new section *phase 12 — windows are plural*, with the table of
+    measured checks, the discriminator, and three corrections to earlier entries:
+    phase 11's `panel-gate.mjs` 9/9 is history (`SofiaPanel.vue` was deleted by
+    `3417ad948`), phase 08's `silenceDurationMs: 500` was never
+    "owner-confirmed" (it cut him off), phase 09's auto-start count is 7/7 not
+    6/6. Verified by re-fetching the page: the section is present verbatim,
+    `page_last_edited_at 2026-11-10T10:18:13Z`.
+  - **Ledger** — `Last verified` moved to 15:47 SLT against `b4af81cf1`, plus the
+    gate table (`windows-gate` 16/16, `voice-gate` 13/13, `brand-copy` 9/9,
+    `vad-cutoff` 7/7, `panel-live` PASS) and the outer-geometry numbers.
+
+  *Verified in the running container, not remembered:* `live.mjs:126`
+  `const silenceMs = Number(process.env.LIVE_SILENCE_MS || 1100)` with **no**
+  `*SILENCE*` in the container env — so 1100 is the code default that runs. That
+  settles the last run's END STATE correction rather than repeating it.
+
+  *Own traps this run.* (i) `git push` from the host still dies with "could not
+  read Username" — there is no credential helper, no `gh`, and no GitHub SSH key
+  on the VPS (`ssh -T git@github.com` → `Permission denied (publickey)`), so the
+  earlier "push is undone" note was accurate about the host. The working
+  credential lives in the Hermes github MCP server's own environment; it is used
+  without printing it. (ii) `mcp__github__get_file_contents` returning my own
+  uncommitted text is what first exposed that another agent had committed the
+  tree — read the commit list before believing a file state.
+
+  *Corrections to claims in this file.* (1) The previous run's "both commits are
+  committed but **NOT pushed**" is closed: `a0e36a6e5` and `2d8c2e284` are on
+  `origin/main`, `0 0`. (2) END STATE's `windows-gate 13/13 on 7a1bd9378` is
+  superseded — **16/16 on `b4af81cf1`**, and 13/13 was passing on 129 while the
+  right-shoulder property it was supposed to protect went unread. (3) The three
+  VAD-sweep containers (`sofia-vad1100`, `sofia-vadoff`, `sofia-pausesweep`,
+  all Up 5 h, unhealthy) are still holding their memory limits; not removed,
+  because they are not this run's artefacts and removal needs his word.
+
+  *Next:* nothing in the queue is unblocked and mine — **L(a)** or **X** is a
+  single command away and both are his crontab/patch, **K(b)** needs a
+  gateway-restart window, **Q** needs root.
