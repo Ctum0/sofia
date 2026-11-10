@@ -1026,3 +1026,25 @@ The product is feature-complete against the plan in Notion:
 Owner-only items, prepared and waiting: `api_server` key rotation (needs a
 gateway restart window) and closing the origin `169.58.126.200:443` to
 Cloudflare-only (root firewall; exact commands in Q).
+
+- [x] **W. Dynamic stage — she moves aside and puts things on the screen.
+  DONE 2026-11-10.** The Jarvis behaviour from the original brief: when something
+  should be shown, the avatar's column narrows (max-width 100% → 56%, 0.45 s
+  transition), the chat panel yields the space, and a burgundy panel takes it.
+  Two kinds, and the difference is deliberate: **image** renders inline;
+  **web** is a card with the host and an explicit Open action, because almost
+  every site sends `X-Frame-Options`/`frame-ancestors` and a blank iframe reads
+  as a bug. No iframe is attempted at all — the gate asserts zero.
+  Path: `show_panel` tool → gateway executes it server-side and emits
+  `{type:'panel'}` on the browser socket (the model only learns that it worked)
+  → dock re-broadcasts a DOM event (`window.__sofiaPanel` is the same entry
+  point for gates) → `SofiaPanel.vue` renders and the column narrows.
+  → **Verified both halves.** Browser half `panel-gate.mjs` **9/9**
+  (no panel before; image decoded 1200×630; column 1440 → 806 px; close restores
+  1440; web card offers `Open example.com`; 0 iframes; null closes).
+  Model half `panel-live-gate.mjs`: a real Live session → `tool:show_panel` →
+  `panel:image` → **panel on screen: YES**. Deploy `cff9c4df` finished
+  `f6567ce44`; `PASS f6567ce44` on the same build.
+  Defect found while proving it: the tool description suggested `/brand/og.png`,
+  which is a private route — the panel rendered a broken image. Public assets
+  only (`/og.png`), and the description now says so.
