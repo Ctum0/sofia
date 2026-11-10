@@ -90,6 +90,26 @@ export class LiveBridge {
       // Ask for resumption handles; carry the last one when we already have it.
       sessionResumption: this.resumeHandle ? { handle: this.resumeHandle } : {},
     }
+    // How long the server waits after he stops talking before it decides the
+    // turn is over. The default is the single biggest cost in a spoken turn —
+    // measured at ~1278 ms from speech end to the input transcript on this
+    // stack — and it is a documented knob, not a guess: `probe-vad.mjs` shows
+    // this exact payload reaching setupComplete on gemini-3.8-live, while an
+    // unknown field closes the socket with 1007 before setup.
+    //   LIVE_VAD=off          -> leave Gemini's defaults alone
+    //   LIVE_SILENCE_MS=500   -> the hangover
+    //   LIVE_PREFIX_PAD_MS    -> audio kept from *before* speech was detected
+    const vadOff = (process.env.LIVE_VAD || '').toLowerCase() === 'off'
+    const silenceMs = Number(process.env.LIVE_SILENCE_MS || 500)
+    const padMs = Number(process.env.LIVE_PREFIX_PAD_MS || 300)
+    if (!vadOff && Number.isFinite(silenceMs)) {
+      setup.realtimeInputConfig = {
+        automaticActivityDetection: {
+          silenceDurationMs: silenceMs,
+          ...(Number.isFinite(padMs) ? { prefixPaddingMs: padMs } : {}),
+        },
+      }
+    }
     if (this.systemInstruction)
       setup.systemInstruction = { parts: [{ text: this.systemInstruction }] }
     if (this.tools?.length)
