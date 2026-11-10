@@ -269,6 +269,47 @@ result under **Log**. Rules at the bottom are mandatory.
   `curl --resolve sofia.ctum.org:443:169.58.126.200 https://sofia.ctum.org/healthz`
   → expect a timeout/refusal from outside, 200 through the domain.
 
+- [x] **R. Session longevity: does a Live session survive the documented cap?**
+  Phase 0.5's done-when says "a session survives past 11 minutes". Code reading
+  found no `goAway` handler, no `sessionResumption`, no stored handle — a
+  documented silent-death path.
+  → **DONE 2026-11-10 09:33 SLT, and the premise was wrong.** Shipped in
+  `0f806b1be` (deploy `115`): setup carries `contextWindowCompression`
+  (`triggerTokens` as a sibling of `slidingWindow`) and `sessionResumption`;
+  `sessionResumptionUpdate.newHandle` is stored; `goAway` re-opens the Google
+  socket under the open browser socket with that handle; an unexpected close
+  retries ×3 then reports `gone`; the dock says "reconnecting…" instead of
+  showing a live Stop button over a dead session.
+  *The measurement, from `/home/ctum/longevity.log` read in this run:*
+  `5/5 checks passed` over **700 s** — `ask #2 (PAST the 12 min mark, 6969
+  frames sent)` answered with `+6 units`, **11 audio chunks after** the cap,
+  `gone: 0`, `closedBeforeEnd: 0`, `reconnecting: 0`, `readyCount: 1`.
+  So the 10-minute cap did not bite on this key: the socket stayed open past
+  13 minutes and answered. The gap was real in code (silent death with no
+  recovery), not reproducible as an outage in 12 min — both facts stand.
+  *Rotation recovery is proven separately* by `probe-resume.mjs`: forced `1008`
+  ("session already connected to an existing client") recovered in 0.9 s with
+  `resumed: true` and answered. That is the path `goAway` will take.
+  Gate: `apps/sofia-gateway/test/session-longevity-gate.mjs` (75 s smoke 5/5,
+  700 s production run 5/5).
+
+- [ ] **S. Barge-in: the server said "interrupted" and nothing stopped her.**
+  `live.mjs` forwards `serverContent.interrupted` as `{type:'interrupted'}`;
+  `public/voice-client.mjs` had **no branch for it** and `stopPlayback()` — the
+  method written for exactly this, commented "Barge-in: drop everything queued
+  so the user's voice wins" — had **zero callers** anywhere in the repo. Phase
+  0.5's "barge-in cuts her mid-word" was therefore never true.
+  → **FIX BUILT AND PROVEN DISCRIMINATING 2026-11-10 09:35 SLT; production gate
+  pending.** Client now: `interrupted` → count it, `stopPlayback()`, and mute
+  inbound audio for 1200 ms so the tail already on the wire is discarded
+  (`stats.droppedAfterInterrupt`) instead of spoken over the person.
+  *Evidence, new gate `test/barge-in-gate.mjs` (node builtins + playwright, a
+  real WebSocket server pushing real 24 kHz PCM, the module the stage imports):*
+  against the **serving build** (`BASE=http://127.0.0.1:3005`, deploy 115) →
+  **6/10**, `interrupted` never counted, `isPlaying=true` 400 ms after the
+  frame, `chunksPlayed 15 → 63` (the whole 30 s queue plus the tail played on).
+  That is the defect in product terms, not in code-shape terms.
+
 - [x] **P. Login limiter: measure it, and bound the path a forged header opens.**
   → **DONE 2026-11-10 08:05 SLT.** New gate `apps/sofia-gateway/test/rate-limit-gate.mjs`
   (node builtins only) grinds the public form and asserts the 429 appears, carries

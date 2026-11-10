@@ -28,6 +28,10 @@ const ENVELOPE_CELL = 0.02
 // A live session that has produced no audio frame for this long is not
 // capturing, whatever the socket says. Say so instead of looking healthy.
 const SILENCE_LIMIT_MS = 2000
+// How long after an interruption the in-flight audio tail is discarded. Long
+// enough to swallow chunks already on the wire, short enough that the answer to
+// the person who interrupted is never muted.
+const INTERRUPT_TAIL_MS = 1200
 
 // Inline worklet: a resampler plus a pure framer. It must not touch
 // btoa/atob/TextEncoder — those are absent in AudioWorkletGlobalScope and their
@@ -146,6 +150,11 @@ export class SofiaVoice {
     this.lastFrames = 0
     this.lastFrameAt = 0
     this.blockedNoticed = false
+    // Barge-in leaves a tail in flight: the server stops generating the moment
+    // it emits `interrupted`, but chunks already on the wire land a moment
+    // later. Play those and she keeps talking over the person who just cut her
+    // off — which is the whole defect this window exists to prevent.
+    this.muteUntil = 0
     // One object a human and the QA gate both read. `frames` counts worklet
     // frames delivered; `framesSent` counts frames the gateway accepted.
     this.stats = {
@@ -154,6 +163,8 @@ export class SofiaVoice {
       bytesSent: 0,
       chunksPlayed: 0,
       bytesPlayed: 0,
+      interruptions: 0,
+      droppedAfterInterrupt: 0,
       lastRms: 0,
       levelPeak: 0,
       captureState: 'none',
@@ -199,6 +210,16 @@ export class SofiaVoice {
         }
         if (msg.type === 'audio') {
           this.enqueueAudio(msg.data)
+          return
+        }
+        if (msg.type === 'interrupted') {
+          // The model's own VAD heard the person and stopped talking. The audio
+          // queue is ours, so nothing stops unless we stop it — measured before
+          // this branch existed: `interrupted` arrived, the queue played on.
+          this.stats.interruptions += 1
+          this.stopPlayback()
+          this.muteUntil = Date.now() + INTERRUPT_TAIL_MS
+          this.emit('interrupted')
           return
         }
         if (msg.type === 'error') {
@@ -490,6 +511,11 @@ export class SofiaVoice {
 
   /** Queue 24 kHz PCM16 so consecutive chunks play with no gap or overlap. */
   enqueueAudio(b64) {
+    // The tail of an interrupted turn: the person is talking, she is not.
+    if (this.muteUntil && Date.now() < this.muteUntil) {
+      this.stats.droppedAfterInterrupt += 1
+      return
+    }
     const ctx = this.createPlaybackContext()
     this.resume(ctx)
 
