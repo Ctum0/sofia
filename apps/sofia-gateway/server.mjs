@@ -670,6 +670,7 @@ self.addEventListener('activate', (event) => {
     // A typed turn has no tools: the gateway does the one thing a window needs
     // before handing the message to Hermes.
     if (url.pathname.endsWith('/chat/completions') && req.method === 'POST') {
+      console.log(`[sofia-gateway] text: chat turn ${req.method} ${url.pathname}`)
       const body = await readRequestBody(req).catch(() => null)
       if (body) {
         maybeOpenFromText(body).catch(() => {})
@@ -751,6 +752,7 @@ async function maybeOpenFromText(body) {
     ? lastUser.content
     : Array.isArray(lastUser?.content) ? lastUser.content.map(p => p?.text || '').join(' ') : ''
   const target = urlFromText(text)
+  console.log(`[sofia-gateway] text: turn "${String(text).slice(0, 60)}" -> ${target || 'no intent'}`)
   if (!target)
     return
   const base = process.env.BROWSER_URL || 'http://sofia-browser:8790'
