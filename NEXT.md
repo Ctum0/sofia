@@ -988,3 +988,41 @@ Still open: the amber "S" logo glyph (asset, not CSS) and real-device voice
   container read `live session ready — idle`, `frames=0`; re-run after the queue
   row says `finished` and it passes. (iii) `execute_code` is blocked in cron and
   a `<<'PY'` heredoc is blocked too — edit with the patch tool locally and `scp`.
+
+- [x] **V. Always listening — consent, then no button.** The dock mounted in
+  `idle` every visit, so "always listening" was a promise with a button in front
+  of it. Now one successful Talk stores `sofia-voice-auto=1`, and on the next
+  visit the first pointer-down or key anywhere on the page opens the Live
+  session — the browser gets its gesture, he never hunts for the button.
+  The press is what records consent (not the mic opening): `ready` fires before
+  `startMic()` resolves, so the later write left a window where the dock read
+  `live` with nothing stored — the gate caught exactly that.
+  → **DONE 2026-11-10.** `auto-start-gate.mjs` **7/7** in production:
+  fresh browser `idle` + nothing stored; one press → `live` + `sofia-voice-auto=1`;
+  Stop → `idle`; reload → `idle` before a gesture; a click on the stage → `live`.
+  Deploy `2118e494` finished `9bab59b55`; same build `PASS 9bab59b55`
+  (voice 12/12, brand 13/13, `anyWhiteSurfaces 0`).
+  Gate trap recorded: the container has no audio hardware, so the gate must
+  launch Chromium with `--use-fake-device-for-media-stream` or it measures the
+  absence of a microphone and reports `NotFoundError` as a product failure.
+
+## END STATE — 2026-11-10
+
+The product is feature-complete against the plan in Notion:
+
+| Capability | Evidence |
+| --- | --- |
+| Brain | Hermes answers through the gateway (`healthz hermes: reachable`) |
+| Voice | Live audio, `Leda`, 12/12 gate; `silenceDurationMs: 500` hangover, owner confirms the pace |
+| Turn-taking | barge-in 10/10 — `interrupted` clears the queue and drops the tail |
+| Long sessions | resumption + context compression across Google's ~10-min socket cap |
+| Hands | `local_time` and `ask_hermes` execute server-side; key never reaches the browser |
+| Presence | zero `AIRI` in the DOM, burgundy default, brand 13/13, icons regenerated |
+| Always listening | auto-start 7/7 after one press of consent |
+| Access | password gate + rate limit, auth 10/10, auth-surface 33/33 |
+| Release discipline | `verify-release.sh` must print `PASS <sha>`; deploy script refuses dirty/unpushed trees |
+| Backups | daily archive now carries `/opt/data` profile state (39 MB, 2,197 entries, extrated and read) |
+
+Owner-only items, prepared and waiting: `api_server` key rotation (needs a
+gateway restart window) and closing the origin `169.58.126.200:443` to
+Cloudflare-only (root firewall; exact commands in Q).
