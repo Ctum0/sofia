@@ -51,8 +51,9 @@ const SYSTEM_INSTRUCTION = process.env.LIVE_SYSTEM_INSTRUCTION
     'You are Sofia, a warm, quick-witted personal assistant to Sithum, who is Sri Lankan and lives in Colombo.',
     'Speak naturally and briefly — one or two sentences unless he asks for detail. Never read out formatting, markdown, lists, URLs or code; say the meaning instead.',
     'You have hands: call `ask_hermes` whenever he wants something actually done or looked up — a server checked, a command run, a file read, the web searched, a fact remembered or recalled. Call `local_time` for the time or date. Do not answer those yourself and never claim you did something you did not call a tool for.',
-    'You have a screen. When he asks to see, show or open ANYTHING visual — a website, a picture, a logo, a page — you MUST call `show_panel` in that same turn. Do not describe a page as open, and never say something is on the stage, unless the `show_panel` call succeeded. Several windows may be open at once; each call opens or raises one. `browse` works inside a page you opened — click by visible text, type into a field, press Enter, scroll, read the page aloud, list the links, go back, reload, or goto another address; to search, click the search box, fill it, press Enter, then read. `control_avatar` changes your own size and place — get smaller or move aside when something wide opens. `control_window` arranges what is already on screen — he says "make it bigger", "move it", "open another one", "tile them", "close that": resize, move, maximize, minimize, close, close_all, tile, focus. After a new window opens, tile or resize so nothing covers her and both stay readable. Before any slow tool — `ask_hermes` in particular — say one short sentence out loud first (`let me check`), because a silent stage reads as a broken one.',
+    'You have a screen. When he asks to see, show or open ANYTHING visual — a website, a picture, a logo, a page — you MUST call `show_panel` in that same turn. Do not describe a page as open, and never say something is on the stage, unless the `show_panel` call succeeded. Several windows may be open at once; each call opens or raises one. `browse` works inside a page you opened — click by visible text, type into a field, press Enter, scroll, read the page aloud, list the links, go back, reload, or goto another address; to search, click the search box, fill it, press Enter, then read. `control_avatar` changes your own size and place — when he says "get smaller", "shrink", "move left", "come back", "bigger" or "reset", that is this tool: ACTUALLY call it, never answer that you cannot resize yourself, and use it before you open something wide so he can see both. `control_window` arranges what is already on screen — he says "make it bigger", "move it", "open another one", "tile them", "close that": resize, move, maximize, minimize, close, close_all, tile, focus. After a new window opens, tile or resize so nothing covers her and both stay readable. Before any slow tool — `ask_hermes` in particular — say one short sentence out loud first (`let me check`), because a silent stage reads as a broken one.',
     'When a tool returns an error, say plainly that it did not work and what it said. Never invent a result.',
+    'Never say you cannot see what is on screen, and never guess. Every tool answer ends with a `[stage: …]` line — that is what is really open right now. If you are unsure, call `browse` with action links or read and look.',
   ].join(' ')
 
 function hermesKey() {
@@ -913,6 +914,27 @@ wss.on('connection', (ws) => {
 
   // Tool calls are executed HERE, not in the browser: the key stays on the
   // server, and the page has no business deciding whether a command runs.
+  //
+  // ONE context for the whole conversation. A fresh object per call threw
+  // `lastPage` away, so the very next `browse` had nothing to act on and she
+  // told him she could not see a page she had just opened herself.
+  let currentCall = ''
+  const toolCtx = {
+    base: HERMES_BASE,
+    key: hermesKey(),
+    lastPage: null,
+    onPanel: (panel) => send({ type: 'panel', ...panel }),
+    onProgress: (p) => send({ type: 'tool', name: currentCall, state: 'running', ...p }),
+  }
+
+  // Every answer carries the stage state, so she always knows what is on
+  // screen even after a page was opened three turns ago.
+  function stageLine() {
+    return toolCtx.lastPage
+      ? `\n[stage: a page is open beside you — ${toolCtx.lastPage.url}. Use browse to act on it.]`
+      : '\n[stage: nothing is open yet. Call show_panel with kind live to put a page on screen.]'
+  }
+
   const bridge = new LiveBridge({
     emit: (evt) => {
       if (evt.type !== 'toolCall') {
@@ -923,15 +945,14 @@ wss.on('connection', (ws) => {
       // response stalls the model's turn forever, so failures answer too.
       void (async () => {
         for (const call of evt.functionCalls) {
+          currentCall = String(call.name || '')
           send({ type: 'tool', name: call.name, state: 'started', args: call.args })
-          const result = await executeToolCall(call, {
-            base: HERMES_BASE,
-            key: hermesKey(),
-            // A tool can decide that something belongs on his screen. The
-            // browser renders it; the model only learns that it worked.
-            onPanel: (panel) => send({ type: 'panel', ...panel }),
-            onProgress: (p) => send({ type: 'tool', name: call.name, state: 'running', ...p }),
-          })
+          const result = await executeToolCall(call, toolCtx)
+          // The model must never be the only thing that knows whether the
+          // stage changed: the answer now says it.
+          if (typeof result?.response?.result === 'string')
+            result.response.result += stageLine()
+          console.log(`[sofia-gateway] live: tool ${call.name} -> ${String(result.response.result).replace(/\s+/g, ' ').slice(0, 160)}`)
           send({ type: 'tool', name: call.name, state: 'done', ok: !String(result.response.result).startsWith('That did not work'), result: String(result.response.result).slice(0, 300) })
           bridge.sendToolResponse([result])
         }

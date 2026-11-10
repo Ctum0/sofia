@@ -248,31 +248,48 @@ export async function executeToolCall(call, ctx = {}) {
       }
       else {
         if (!target) throw new Error('nothing is open to work on — open a page first')
-        const apiAction = action === 'click' ? 'clickText' : action === 'scroll' ? 'scroll' : action
-        const res = await fetch(`${base}/act`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            sid: target,
-            action: apiAction,
-            text: args.text !== undefined ? String(args.text) : args.selector !== undefined ? String(args.selector) : undefined,
-            key: args.key !== undefined ? String(args.key) : args.selector !== undefined ? String(args.selector) : undefined,
-            x: 640,
-            y: 400,
-          }),
-          signal: AbortSignal.timeout(45000),
-        })
-        const body = await res.json()
-        if (!res.ok) throw new Error(body.error || `status ${res.status}`)
-        if (action === 'close') ctx.lastPage = null
-        if (typeof ctx.onPanel === 'function' && body.sid)
-          ctx.onPanel({ kind: 'live', sid: body.sid, url: body.url, title: body.title || '' })
-        if (action === 'read')
-          text = `The page says: ${String(body.text || '').slice(0, 1500)}`
-        else if (action === 'links')
-          text = `Links: ${(body.links || []).slice(0, 12).map(l => l.text).join(' · ')}`
-        else
-          text = `Done — ${action}${args.text ? ` "${String(args.text).slice(0, 40)}"` : ''}. The page is ${body.title || body.url || 'updated'}.`
+        // `close` is its own endpoint on the service, not an /act verb. Treating
+        // it as one made the call 400, the page stayed open, and she believed a
+        // window she had closed was still there.
+        if (action === 'close') {
+          const res = await fetch(`${base}/close`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ sid: target }),
+            signal: AbortSignal.timeout(15000),
+          })
+          if (!res.ok) throw new Error(`could not close that page (status ${res.status})`)
+          if (ctx.lastPage && ctx.lastPage.sid === target) ctx.lastPage = null
+          if (typeof ctx.onPanel === 'function') ctx.onPanel({ kind: 'control', action: 'close' })
+          text = 'Closed that page.'
+        }
+        else {
+          const apiAction = action === 'click' ? 'clickText' : action === 'scroll' ? 'scroll' : action
+          const res = await fetch(`${base}/act`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              sid: target,
+              action: apiAction,
+              text: args.text !== undefined ? String(args.text) : args.selector !== undefined ? String(args.selector) : undefined,
+              key: args.key !== undefined ? String(args.key) : args.selector !== undefined ? String(args.selector) : undefined,
+              x: 640,
+              y: 400,
+            }),
+            signal: AbortSignal.timeout(45000),
+          })
+          const body = await res.json()
+          if (!res.ok) throw new Error(body.error || `status ${res.status}`)
+          if (action === 'close') ctx.lastPage = null
+          if (typeof ctx.onPanel === 'function' && body.sid)
+            ctx.onPanel({ kind: 'live', sid: body.sid, url: body.url, title: body.title || '' })
+          if (action === 'read')
+            text = `The page says: ${String(body.text || '').slice(0, 1500)}`
+          else if (action === 'links')
+            text = `Links: ${(body.links || []).slice(0, 12).map(l => l.text).join(' · ')}`
+          else
+            text = `Done — ${action}${args.text ? ` "${String(args.text).slice(0, 40)}"` : ''}. The page is ${body.title || body.url || 'updated'}.`
+        }
       }
     }
     else if (name === 'control_avatar') {

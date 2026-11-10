@@ -80,6 +80,11 @@
     "text-panel-gate.mjs": {
       "auto": true,
       "why": "the typed path has no tools; this is the only thing that proves a typed ask opens a window"
+    },
+    "tools-gate.mjs": {
+      "auto": true,
+      "catches": "a tool context rebuilt per call, so browse cannot see the page she opened",
+      "runs": "inside the gateway container (docker cp + docker exec)"
     }
   }
 }

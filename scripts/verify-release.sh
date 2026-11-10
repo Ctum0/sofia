@@ -165,4 +165,22 @@ for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs windows-responsiv
   note "$g $count"
 done
 
+# The tool layer cannot be reached from the QA browser: it is server-side. This
+# gate runs inside the gateway container against the very code that is serving,
+# and it is the one that caught a context rebuilt per call — the reason she said
+# she could not see a page she had opened herself.
+if [ -n "$app_container" ] && [ -f apps/sofia-gateway/test/tools-gate.mjs ]; then
+  docker cp apps/sofia-gateway/test/tools-gate.mjs "$app_container:/tmp/tools-gate.mjs" >/dev/null 2>&1
+  tools_out=$(docker exec "$app_container" node /tmp/tools-gate.mjs 2>&1)
+  tools_count=$(echo "$tools_out" | grep -oE '[0-9]+/[0-9]+' | tail -1)
+  tools_got=${tools_count%%/*}; tools_want=${tools_count##*/}
+  if [ -z "$tools_count" ] || [ "$tools_got" != "$tools_want" ]; then
+    echo "$tools_out" | grep -E '^FAIL' | head -6
+    fail 8 "tools-gate.mjs ${tools_count:-did not report a count}"
+  fi
+  note "tools-gate.mjs $tools_count"
+else
+  fail 8 "tools-gate.mjs did not run (no container)"
+fi
+
 echo "PASS ${head_sha:0:9} — tree clean, deployed, healthy, gated, on-brand"
