@@ -673,7 +673,7 @@ self.addEventListener('activate', (event) => {
       console.log(`[sofia-gateway] text: chat turn ${req.method} ${url.pathname}`)
       const body = await readRequestBody(req).catch(() => null)
       if (body) {
-        maybeOpenFromText(body).catch(() => {})
+        maybeOpenFromText(body).catch(e => console.log(`[sofia-gateway] text: intent failed (${String(e && e.message || e).slice(0, 100)})`))
         proxyToHermes(req, res, url, body)
         return
       }
