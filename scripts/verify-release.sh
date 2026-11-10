@@ -146,6 +146,14 @@ note "$brand_ok brand assets"
 # production, both parse their own count.
 for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs; do
   out=$(run_gate "$g")
+  # A browser that cannot reach the page is not a product failure. Seen on
+  # 2026-11-10: "net::ERR_NETWORK_CHANGED" scored windows-gate 0/1 and read
+  # like a regression. Retry once, and say that it was the network.
+  if echo "$out" | grep -qE "net::|ERR_NETWORK|ECONNRESET|EAI_AGAIN"; then
+    echo "  note: ${g} could not reach the site, retrying once in 5 s"
+    sleep 5
+    out=$(run_gate "$g")
+  fi
   count=$(echo "$out" | grep -oE '[0-9]+/[0-9]+' | tail -1)
   got=${count%%/*}; want=${count##*/}
   if [ -z "$count" ] || [ "$got" != "$want" ]; then
