@@ -72,13 +72,39 @@ const { syncBackgroundTheme } = useBackgroundThemeColor({ backgroundSurface, sel
 // it) and re-broadcasts it as a DOM event, so the stage does not have to know
 // anything about sockets. `window.__sofiaPanel` is the same entry point for the
 // gate, which cannot ask the model to call a tool on cue.
-const panel = ref<SofiaPanelPayload | null>(null)
-interface SofiaPanelPayload { kind?: 'image' | 'web', url: string, title?: string }
-function showPanel(payload: SofiaPanelPayload | null) {
-  panel.value = payload && payload.url ? payload : null
+interface SofiaWindow { id: string, kind: 'image' | 'web', url: string, title: string, x: number, y: number, w: number, h: number, z: number }
+const windows = ref<SofiaWindow[]>([])
+let nextZ = 41
+function closeWindow(id: string) {
+  windows.value = windows.value.filter(w => w.id !== id)
 }
+function focusWindow(id: string) {
+  windows.value = windows.value.map(w => (w.id === id ? { ...w, z: ++nextZ } : w))
+}
+function moveWindow(payload: { id: string, x: number, y: number }) {
+  windows.value = windows.value.map(w => (w.id === payload.id ? { ...w, x: payload.x, y: payload.y } : w))
+}
+function showPanel(payload: { kind?: 'image' | 'web', url: string, title?: string } | null) {
+  if (!payload?.url) { windows.value = []; return }
+  const kind = payload.kind === 'web' ? 'web' : 'image'
+  const existing = windows.value.find(w => w.url === payload.url)
+  if (existing) { focusWindow(existing.id); return }
+  const n = windows.value.length
+  windows.value = [...windows.value, {
+    id: `w${Date.now().toString(36)}${n}`,
+    kind,
+    url: payload.url,
+    title: payload.title || '',
+    x: 72 + n * 34,
+    y: 96 + n * 30,
+    w: kind === 'web' ? 560 : 620,
+    h: kind === 'web' ? 320 : 440,
+    z: ++nextZ,
+  }]
+}
+const panel = computed(() => windows.value.length > 0)
 function onPanelEvent(event: Event) {
-  showPanel((event as CustomEvent<SofiaPanelPayload>).detail)
+  showPanel((event as CustomEvent<{ kind?: 'image' | 'web', url: string, title?: string }>).detail)
 }
 onMounted(() => {
   window.addEventListener('sofia:panel', onPanelEvent)
@@ -149,7 +175,7 @@ const router = useRouter()
         <InteractiveArea v-if="!isMobile && !panel" :class="['absolute right-4 h-[85dvh] w-[min(440px,45%)] flex flex-col']" />
         <!-- She moves aside rather than being covered: the column above narrows,
              and what she wants to show takes the space she gave up. -->
-        <SofiaPanel v-if="panel && !isMobile" :panel="panel" @close="panel = null" />
+        <SofiaWindows v-if="!isMobile" :windows="windows" @close="closeWindow" @focus="focusWindow" @move="moveWindow" />
       </div>
       <HoloCoupon />
     </div>
