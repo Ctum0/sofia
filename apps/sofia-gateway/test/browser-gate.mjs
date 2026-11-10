@@ -25,8 +25,13 @@ try {
   await page.waitForSelector('[data-testid=sofia-voice-dock]', { timeout: 120000, state: 'visible' })
   await page.waitForFunction(() => !document.getElementById('boot-splash'), { timeout: 60000 }).catch(() => {})
 
-  // 1. the service answers through the gateway, and only when signed in
-  const anon = await ctx.request.post(`${BASE}/api/browse/open`, { data: { url: 'https://example.com' }, failOnStatusCode: false })
+  // 1. the service answers through the gateway, and only when signed in.
+  // A fresh context, not `ctx.request`: that jar already holds the session
+  // cookie, so the "anonymous" probe came back 200 and read as an open
+  // endpoint. Measured with curl and no cookie: 401.
+  const anonCtx = await browser.newContext()
+  const anon = await anonCtx.request.post(`${BASE}/api/browse/open`, { data: { url: 'https://example.com' }, failOnStatusCode: false })
+  await anonCtx.close()
   anon.status() === 401 ? ok('the browser is behind the session', '401 without a cookie') : fail('the browser is behind the session', `status ${anon.status()}`)
 
   const opened = await ctx.request.post(`${BASE}/api/browse/open`, { data: { url: 'https://example.com' } })

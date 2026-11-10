@@ -282,8 +282,9 @@ const router = useRouter()
           type="button"
           data-testid="sofia-chat-toggle"
           class="sofia-chat-toggle"
-          :title="chatHidden ? 'Show chat' : 'Hide chat'"
-          :aria-pressed="chatHidden ? 'true' : 'false'"
+          :title="panel ? 'Close the window to bring the chat back' : chatHidden ? 'Show chat' : 'Hide chat'"
+          :aria-pressed="chatHidden || panel ? 'true' : 'false'"
+          :disabled="panel"
           @click="toggleChat"
         >
           {{ chatHidden ? '‹' : '›' }}
@@ -340,7 +341,10 @@ meta:
   cursor: pointer;
   backdrop-filter: blur(6px);
 }
-.sofia-chat-toggle:hover { background: #2a1a1e; color: #f5e6d3; }
+.sofia-chat-toggle:hover:not(:disabled) { background: #2a1a1e; color: #f5e6d3; }
+/* While a window owns the right-hand space the chat is gone by layout, not by
+   choice — so the control says why instead of offering an action it cannot take. */
+.sofia-chat-toggle:disabled { opacity: 0.4; cursor: default; }
 
 .stage-column {
   transition: max-width 0.45s cubic-bezier(0.16, 1, 0.3, 1), flex-basis 0.45s cubic-bezier(0.16, 1, 0.3, 1);
