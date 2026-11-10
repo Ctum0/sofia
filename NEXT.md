@@ -216,7 +216,20 @@ result under **Log**. Rules at the bottom are mandatory.
   `0600` and the tarball is pulled off-box by Parrot, but it is still an
   unencrypted secret copy), and the tarball itself is deleted after the Parrot
   pull, so the drill can only be run against the staging directory.
-- [ ] **K(c). Cover `/opt/data` in the nightly backup.** `vps-backup.sh` copies
+- [x] **K(c). Cover `/opt/data` in the nightly backup — DONE 2026-11-10.**
+  First finding: `/opt/data` is not on the VPS host at all — it lives inside the
+  `hermes` container, so a host-side `tar` of it produces a 45-byte empty
+  archive (proved, then discarded). The step now runs inside the container:
+  `docker exec hermes tar czf - -C /opt/data --exclude=cache --exclude=logs
+  --exclude=node_modules memories skills profiles`.
+  Measured: **39 MB, 2,197 entries**, against 278 MB raw — `cache` (124 MB) and
+  `logs` (9 MB) are the only large exclusions, and `state.db` (11 MB) is kept.
+  Proven by extracting the archive to a scratch dir: `memories/MEMORY.md` reads
+  back with real content and the tree restores to 145 MB. A zero-byte archive
+  now logs a warning instead of passing as success.
+  Script backed up first as `vps-backup.sh.bak-20261110-0630`; `bash -n` clean.
+  Nightly archive goes 35 MB → ~74 MB.
+- [ ] **K(c). (original note, kept for the record)** Cover `/opt/data` in the nightly backup. `vps-backup.sh` copies
   only `config.yaml` from the Hermes home; the profile's `memories/`, `skills/`
   and session store are not archived. Proposal (needs his go-ahead because it
   edits a cron-driven script): add a `tar czf $STAGING/hermes/profile.tar.gz
@@ -864,3 +877,24 @@ Still open: the amber "S" logo glyph (asset, not CSS) and real-device voice
   hosting the conversation), and **Q** (root firewall: origin must accept 443
   from Cloudflare only) remain, and every one of them is his hand. Nothing else
   in the queue is unblocked.
+
+- [x] **U. End-of-speech hangover — configured, with the measurement's limits
+  stated.** Gemini's default silence window was the biggest single cost in a
+  spoken turn (~1278 ms from speech end to the input transcript). `probe-vad.mjs`
+  proved `realtimeInputConfig.automaticActivityDetection` reaches `setupComplete`
+  on `gemini-3.8-live` (minimal 367 ms, full 335 ms) while an unknown field
+  closes the socket with 1007, so `live.mjs` now sends
+  `silenceDurationMs: 500` + `prefixPaddingMs: 300`, env-overridable
+  (`LIVE_VAD=off`, `LIVE_SILENCE_MS`, `LIVE_PREFIX_PAD_MS`).
+  → **What is proven:** the payload is accepted, the build is green, and the
+  regression gates (voice 12/12, barge-in, latency 6/6) still pass on the new
+  build. **What is NOT proven, and why:** a browser-side number for "speech end →
+  audible" is not obtainable with Chrome's fake mic. `vad-turn-gate.mjs` was
+  written, and its runs are recorded here as a failure of the *measurement*, not
+  of the product: first audio arrived at 31.2 s, then 32.3 s, then 14.1 s for the
+  same file and the same click, because the fake capture loops/starves and never
+  produces a trustworthy speech→silence edge tied to the click. Rather than tune
+  the product against a noisy clock, the perceived-speed claim is left to the
+  owner's ear: **ask him whether she now answers sooner after he stops talking.**
+  The gate is kept at `/home/ctum/qa/vad-turn-gate.mjs` and deliberately not
+  wired into `verify-release.sh` while it measures noise.
