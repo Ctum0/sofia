@@ -1388,3 +1388,83 @@ build is exactly the signature of a deleted assertion, and it is not that.
 (it landed at 06:30), **`Q`** closes the origin to Cloudflare only (root firewall, exact commands
 below), **`X`** is one crontab line for Sofia's DB backup. The `K(c)` "original note" line below is
 struck because the step it asked for has since been applied and proven by hand.
+
+### 2026-11-10 23:26–00:05 SLT — `verify-release PASS` on `b7c9f807d`, and the write-back five commits were missing
+
+**What was owed.** The Log ended at 21:40 SLT while five commits landed after it
+(`8710ebb89`, `3b5a6f497`, `93a75b395`, `430367c39`, `b7c9f807d`); NEXT.md's mtime was
+**17:11:31 CET** against a newest commit at **18:51:25 CET**, so the file described a tree
+three commits behind. The previous run also left the four-gate list **UNVERIFIED as a whole**
+because a concurrent agent's tree was dirty. Both are closed here.
+
+**Deploy 154.** `b7c9f807d` (the `browser-gate` discovery fix) was committed after deploy `153`
+had already built `430367c39`, so the verifier's step 2 could not confirm a commit containing
+HEAD's runtime change. Queued with `scripts/coolify-deploy.sh`:
+`deployment=90974047-0fa8-4d7d-8d6c-840a9d1face9 … status=in_progress commit=b7c9f807d`.
+Row `154 | finished | b7c9f807d | 2026-11-10 17:57:05`, container
+`zp31tstwfvpppxp5woswltmv-20261110T175705` **Up (healthy)** since 19:08 CET.
+
+**`bash scripts/verify-release.sh` — the authority, printing PASS:**
+
+```
+== 1. repository ==   HEAD b7c9f807d · origin/main b7c9f807d · tree clean
+== 2. deployment ==   status finished · commit b7c9f807d · runtime HEAD 430367c39
+== 3. health        {"ok":true,"stage":true,"brand":"rewritten","hermes":"reachable",
+                     "key":"set","public":true,"trace":false,"reasoning":"stripped",
+                     "live":{"transport":"gateway-proxy","model":"gemini-3.8-live","voice":"Leda"}}
+== 4. gates ==        note: first voice attempt 12/13, retrying once in 8 s (shared Live slot)
+                     13/13
+== 5. brand ==        strayAIRI false · anyWhiteSurfaces 0 · 13/13 brand assets
+                      windows-gate.mjs 19/19
+                      browser-gate.mjs 10/10
+                      text-panel-gate.mjs 10/10
+                      windows-responsive-gate.mjs 25/25
+PASS b7c9f807d — tree clean, deployed, healthy, gated, on-brand
+```
+
+So all four gates are green **inside the verifier**, on a build that contains both the stage work
+(`430367c39`) and the gate fix (`b7c9f807d`) — the previous run's "4-gate list UNVERIFIED" is closed.
+
+**What each number now covers, said explicitly** (a count without its property is noise):
+
+- `text-panel-gate 10/10` includes **"she can resize herself"** (`scale 0.7`) and **"the stage
+  survives a refresh"** — so `430367c39`'s two product claims are gated on the serving build, not
+  just implemented. Its third claim (driving the page from a typed turn) is the window-open check
+  in the same gate.
+- `browser-gate 10/10` is the gate `b7c9f807d` repaired — it now *discovers* the link text instead
+  of hardcoding one that had vanished, and it is green on the build carrying the fix. Green here
+  means the gate can still find its own selector, not that the page changed.
+- `windows-gate 19/19` re-confirms the drag-outside-the-page fix (`8710ebb89`) on this build.
+- `windows-responsive-gate 25/25` confirms `93a75b395`'s settle-on-real-width fix survived the
+  deploy that changed the stage's own sizing (`430367c39` touched `index.vue` +105) — that was the
+  pairing most likely to regress, and it did not.
+- voice `13/13` after the documented single retry: the **first** attempt read `12/13`, which is the
+  shared per-key Live slot, not a defect — the retry printed its note and then passed. Stated
+  because a 12/13 in the log without context reads like a hidden regression.
+
+**No new defect found this run.** Nothing was edited except this file: the tree was clean at step 1
+and clean again after the run, so the evidence describes the deployed bytes rather than a
+half-state.
+
+**Queue state — four items, all four are his hand, and they are now one paste-able block.** Nothing
+unchecked is mine; the build loop has no unattended work left in it.
+
+- `K(b)` / `L(b)` — rotate the sofia `api_server` key. **The ask is recorded here** as the item
+  requires: it needs a gateway-restart window (the restart ends any live session), so it is his
+  call, not a cron action. Prepared and rehearsed: `bash /home/ctum/scripts/rotate-sofia-api-key.sh`
+  (backup → rewrite → assert new-key-count == old-key-count and only the two key lines changed →
+  print the new key once), then in this order:
+  `printf '%s' '<new>' > /home/ctum/secrets/hermes-sofia.key && chmod 600 …`,
+  `docker restart hermes`, then `200` on `/p/sofia/v1/models` with her key and `401` on the same
+  key at `/v1/models` — the second is the isolation proof, not an error.
+- `L(a)` — superseded: the `/opt/data` step landed at 06:30 and was proven by hand.
+- `Q` — close the origin to Cloudflare only. `curl --resolve` still answers `200` on the raw IP,
+  so the whole CF layer is optional to anyone who knows it. Root firewall, his hand.
+- `X` — one crontab line for `ops/backup-sofia-data.sh`; the script exists and verifies its own
+  output (`124/44/263` read back, `integrity_check ok`), only the schedule is missing.
+
+**Correction to the previous run's report.** It said the 4-gate list was unverifiable "while their
+tree is dirty" and stopped there. The tree went clean at `b7c9f807d` (18:51) and stayed clean; the
+missing step was not permission but a deploy that recorded a commit containing HEAD's runtime
+change. That is now done, and the number to trust is the `PASS` line above — not the per-gate
+counts quoted in any chat message from before 23:26 SLT.
