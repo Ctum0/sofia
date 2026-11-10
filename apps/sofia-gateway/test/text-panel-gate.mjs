@@ -69,7 +69,10 @@ try {
   const insideChat = await page.evaluate(() => !!document.querySelector('[data-testid=sofia-window]')?.closest('.stage-column, [data-testid=chat-empty-state], textarea'))
   insideChat ? fail('the window is not inside the chat') : ok('the window is not inside the chat')
 
-  // 6. the chat can be put away and brought back
+  // 6. the chat can be put away and brought back. A window takes the space by
+  // design, so close it first — the toggle is about the chat, not about windows.
+  await page.evaluate(() => window.__sofiaPanel(null))
+  await page.waitForTimeout(400)
   const toggle = await page.$('[data-testid=sofia-chat-toggle]')
   if (!toggle) {
     fail('the chat has a toggle')

@@ -34,7 +34,23 @@ async function assertPublic(url) {
 }
 
 let browser
-const pages = new Map() // sid -> { page, ctx }
+const pages = new Map() // sid -> { page, ctx, used }
+const IDLE_MS = Number(process.env.IDLE_MS || 600000)
+
+// A gate that forgets to close leaves a page behind, and four of those turn
+// every later "open" into "no room: 4 pages open" (seen 2026-11-10). Pages are
+// cheap to reopen and expensive to leak.
+function reapIdle() {
+  const now = Date.now()
+  for (const [sid, entry] of pages) {
+    if (now - (entry.used || 0) < IDLE_MS)
+      continue
+    pages.delete(sid)
+    entry.ctx.close().catch(() => {})
+    console.log(`[sofia-browser] reaped idle page ${sid}`)
+  }
+}
+setInterval(reapIdle, 60000).unref()
 
 async function getBrowser() {
   if (browser?.isConnected())
@@ -56,7 +72,7 @@ async function newPage(url) {
   await page.goto(safe, { waitUntil: 'domcontentloaded', timeout: 25000 })
   await page.waitForTimeout(1200)
   const sid = `p${Date.now().toString(36)}${pages.size}`
-  pages.set(sid, { page, ctx })
+  pages.set(sid, { page, ctx, used: Date.now() })
   return sid
 }
 
@@ -64,6 +80,7 @@ async function snap(sid) {
   const entry = pages.get(sid)
   if (!entry)
     throw new Error('no such page')
+  entry.used = Date.now()
   const buf = await entry.page.screenshot({ type: 'png' })
   return {
     sid,
