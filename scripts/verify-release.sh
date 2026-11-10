@@ -156,6 +156,14 @@ for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs windows-responsiv
     sleep 5
     out=$(run_gate "$g")
   fi
+  # A page caught mid-restart mounts nothing, so a click waits its full timeout
+  # and reads as a layout regression. Seen once on phone-390 during a deploy and
+  # never on two clean runs after it: retry once, and say that it was a timeout.
+  if echo "$out" | grep -q "TimeoutError"; then
+    echo "  note: ${g} hit a click timeout (page still settling), retrying once in 10 s"
+    sleep 10
+    out=$(run_gate "$g")
+  fi
   count=$(echo "$out" | grep -oE '[0-9]+/[0-9]+' | tail -1)
   got=${count%%/*}; want=${count##*/}
   if [ -z "$count" ] || [ "$got" != "$want" ]; then
