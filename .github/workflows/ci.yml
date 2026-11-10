@@ -1,387 +1,100 @@
-name: CI
+name: ci
+
+# Every failure this workflow catches has already happened once by hand.
+# The guards are static and named after the incident; the build is the real
+# compiler; the image job is what Coolify will actually run.
 on:
   push:
-    branches:
-      - main
-    # Keep this list the same as DOCS_PATTERN in the changes job.
-    paths-ignore:
-      - 'docs/**'
-      - '.agents/**'
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/*.md'
-      - '**/docs/**/*.md'
-      - '**/README*.md'
-      - '**/AGENTS.md'
-      - '**/CLAUDE.md'
-      - 'DESIGN.md'
-      - 'LICENSE'
-
-  # NOTICE:
-  # This trigger has no paths filter on purpose.
-  # A filtered workflow never reports its required checks, and the pull request stays blocked.
-  # The changes job skips the expensive jobs instead, and a skipped job reports success.
-  # Source: https://docs.github.com/en/actions/using-workflows/required-status-checks
-  # Remove this note when the ruleset has no required checks from this workflow.
+    branches: [main]
   pull_request:
-    branches:
-      - main
-
   workflow_dispatch:
 
-# A new push to a pull request cancels its older run. Other events use the run id as
-# the group, so each commit on main always gets a complete run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  # Jobs compare these outputs with `!=`. If this job fails, the outputs are empty and
-  # all checks run. A job that needs a failed job and has no `!cancelled()` reports as
-  # skipped, and a skipped required check lets the pull request merge.
-  changes:
-    name: Detect changes
+  guards:
+    name: guards (seconds)
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      docs_only: ${{ steps.detect.outputs.docs_only }}
-      markdown: ${{ steps.detect.outputs.markdown }}
-      skip_heavy: ${{ steps.detect.outputs.skip_heavy }}
-      godot: ${{ steps.detect.outputs.godot }}
-      swift: ${{ steps.detect.outputs.swift }}
-      lockfile: ${{ steps.detect.outputs.lockfile }}
+    timeout-minutes: 5
     steps:
-      - id: detect
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
-          HEAD_LABEL: ${{ github.event.pull_request.head.label }}
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: incident guards
+        run: node scripts/ci/guards.mjs
+      - name: gateway parses
         run: |
-          docs_only=false godot=true swift=true lockfile=true markdown='[]'
+          for f in apps/sofia-gateway/*.mjs apps/sofia-gateway/browse-service/*.mjs; do
+            node --check "$f" || exit 1
+          done
+          echo "all gateway files parse"
+      - name: release script is valid shell
+        run: bash -n scripts/verify-release.sh
 
-          if [ "$EVENT_NAME" = pull_request ]; then
-            files_json=$(gh api --paginate --slurp "repos/$REPOSITORY/pulls/$PR_NUMBER/files" | jq 'add')
-            listed=$(jq 'length' <<<"$files_json")
-            # A rename also changes its old path, so check both names.
-            paths=$(jq -r '.[] | .filename, (.previous_filename // empty)' <<<"$files_json")
-
-            DOCS_PATTERN='^(docs/|\.agents/|\.github/ISSUE_TEMPLATE/|\.github/[^/]+\.md$|(.+/)?docs/.+\.md$|(.+/)?README[^/]*\.md$|(.+/)?(AGENTS|CLAUDE)\.md$|DESIGN\.md$|LICENSE$)'
-
-            # The API lists at most 3000 files. An incomplete list runs all checks.
-            if [ "$listed" -gt 0 ] && [ "$listed" = "$CHANGED_FILES" ]; then
-              if ! grep -qEv "$DOCS_PATTERN" <<<"$paths"; then
-                docs_only=true
-              fi
-
-              # This file controls the jobs below, so a change here runs all of them.
-              if ! grep -qE '^\.github/(workflows/ci\.yml|actions/)' <<<"$paths"; then
-                grep -q '^engines/stage-tamagotchi-godot/' <<<"$paths" || godot=false
-                grep -q '^apps/stage-pocket/' <<<"$paths" || swift=false
-                grep -q '^pnpm-lock\.yaml$' <<<"$paths" || lockfile=false
-              fi
-            fi
-
-            markdown=$(jq -c '[.[] | select(.status != "removed" and (.filename | endswith(".md"))) | .filename]' <<<"$files_json")
-          fi
-
-          skip_heavy=$docs_only
-          case "$HEAD_LABEL" in
-            moeru-ai:i18n/*) skip_heavy=true ;;
-          esac
-
-          {
-            echo "docs_only=$docs_only"
-            echo "markdown=$markdown"
-            echo "skip_heavy=$skip_heavy"
-            echo "godot=$godot"
-            echo "swift=$swift"
-            echo "lockfile=$lockfile"
-          } | tee -a "$GITHUB_OUTPUT"
-
-  lint:
-    name: Lint
-    needs: changes
-    if: ${{ !cancelled() }}
+  build:
+    name: build (minutes)
+    needs: guards
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-
-      # Setup .NET for Godot C# linting
-      - name: Setup .NET
-        if: needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.godot != 'false'
-        uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
-          dotnet-version: '10.0.x'
-
-      # Lint Godot C# code
-      - name: Lint Godot C#
-        if: needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.godot != 'false'
-        working-directory: ./engines/stage-tamagotchi-godot
-        run: dotnet format stage-tamagotchi-godot.slnx --verify-no-changes
-
-      - name: Lint Swift
-        if: needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.swift != 'false'
-        run: docker run -v `pwd`:`pwd` -w `pwd` ghcr.io/realm/swiftlint:latest
-        working-directory: ./apps/stage-pocket
-
-      # A filtered install is enough for the Markdown files of a documentation change.
-      - uses: ./.github/actions/setup-workspace
+          version: 10
+      - uses: actions/setup-node@v4
         with:
-          install-args: ${{ needs.changes.outputs.docs_only == 'true' && '--frozen-lockfile --filter @proj-airi/root --ignore-scripts' || '--frozen-lockfile' }}
-          save-pnpm-store: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Lint changed Markdown
-        if: needs.changes.outputs.docs_only == 'true'
-        env:
-          MARKDOWN: ${{ needs.changes.outputs.markdown }}
+          node-version: 22
+          cache: pnpm
+      - name: install
+        run: pnpm install --frozen-lockfile
+      - name: lint the files this fork owns
+        run: pnpm exec eslint apps/stage-web/src packages/stage-layouts/src/components/Widgets apps/sofia-gateway --max-warnings=0
+      - name: build the stage
+        run: pnpm -F @proj-airi/stage-web build
+      - name: the built page is not the login page
         run: |
-          jq -r '.[]' <<<"$MARKDOWN" > "$RUNNER_TEMP/markdown.txt"
-          if [ -s "$RUNNER_TEMP/markdown.txt" ]; then
-            xargs -d '\n' pnpm exec eslint --no-warn-ignored --no-error-on-unmatched-pattern < "$RUNNER_TEMP/markdown.txt"
-          fi
-
-      - name: Restore ESLint cache
-        if: needs.changes.outputs.docs_only != 'true'
-        uses: actions/cache/restore@v5
+          test -f apps/stage-web/dist/index.html
+          bytes=$(wc -c < apps/stage-web/dist/index.html)
+          echo "index.html ${bytes} bytes"
+          test "$bytes" -gt 2000
+      - uses: actions/upload-artifact@v4
         with:
-          path: .eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.ts', 'uno.config.ts', 'eslint-suppressions.json') }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-eslint-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.ts', 'uno.config.ts', 'eslint-suppressions.json') }}-
+          name: stage-web-dist
+          path: apps/stage-web/dist
+          retention-days: 3
 
-      # NOTICE:
-      # These commands replace `pnpm run lint` to pass --cache-strategy content.
-      # moeru-lint uses the default mtime strategy, and a new checkout changes each mtime.
-      # Source: node_modules/@moeru/eslint-config/src/moeru-lint.js
-      # Remove these commands when moeru-lint accepts a cache strategy.
-      - name: Run oxlint
-        if: needs.changes.outputs.docs_only != 'true'
-        run: pnpm exec oxlint --no-error-on-unmatched-pattern .
-
-      - name: Run ESLint
-        if: needs.changes.outputs.docs_only != 'true'
-        run: pnpm exec eslint --cache --cache-strategy content --concurrency auto .
-
-      # Checks that the code uses only keys that the English locale defines.
-      # `.x18n/check-baseline.json` holds the known diagnostics, so only a new one shows or fails.
-      - name: Check i18n keys
-        if: needs.changes.outputs.docs_only != 'true'
-        run: pnpm exec x18n check --reporter github --reporter pretty
-
-      - name: Save ESLint cache
-        if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
-        uses: actions/cache/save@v5
+  image:
+    name: image (what Coolify builds)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: docker build
+        uses: docker/build-push-action@v6
         with:
-          path: .eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.ts', 'uno.config.ts', 'eslint-suppressions.json') }}-${{ github.sha }}
-
-  # The ruleset requires the names `Build Test (stage-web)` and `Build Test (stage-tamagotchi)`.
-  # These jobs do not use a matrix, because a skipped matrix job reports the name
-  # `Build Test (${{ matrix.app_name }})` and the required check never completes.
-  build-stage-web:
-    name: Build Test (stage-web)
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.skip_heavy != 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-workspace
-      - run: pnpm -F @proj-airi/stage-web run build
-      - run: pnpm -F @proj-airi/stage-ui run story:build
-
-  build-stage-tamagotchi:
-    name: Build Test (stage-tamagotchi)
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.skip_heavy != 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-workspace
-      - run: pnpm -F @proj-airi/stage-tamagotchi run build
-
-  build-ui-playgrounds:
-    name: Build Test (ui-playgrounds)
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.skip_heavy != 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-workspace
-      - run: pnpm -F @proj-airi/ui-transitions run play:build
-      - run: pnpm -F @proj-airi/ui-loading-screens run play:build
-
-  # The Godot project uses only .NET and Godot, so this job does not install the pnpm workspace.
-  build-stage-tamagotchi-godot:
-    name: Build Test (stage-tamagotchi-godot)
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.skip_heavy != 'true' && needs.changes.outputs.godot != 'false' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Setup Godot
-        uses: chickensoft-games/setup-godot@v2
-        with:
-          version: 4.7.1
-          use-dotnet: true
-          include-templates: true
-
-      - name: Build Godot project
-        working-directory: ./engines/stage-tamagotchi-godot
+          context: .
+          push: false
+          load: true
+          tags: sofia:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: the image answers /healthz
         run: |
-          dotnet restore
-          dotnet build -c ExportRelease
-
-      - name: Export Godot Linux sidecar
-        working-directory: ./engines/stage-tamagotchi-godot
-        run: |
-          mkdir -p out/linux
-          godot --headless --export-release "Linux x64" out/linux/godot-stage
-
-  unit-test-shard:
-    name: Unit Test (${{ matrix.shard }})
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - shard: api-server-1
-            browser: false
-            args: -F @proj-airi/api-server -- --shard=1/2
-
-          - shard: api-server-2
-            browser: false
-            args: -F @proj-airi/api-server -- --shard=2/2
-
-          - shard: stage-ui-1
-            browser: true
-            args: -F @proj-airi/stage-ui -- --shard=1/2
-
-          - shard: stage-ui-2
-            browser: true
-            args: -F @proj-airi/stage-ui -- --shard=2/2
-
-          - shard: stage-tamagotchi
-            browser: true
-            args: -F @proj-airi/stage-tamagotchi
-
-          # The exclude filters add each new package to this shard.
-          - shard: others
-            browser: true
-            root: true
-            args: -F '!@proj-airi/api-server' -F '!@proj-airi/stage-ui' -F '!@proj-airi/stage-tamagotchi' --concurrency=2
-
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: ./.github/actions/setup-workspace
-        with:
-          turbo-cache: unit-test-${{ matrix.shard }}
-
-      - name: Setup Playwright
-        if: matrix.browser
-        run: npx playwright install chromium
-
-      - if: matrix.root
-        run: pnpm run test:root
-
-      - run: pnpm exec turbo run test:run --output-logs=new-only ${{ matrix.args }}
-        env:
-          NODE_OPTIONS: --no-experimental-webstorage
-
-      - if: ${{ !cancelled() }}
-        uses: ./.github/actions/save-turbo-cache
-        with:
-          turbo-cache: unit-test-${{ matrix.shard }}
-
-  # The ruleset requires this name. The shards above do the work.
-  unit-test:
-    name: Unit Test
-    needs: unit-test-shard
-    if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
-    steps:
-      - env:
-          RESULT: ${{ needs.unit-test-shard.result }}
-        run: test "$RESULT" = success -o "$RESULT" = skipped
-
-  typecheck-shard:
-    name: Type Check (${{ matrix.shard }})
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.skip_heavy != 'true' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - shard: desktop
-            filter: -F @proj-airi/stage-tamagotchi -F @proj-airi/stage-tamagotchi-kirie -F @proj-airi/stage-ui
-
-          - shard: web
-            filter: -F @proj-airi/stage-web -F @proj-airi/stage-pocket -F @proj-airi/stage-pages -F @proj-airi/stage-layouts -F @proj-airi/ui-server-auth -F @proj-airi/api-server
-
-          # The exclude filters add each new package to this shard.
-          - shard: others
-            filter: >-
-              -F './packages/*' -F './apps/*' -F './server/**' -F './services/*'
-              -F '!@proj-airi/stage-tamagotchi' -F '!@proj-airi/stage-tamagotchi-kirie' -F '!@proj-airi/stage-ui'
-              -F '!@proj-airi/stage-web' -F '!@proj-airi/stage-pocket' -F '!@proj-airi/stage-pages' -F '!@proj-airi/stage-layouts'
-              -F '!@proj-airi/ui-server-auth' -F '!@proj-airi/api-server'
-
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: ./.github/actions/setup-workspace
-        with:
-          turbo-cache: typecheck-${{ matrix.shard }}
-
-      - run: pnpm exec turbo run typecheck --output-logs=errors-only ${{ matrix.filter }}
-
-      - if: ${{ !cancelled() }}
-        uses: ./.github/actions/save-turbo-cache
-        with:
-          turbo-cache: typecheck-${{ matrix.shard }}
-
-  # The ruleset requires this name. The shards above do the work.
-  typecheck:
-    name: Type Check
-    needs: typecheck-shard
-    if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
-    steps:
-      - env:
-          RESULT: ${{ needs.typecheck-shard.result }}
-        run: test "$RESULT" = success -o "$RESULT" = skipped
-
-  check-provenance:
-    name: Check Provenance
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.lockfile != 'false' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          # The check reads only the lockfile, so Git can get other file contents on demand.
-          filter: blob:none
-      - uses: danielroe/provenance-action@main
-        id: check
-        with:
-          fail-on-provenance-change: true # optional, default: false
-        #   lockfile: pnpm-lock.yaml      # optional
-        #   base-ref: origin/main         # optional, default: origin/main
-        #   fail-on-downgrade: true       # optional, default: true
-      - name: Print result
-        run: "echo 'Downgraded: ${{ steps.check.outputs.downgraded }}'"
+          docker run -d --name sofia-ci -p 3005:3005 \
+            -e SOFIA_PASSWORD=ci-only -e HERMES_URL=http://127.0.0.1:1 \
+            sofia:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3005/healthz > /tmp/healthz.json; then break; fi
+            sleep 2
+          done
+          cat /tmp/healthz.json
+          grep -q '"ok":true' /tmp/healthz.json
+          docker rm -f sofia-ci

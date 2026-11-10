@@ -147,7 +147,27 @@ onMounted(() => {
 })
 onBeforeUnmount(() => window.removeEventListener('sofia:panel', onPanelEvent))
 
-onMounted(() => syncBackgroundTheme())
+onMounted(() => {
+  syncBackgroundTheme()
+
+  // Two upstream overlays outlive the stage. The boot splash stays until a
+  // readiness signal that can arrive late or never; the startup overlay is
+  // worse — `z-index: 10000`, full screen, and it swallows every pointer event
+  // until its phase reaches "done". Measured 2026-11-10 with elementFromPoint:
+  // a click on a window's title bar landed on `.startup-screen`, which is why
+  // "clicking a window raises it" passed on three builds and failed on the next
+  // four. The stage is mounted, so both have done their job. An ERROR screen is
+  // kept, because it is the only thing that explains why nothing started.
+  const clearOverlays = () => {
+    document.getElementById('boot-splash')?.remove()
+    const el = document.querySelector('.startup-screen')
+    if (el && !el.classList.contains('startup-screen-error'))
+      el.remove()
+  }
+  clearOverlays()
+  for (const delay of [800, 2500, 5000])
+    setTimeout(clearOverlays, delay)
+})
 
 // Small screens offer no control for continuous listening, so only a voice call listens there.
 useVoiceListening({ continuous: () => !isMobile.value })
