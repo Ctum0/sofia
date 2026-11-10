@@ -2,7 +2,7 @@
 import Header from '@proj-airi/stage-layouts/components/Layouts/Header.vue'
 import InteractiveArea from '@proj-airi/stage-layouts/components/Layouts/InteractiveArea.vue'
 import MobileInteractiveArea from '@proj-airi/stage-layouts/components/Layouts/MobileInteractiveArea.vue'
-import SofiaPanel from '@proj-airi/stage-layouts/components/Widgets/SofiaPanel.vue'
+import SofiaWindows from '@proj-airi/stage-layouts/components/Widgets/SofiaWindows.vue'
 
 import { BackgroundProvider } from '@proj-airi/stage-layouts/components/Backgrounds'
 import { useBackgroundThemeColor } from '@proj-airi/stage-layouts/composables/theme-color'
