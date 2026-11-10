@@ -81,6 +81,28 @@ try {
     ? ok('the Talk button survives a window', `${dock.x},${dock.y}`)
     : fail('the Talk button survives a window', JSON.stringify(dock))
 
+  // 5c. she can change her own size
+  await page.evaluate(() => window.__sofiaPanel({ kind: 'avatar', action: 'set', scale: 0.7 }))
+  await page.waitForTimeout(300)
+  const scaled = await page.evaluate(() => getComputedStyle(document.querySelector('.stage-column') || document.body).getPropertyValue('--sofia-avatar-scale').trim())
+  scaled === '0.7' ? ok('she can resize herself', `scale ${scaled}`) : fail('she can resize herself', `scale "${scaled}"`)
+  await page.evaluate(() => window.__sofiaPanel({ kind: 'avatar', action: 'reset' }))
+
+  // 5d. a refresh does not throw the stage away
+  const beforeReload = await page.evaluate(() => document.querySelectorAll('[data-testid=sofia-window]').length)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  const field2 = await page.$('input[type=password]')
+  if (field2) {
+    await field2.fill(PASS)
+    await page.click('button[type=submit], button')
+    await page.waitForLoadState('domcontentloaded')
+  }
+  await page.waitForFunction(() => document.querySelectorAll('[data-testid=sofia-window]').length > 0, { timeout: 60000 }).catch(() => {})
+  const afterReload = await page.evaluate(() => document.querySelectorAll('[data-testid=sofia-window]').length)
+  afterReload >= beforeReload && afterReload > 0
+    ? ok('the stage survives a refresh', `${beforeReload} → ${afterReload} window(s)`)
+    : fail('the stage survives a refresh', `${beforeReload} → ${afterReload}`)
+
   // 6. the chat can be put away and brought back. A window takes the space by
   // design, so close it first — the toggle is about the chat, not about windows.
   await page.evaluate(() => window.__sofiaPanel(null))

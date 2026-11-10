@@ -76,6 +76,32 @@ const { syncBackgroundTheme } = useBackgroundThemeColor({ backgroundSurface, sel
 // gate, which cannot ask the model to call a tool on cue.
 interface SofiaWindow { id: string, kind: 'image' | 'web', url: string, title: string, x: number, y: number, w: number, h: number, z: number }
 const windows = ref<SofiaWindow[]>([])
+
+// Her own size and place: JARVIS steps aside, he does not resize himself.
+const avatarScale = ref(1)
+const avatarX = ref(0)
+const avatarY = ref(0)
+const avatarVars = computed(() => ({
+  '--sofia-avatar-scale': String(avatarScale.value),
+  '--sofia-avatar-x': `${avatarX.value}px`,
+  '--sofia-avatar-y': `${avatarY.value}px`,
+}))
+
+function applyAvatar(payload: { action?: string, scale?: number, x?: number, y?: number }) {
+  if (String(payload.action || 'set').toLowerCase() === 'reset') {
+    avatarScale.value = 1
+    avatarX.value = 0
+    avatarY.value = 0
+    return
+  }
+  if (Number.isFinite(payload.scale))
+    avatarScale.value = Math.max(0.35, Math.min(1.6, Number(payload.scale)))
+  if (Number.isFinite(payload.x))
+    avatarX.value = Math.max(-600, Math.min(600, Number(payload.x)))
+  if (Number.isFinite(payload.y))
+    avatarY.value = Math.max(-400, Math.min(400, Number(payload.y)))
+}
+
 let nextZ = 41
 function closeWindow(id: string) {
   windows.value = windows.value.filter(w => w.id !== id)
@@ -170,6 +196,15 @@ function showPanel(payload: { kind?: 'image' | 'web' | 'live', url: string, titl
     applyControl(payload as unknown as { action: string })
     return
   }
+  const kindOf = (payload as { kind?: string })?.kind
+  if (kindOf === 'avatar') {
+    applyAvatar(payload as unknown as { action?: string, scale?: number, x?: number, y?: number })
+    return
+  }
+  if (kindOf === 'control') {
+    applyControl(payload as unknown as { action: string })
+    return
+  }
   if (!payload?.url) { windows.value = []; return }
   const kind = payload.kind === 'live' ? 'live' : payload.kind === 'web' ? 'web' : 'image'
   const existing = windows.value.find(w => w.url === payload.url)
@@ -238,14 +273,80 @@ function toggleChat() {
   try { localStorage.setItem(CHAT_KEY, chatHidden.value ? '1' : '0') }
   catch {}
 }
+
+// A refresh used to throw every window away. The shape is saved; a live page is
+// reopened by URL on restore because its server-side session id died with the
+// page.
+const STAGE_KEY = 'sofia-stage-v1'
+let restoring = false
+
+function saveStage() {
+  if (restoring)
+    return
+  try {
+    const shape = windows.value.map(w => ({ kind: w.kind, url: w.url, title: w.title, x: w.x, y: w.y, w: w.w, h: w.h, z: w.z }))
+    localStorage.setItem(STAGE_KEY, JSON.stringify({
+      windows: shape,
+      chatHidden: chatHidden.value,
+      avatar: { scale: avatarScale.value, x: avatarX.value, y: avatarY.value },
+    }))
+  }
+  catch {}
+}
+
+async function restoreStage() {
+  let saved
+  try { saved = JSON.parse(localStorage.getItem(STAGE_KEY) || 'null') }
+  catch { return }
+  if (!saved)
+    return
+  restoring = true
+  try {
+    if (saved.avatar) {
+      avatarScale.value = Number(saved.avatar.scale) || 1
+      avatarX.value = Number(saved.avatar.x) || 0
+      avatarY.value = Number(saved.avatar.y) || 0
+    }
+    if (typeof saved.chatHidden === 'boolean')
+      chatHidden.value = saved.chatHidden
+    for (const win of saved.windows || []) {
+      let sid = ''
+      let url = win.url
+      let title = win.title
+      if (win.kind === 'live') {
+        try {
+          const res = await fetch('/api/browse/open', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ url: win.url }),
+          })
+          const page = await res.json()
+          if (res.ok) {
+            sid = page.sid
+            url = page.url || win.url
+            title = page.title || title
+          }
+        }
+        catch {}
+      }
+      windows.value = [...windows.value, { ...win, id: `w${Date.now().toString(36)}${windows.value.length}`, sid, url, title, z: ++nextZ }]
+    }
+  }
+  finally {
+    restoring = false
+  }
+}
 function onPanelEvent(event: Event) {
   showPanel((event as CustomEvent<{ kind?: 'image' | 'web' | 'live', url: string, title?: string, sid?: string }>).detail)
 }
+watch([windows, chatHidden, avatarScale, avatarX, avatarY], () => saveStage(), { deep: true })
 onMounted(() => {
   window.addEventListener('sofia:panel', onPanelEvent)
   // Typed turns go to Hermes and have no tools, so the gateway pushes windows
   // out of band on this stream. Without it a typed "open github" opened nothing
   // while she described a page she never had.
+  void restoreStage()
+
   try {
     const events = new EventSource('/api/events')
     events.onmessage = (event) => {
@@ -318,7 +419,7 @@ const router = useRouter()
     ref="backgroundSurface"
     :class="['widgets top-widgets']"
     :background="selectedOption"
-    :style="stageSurfaceStyle"
+    :style="[stageSurfaceStyle, avatarVars]"
     :top-color="sampledColor"
   >
     <div
@@ -425,7 +526,7 @@ meta:
   position: fixed;
   right: 0;
   top: 50%;
-  z-index: 45;
+  z-index: 60;
   transform: translateY(-50%);
   width: 1.35rem;
   height: 3.4rem;

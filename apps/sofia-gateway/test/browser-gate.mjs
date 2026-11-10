@@ -69,6 +69,13 @@ try {
   const nav = await navigated.json()
   nav.title && nav.title !== body.title ? ok('the page can navigate inside its window', nav.title) : fail('the page can navigate inside its window', JSON.stringify(nav).slice(0, 120))
 
+  // 5b. a click by visible text lands on the page
+  const clicked = await ctx.request.post(`${BASE}/api/browse/act`, { data: { sid: body.sid, action: 'clickText', text: 'More information', x: 640, y: 400 } })
+  const clickBody = await clicked.json()
+  clickBody.url && clickBody.url.includes('iana.org')
+    ? ok('a click by its text lands on the page', clickBody.url)
+    : fail('a click by its text lands on the page', JSON.stringify(clickBody).slice(0, 120))
+
   // 6. close releases the page
   await ctx.request.post(`${BASE}/api/browse/close`, { data: { sid: body.sid } })
   const dead = await ctx.request.get(`${BASE}/api/browse/frame?sid=${body.sid}`, { failOnStatusCode: false })

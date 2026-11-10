@@ -139,6 +139,32 @@ async function act({ sid, action, x, y, text, key }) {
     case 'goto':
       await page.goto(await assertPublic(String(text)), { waitUntil: 'domcontentloaded', timeout: 25000 })
       break
+    case 'clickText': {
+      // Click the thing by what it says, not by where it is: coordinates go
+      // stale the moment the page scrolls or a cookie banner appears.
+      const locator = page.getByText(String(text || ''), { exact: false }).first()
+      await locator.click({ timeout: 15000 })
+      break
+    }
+    case 'clickSelector':
+      await page.locator(String(text || '')).first().click({ timeout: 15000 })
+      break
+    case 'fill':
+      await page.locator(String(key || 'input')).first().fill(String(text || ''), { timeout: 15000 })
+      break
+    case 'press':
+      await page.keyboard.press(String(key || 'Enter'))
+      break
+    case 'read':
+      return { ...(await snap(sid)), text: (await page.evaluate(() => document.body?.innerText || '')).slice(0, 6000) }
+    case 'links':
+      return {
+        ...(await snap(sid)),
+        links: await page.evaluate(() => [...document.querySelectorAll('a[href]')]
+          .slice(0, 40)
+          .map(a => ({ text: (a.textContent || '').trim().slice(0, 80), href: a.href }))
+          .filter(l => l.text)),
+      }
     default:
       throw new Error(`unknown action ${action}`)
   }

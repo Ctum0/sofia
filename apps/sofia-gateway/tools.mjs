@@ -41,6 +41,35 @@ export const LIVE_TOOLS = [
         },
       },
       {
+        name: 'browse',
+        description: 'Do things inside a page you opened. action: click (by visible text), clickSelector, fill (selector + text), press (Enter, Tab…), scroll, read (returns the visible text so you can answer from it), links (what is clickable), back, forward, reload, goto (url), close. Use it whenever he says "search for", "click", "type", "open the second result", "what does it say".',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            action: { type: 'STRING', enum: ['click', 'clickSelector', 'fill', 'press', 'scroll', 'read', 'links', 'back', 'forward', 'reload', 'goto', 'close'] },
+            text: { type: 'STRING', description: 'Visible text to click or type, or a URL for goto' },
+            selector: { type: 'STRING', description: 'CSS selector, for clickSelector or fill' },
+            key: { type: 'STRING', description: 'Key to press, or the selector to fill' },
+            sid: { type: 'STRING', description: 'Which page; omit to use the last one you opened' },
+          },
+          required: ['action'],
+        },
+      },
+      {
+        name: 'control_avatar',
+        description: 'Change your own size and place on the stage. Use it when he says "get smaller", "move aside", "come back", "bigger" — or before you open something wide. action set or reset; scale 0.35-1.6; x and y are pixel offsets.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            action: { type: 'STRING', enum: ['set', 'reset'] },
+            scale: { type: 'NUMBER' },
+            x: { type: 'NUMBER' },
+            y: { type: 'NUMBER' },
+          },
+          required: ['action'],
+        },
+      },
+      {
         name: 'control_window',
         description: 'Arrange what is already on screen. Use it when he asks to resize, move, maximise, close, or line up the windows, or when a new window would cover the old one. action is one of: resize, move, maximize, minimize, close, focus, tile, close_all. target picks the window: "last" (default), "first", or a window id.',
         parameters: {
@@ -197,7 +226,67 @@ export async function executeToolCall(call, ctx = {}) {
 
   let text
   try {
-    if (name === 'control_window') {
+    if (name === 'browse') {
+      const action = String(args.action || '').toLowerCase()
+      const base = process.env.BROWSER_URL || 'http://sofia-browser:8790'
+      const target = String(args.sid || ctx.lastPage?.sid || '')
+      if (action === 'goto') {
+        const url = String(args.text || '')
+        if (!/^https?:\/\//i.test(url)) throw new Error('goto needs an absolute http(s) url')
+        const res = await fetch(`${base}/open`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ url }),
+          signal: AbortSignal.timeout(45000),
+        })
+        const page = await res.json()
+        if (!res.ok) throw new Error(page.error || `status ${res.status}`)
+        ctx.lastPage = { sid: page.sid, url: page.url }
+        if (typeof ctx.onPanel === 'function')
+          ctx.onPanel({ kind: 'live', sid: page.sid, url: page.url || url, title: page.title || '' })
+        text = `Opened ${page.url || url}.`
+      }
+      else {
+        if (!target) throw new Error('nothing is open to work on — open a page first')
+        const apiAction = action === 'click' ? 'clickText' : action === 'scroll' ? 'scroll' : action
+        const res = await fetch(`${base}/act`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            sid: target,
+            action: apiAction,
+            text: args.text !== undefined ? String(args.text) : args.selector !== undefined ? String(args.selector) : undefined,
+            key: args.key !== undefined ? String(args.key) : args.selector !== undefined ? String(args.selector) : undefined,
+            x: 640,
+            y: 400,
+          }),
+          signal: AbortSignal.timeout(45000),
+        })
+        const body = await res.json()
+        if (!res.ok) throw new Error(body.error || `status ${res.status}`)
+        if (action === 'close') ctx.lastPage = null
+        if (typeof ctx.onPanel === 'function' && body.sid)
+          ctx.onPanel({ kind: 'live', sid: body.sid, url: body.url, title: body.title || '' })
+        if (action === 'read')
+          text = `The page says: ${String(body.text || '').slice(0, 1500)}`
+        else if (action === 'links')
+          text = `Links: ${(body.links || []).slice(0, 12).map(l => l.text).join(' · ')}`
+        else
+          text = `Done — ${action}${args.text ? ` "${String(args.text).slice(0, 40)}"` : ''}. The page is ${body.title || body.url || 'updated'}.`
+      }
+    }
+    else if (name === 'control_avatar') {
+      if (typeof ctx.onPanel !== 'function') throw new Error('this session cannot move the avatar')
+      ctx.onPanel({
+        kind: 'avatar',
+        action: String(args.action || 'set'),
+        scale: Number.isFinite(Number(args.scale)) ? Number(args.scale) : undefined,
+        x: Number.isFinite(Number(args.x)) ? Number(args.x) : undefined,
+        y: Number.isFinite(Number(args.y)) ? Number(args.y) : undefined,
+      })
+      text = String(args.action || 'set') === 'reset' ? 'Back to my usual place.' : 'Moved.'
+    }
+    else if (name === 'control_window') {
       const action = String(args.action || '').toLowerCase()
       if (!action) throw new Error('no action was given')
       if (typeof ctx.onPanel !== 'function') throw new Error('this session cannot arrange windows')
@@ -235,6 +324,7 @@ export async function executeToolCall(call, ctx = {}) {
         catch (error) {
           throw new Error(`the browser could not open that page (${String(error.message || error).slice(0, 100)})`)
         }
+        ctx.lastPage = { sid: opened.sid, url: opened.url || url }
         ctx.onPanel({ kind: 'live', sid: opened.sid, url: opened.url || url, title: String(opened.title || args.title || '').slice(0, 80) })
         text = `The page is open beside you — ${opened.title || 'it'} — and I can click or scroll it for you.`
       }
