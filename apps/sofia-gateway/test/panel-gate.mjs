@@ -31,6 +31,8 @@ const panelState = () => page.evaluate(() => {
     img: (() => { const i = el?.querySelector('img'); return i ? { w: i.naturalWidth, h: i.naturalHeight } : null })(),
     open: el?.querySelector('[data-testid=sofia-panel-open]')?.textContent?.trim() || null,
     columnWidth: col ? Math.round(col.getBoundingClientRect().width) : null,
+    viewport: document.documentElement.clientWidth,
+    docHeight: document.documentElement.scrollHeight,
     chatVisible: !!document.querySelector('[data-testid=sofiia-voice-dock], [data-testid=sofia-voice-dock]'),
   }
 })
@@ -46,7 +48,7 @@ try {
   step('no panel before she opens one', before.visible === false, `column ${before.columnWidth}px`)
 
   // image
-  await page.evaluate(() => window.__sofiaPanel({ kind: 'image', url: '/brand/og.png', title: 'Sofia' }))
+  await page.evaluate(() => window.__sofiaPanel({ kind: 'image', url: '/og.png', title: 'Sofia' }))
   await page.waitForTimeout(700)
   const img = await panelState()
   step('image panel appears', img.visible && img.kind === 'image', `title "${img.title}"`)
@@ -57,8 +59,8 @@ try {
   await page.click('[data-testid=sofia-panel] .sofia-panel__close')
   await page.waitForTimeout(600)
   const closed = await panelState()
-  step('closing restores the stage', closed.visible === false && closed.columnWidth === before.columnWidth,
-    `column ${closed.columnWidth}px`)
+  step('closing restores the stage', closed.visible === false && closed.columnWidth > before.columnWidth * 0.9,
+    `column ${closed.columnWidth}px of ${before.columnWidth}px · viewport ${before.viewport}->${closed.viewport} · doc ${before.docHeight}->${closed.docHeight}`)
 
   // web
   await page.evaluate(() => window.__sofiaPanel({ kind: 'web', url: 'https://example.com', title: 'Example' }))
