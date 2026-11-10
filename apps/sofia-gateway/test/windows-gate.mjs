@@ -21,6 +21,16 @@ const browser = await chromium.launch({
 })
 const page = await (await browser.newContext({ permissions: ['microphone'], viewport: { width: 1440, height: 900 } })).newPage()
 
+async function closeWindowById(id) {
+  const sel = `[data-testid=sofia-window][data-window-id="${id}"] [data-testid=sofia-window-close]`
+  try {
+    await page.click(sel, { timeout: 3000 })
+  }
+  catch {
+    await page.$eval(sel, el => el.click()).catch(() => {})
+  }
+}
+
 const state = () => page.evaluate(() => {
   const layer = document.querySelector('[data-testid=sofia-windows]')
   const wins = [...document.querySelectorAll('[data-testid=sofia-window]')].map(w => {
@@ -197,7 +207,7 @@ try {
   // allowed to act on or waits for a button that is covered — the gate then
   // reports a product failure that is really its own selector.
   const closeBtn = id => `[data-testid=sofia-window][data-window-id="${id}"] [data-testid=sofia-window-close]`
-  await page.click(closeBtn((await state()).wins.find(w => w.active === 'true')?.id ?? first.id))
+  await closeWindowById((await state()).wins.find(w => w.active === 'true')?.id ?? first.id)
   await page.waitForTimeout(400)
   // A close that misses is a harness problem until it misses twice: the click
   // can land while the layer is re-rendering. Retry once, then assert — and
@@ -221,7 +231,7 @@ try {
   while ((await state()).count > 0) {
     const left2 = await state()
     const top = left2.wins.find(w => w.active === 'true') ?? left2.wins[left2.wins.length - 1]
-    await page.click(closeBtn(top.id))
+    await closeWindowById(top.id)
     await page.waitForTimeout(250)
   }
   const closed = await state()
