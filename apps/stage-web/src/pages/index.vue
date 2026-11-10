@@ -104,11 +104,17 @@ function showPanel(payload: { kind?: 'image' | 'web', url: string, title?: strin
   // the dock does mount. So: measure her column, and when no real window fits
   // beside her, go low and wide instead of pretending — her head stays clear.
   const col = document.querySelector('.stage-column')?.getBoundingClientRect()
-  const shoulder = col ? Math.round(col.x + col.width * 0.75) : Math.round(vw * 0.42)
+  // Read BEFORE the window exists, so the column is still at full width. What
+  // matters is where it ends up AFTER `stage-column--narrow` applies, so take
+  // the narrower of the two: 58% (the CSS says 56%; the measured post-open
+  // column ran to 57.9% at 1280, and a shoulder 19 px short of hers is a
+  // failure) and, below the media query's 768 px, the full width.
+  const herW = Math.min(col ? col.width : vw, Math.round(vw * (vw <= 768 ? 1 : 0.58)))
+  const shoulder = Math.round(herW * 0.75)
   const besideW = vw - shoulder - 48
   const beside = besideW >= 360
   const w = beside ? Math.min(kind === 'web' ? 560 : 620, besideW) : vw - 48
-  const x = beside ? Math.max(shoulder, vw - w - 48 - n * 30) : 24
+  const x = beside ? Math.min(Math.max(shoulder, vw - w - 48 - n * 30), vw - w - 16) : 24
   const y = beside ? 104 + n * 28 : Math.max(96, Math.round(vh * 0.42))
   const h = Math.min(kind === 'web' ? 320 : 440, Math.max(240, vh - y - 24))
   windows.value = [...windows.value, {
@@ -133,14 +139,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => window.removeEventListener('sofia:panel', onPanelEvent))
 
-onMounted(() => {
-  // The upstream splash is removed on a readiness signal that, in a headless
-  // browser and sometimes for him, arrives long after the stage is interactive —
-  // so a window could open onto a page still covered by "Loading". The stage
-  // has mounted: the splash has done its job.
-  document.getElementById('boot-splash')?.remove()
-  syncBackgroundTheme()
-})
+onMounted(() => syncBackgroundTheme())
 
 // Small screens offer no control for continuous listening, so only a voice call listens there.
 useVoiceListening({ continuous: () => !isMobile.value })
