@@ -510,6 +510,96 @@ function noteLoginFailure(key, maxFailures = LOGIN_MAX_FAILURES, lockMs = LOGIN_
   }
 }
 
+// --- stage events -----------------------------------------------------------
+// Voice answers arrive on the Live socket and carry their own tool results.
+// A typed message goes to Hermes over /v1 and has no tools at all, so a window
+// opened in text has to be pushed out of band. One SSE stream, one subscriber
+// per tab, same session cookie as everything else.
+const stageClients = new Set()
+
+function broadcastToStage(event) {
+  const line = `data: ${JSON.stringify(event)}\n\n`
+  for (const res of stageClients) {
+    try { res.write(line) }
+    catch { stageClients.delete(res) }
+  }
+}
+
+const OPEN_VERB = /\b(?:open|show|pull up|bring up|go to|take me to)\b/i
+const SITES = {
+  github: 'https://github.com',
+  gitlab: 'https://gitlab.com',
+  youtube: 'https://youtube.com',
+  google: 'https://google.com',
+  gmail: 'https://mail.google.com',
+  reddit: 'https://reddit.com',
+  x: 'https://x.com',
+  twitter: 'https://x.com',
+  wikipedia: 'https://wikipedia.org',
+  notion: 'https://notion.so',
+  maps: 'https://maps.google.com',
+  hn: 'https://news.ycombinator.com',
+  hackernews: 'https://news.ycombinator.com',
+  stackoverflow: 'https://stackoverflow.com',
+}
+
+/** "open github for me and show" -> https://github.com, or null. */
+function urlFromText(text) {
+  const said = String(text || '')
+  if (!OPEN_VERB.test(said))
+    return null
+  const direct = said.match(/https?:\/\/[^\s'"]+/i)
+  if (direct)
+    return direct[0].replace(/[.,;:!)]+$/, '')
+  const words = said.toLowerCase().match(/[a-z0-9.-]+\.[a-z]{2,}/g)
+  if (words) {
+    for (const candidate of words) {
+      if (!/^(sir|ok|okay|well|please)$/.test(candidate))
+        return `https://${candidate}`
+    }
+  }
+  for (const key of Object.keys(SITES)) {
+    if (new RegExp(`\\b${key}\\b`).test(said.toLowerCase()))
+      return SITES[key]
+  }
+  return null
+}
+
+async function maybeOpenFromText(body) {
+  let payload
+  try { payload = JSON.parse(body.toString('utf8')) }
+  catch {
+    console.log(`[sofia-gateway] text: unreadable body (${body?.length ?? 'no'} bytes)`)
+    return
+  }
+  const messages = Array.isArray(payload?.messages) ? payload.messages : []
+  const lastUser = [...messages].reverse().find(m => m?.role === 'user')
+  const text = typeof lastUser?.content === 'string'
+    ? lastUser.content
+    : Array.isArray(lastUser?.content) ? lastUser.content.map(p => p?.text || '').join(' ') : ''
+  const target = urlFromText(text)
+  console.log(`[sofia-gateway] text: turn "${String(text).slice(0, 60)}" -> ${target || 'no intent'}`)
+  if (!target)
+    return
+  const base = process.env.BROWSER_URL || 'http://sofia-browser:8790'
+  try {
+    const up = await fetch(`${base}/open`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: target }),
+      signal: AbortSignal.timeout(45000),
+    })
+    const page = await up.json()
+    if (!up.ok)
+      throw new Error(page.error || `status ${up.status}`)
+    console.log(`[sofia-gateway] text: opened ${page.url}`)
+    broadcastToStage({ kind: 'live', sid: page.sid, url: page.url || target, title: page.title || '' })
+  }
+  catch (error) {
+    console.log(`[sofia-gateway] text: could not open ${target} (${String(error.message || error).slice(0, 90)})`)
+  }
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
 
@@ -687,97 +777,7 @@ self.addEventListener('activate', (event) => {
     return
   }
 
-  // --- stage events -----------------------------------------------------------
-// Voice answers arrive on the Live socket and carry their own tool results.
-// A typed message goes to Hermes over /v1 and has no tools at all, so a window
-// opened in text has to be pushed out of band. One SSE stream, one subscriber
-// per tab, same session cookie as everything else.
-const stageClients = new Set()
-
-function broadcastToStage(event) {
-  const line = `data: ${JSON.stringify(event)}\n\n`
-  for (const res of stageClients) {
-    try { res.write(line) }
-    catch { stageClients.delete(res) }
-  }
-}
-
-const OPEN_VERB = /\b(?:open|show|pull up|bring up|go to|take me to)\b/i
-const SITES = {
-  github: 'https://github.com',
-  gitlab: 'https://gitlab.com',
-  youtube: 'https://youtube.com',
-  google: 'https://google.com',
-  gmail: 'https://mail.google.com',
-  reddit: 'https://reddit.com',
-  x: 'https://x.com',
-  twitter: 'https://x.com',
-  wikipedia: 'https://wikipedia.org',
-  notion: 'https://notion.so',
-  maps: 'https://maps.google.com',
-  hn: 'https://news.ycombinator.com',
-  hackernews: 'https://news.ycombinator.com',
-  stackoverflow: 'https://stackoverflow.com',
-}
-
-/** "open github for me and show" -> https://github.com, or null. */
-function urlFromText(text) {
-  const said = String(text || '')
-  if (!OPEN_VERB.test(said))
-    return null
-  const direct = said.match(/https?:\/\/[^\s'"]+/i)
-  if (direct)
-    return direct[0].replace(/[.,;:!)]+$/, '')
-  const words = said.toLowerCase().match(/[a-z0-9.-]+\.[a-z]{2,}/g)
-  if (words) {
-    for (const candidate of words) {
-      if (!/^(sir|ok|okay|well|please)$/.test(candidate))
-        return `https://${candidate}`
-    }
-  }
-  for (const key of Object.keys(SITES)) {
-    if (new RegExp(`\\b${key}\\b`).test(said.toLowerCase()))
-      return SITES[key]
-  }
-  return null
-}
-
-async function maybeOpenFromText(body) {
-  let payload
-  try { payload = JSON.parse(body.toString('utf8')) }
-  catch {
-    console.log(`[sofia-gateway] text: unreadable body (${body?.length ?? 'no'} bytes)`)
-    return
-  }
-  const messages = Array.isArray(payload?.messages) ? payload.messages : []
-  const lastUser = [...messages].reverse().find(m => m?.role === 'user')
-  const text = typeof lastUser?.content === 'string'
-    ? lastUser.content
-    : Array.isArray(lastUser?.content) ? lastUser.content.map(p => p?.text || '').join(' ') : ''
-  const target = urlFromText(text)
-  console.log(`[sofia-gateway] text: turn "${String(text).slice(0, 60)}" -> ${target || 'no intent'}`)
-  if (!target)
-    return
-  const base = process.env.BROWSER_URL || 'http://sofia-browser:8790'
-  try {
-    const up = await fetch(`${base}/open`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ url: target }),
-      signal: AbortSignal.timeout(45000),
-    })
-    const page = await up.json()
-    if (!up.ok)
-      throw new Error(page.error || `status ${up.status}`)
-    console.log(`[sofia-gateway] text: opened ${page.url}`)
-    broadcastToStage({ kind: 'live', sid: page.sid, url: page.url || target, title: page.title || '' })
-  }
-  catch (error) {
-    console.log(`[sofia-gateway] text: could not open ${target} (${String(error.message || error).slice(0, 90)})`)
-  }
-}
-
-// --- her eyes and hands on the web --------------------------------------
+  // --- her eyes and hands on the web --------------------------------------
   // A real Chromium lives beside the gateway (container `sofia-browser`). Each
   // window gets one page there; the window shows a screenshot and relays the
   // pointer back. Nothing is iframed, because almost no real site allows it.
