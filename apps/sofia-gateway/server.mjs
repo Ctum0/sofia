@@ -425,41 +425,61 @@ const LOGIN_MAX_FAILURES = 5
 // Shorter than the counting window on purpose: an attacker gets five guesses per
 // window, but the owner is never stranded for the full ten minutes.
 const LOGIN_LOCK_MS = 5 * 60 * 1000
+// Backstop bucket. No single header is both precise and unspoofable, so the gate
+// counts on two: the address Cloudflare vouches for (precise — CF overwrites
+// CF-Connecting-IP and answers 403 to a client that tries to set it), and the
+// tail hop Caddy appended, which is the peer it actually saw and therefore the
+// only element in the chain a client cannot choose. Through Cloudflare the first
+// bucket does the work at five attempts; an attacker who reaches the origin
+// directly and rotates the forged header still meets the second bucket instead of
+// grinding forever. Measured before this: 20 consecutive failures, zero 429s.
+const LOGIN_PEER_MAX_FAILURES = 25
+const LOGIN_PEER_LOCK_MS = 10 * 60 * 1000
 const loginFailures = new Map()
 
-function clientIp(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
-  return forwarded || req.socket.remoteAddress || 'unknown'
+function forwardedHops(req) {
+  return String(req.headers['x-forwarded-for'] || '')
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
 }
 
-function loginLockSeconds(ip) {
-  const record = loginFailures.get(ip)
+function loginKeys(req) {
+  const cf = String(req.headers['cf-connecting-ip'] || '').trim()
+  const hops = forwardedHops(req)
+  const tail = hops.length > 0 ? hops[hops.length - 1] : ''
+  const peer = tail || String(req.socket.remoteAddress || 'unknown')
+  return { precise: `ip:${cf || peer}`, peer: `peer:${peer}` }
+}
+
+function loginLockSeconds(key) {
+  const record = loginFailures.get(key)
   if (!record)
     return 0
   const now = Date.now()
   if (record.until && record.until > now)
     return Math.ceil((record.until - now) / 1000)
   if (now - record.first > LOGIN_WINDOW_MS)
-    loginFailures.delete(ip)
+    loginFailures.delete(key)
   return 0
 }
 
-function noteLoginFailure(ip) {
+function noteLoginFailure(key, maxFailures = LOGIN_MAX_FAILURES, lockMs = LOGIN_LOCK_MS) {
   const now = Date.now()
-  const record = loginFailures.get(ip) || { count: 0, first: now, until: 0 }
+  const record = loginFailures.get(key) || { count: 0, first: now, until: 0 }
   if (now - record.first > LOGIN_WINDOW_MS) {
     record.count = 0
     record.first = now
     record.until = 0
   }
   record.count += 1
-  if (record.count >= LOGIN_MAX_FAILURES)
-    record.until = now + LOGIN_LOCK_MS
-  loginFailures.set(ip, record)
+  if (record.count >= maxFailures)
+    record.until = now + lockMs
+  loginFailures.set(key, record)
   if (loginFailures.size > 1024) {
-    for (const [key, value] of loginFailures) {
+    for (const [staleKey, value] of loginFailures) {
       if (!value.until || value.until < now)
-        loginFailures.delete(key)
+        loginFailures.delete(staleKey)
     }
   }
 }
@@ -473,8 +493,8 @@ const server = createServer((req, res) => {
 
   // --- password gate ---
   if (url.pathname === '/api/login' && req.method === 'POST') {
-    const ip = clientIp(req)
-    const lockedFor = loginLockSeconds(ip)
+    const keys = loginKeys(req)
+    const lockedFor = Math.max(loginLockSeconds(keys.precise), loginLockSeconds(keys.peer))
     if (lockedFor > 0) {
       res.writeHead(429, {
         'content-type': 'text/html; charset=utf-8',
@@ -490,12 +510,14 @@ const server = createServer((req, res) => {
       const body = Buffer.concat(chunks).toString('utf8')
       const params = new URLSearchParams(body)
       if (checkPassword(params.get('password') || '')) {
-        loginFailures.delete(ip)
+        loginFailures.delete(keys.precise)
+        loginFailures.delete(keys.peer)
         res.writeHead(302, { 'set-cookie': sessionCookie(makeSession()), location: '/' })
         res.end()
         return
       }
-      noteLoginFailure(ip)
+      noteLoginFailure(keys.precise)
+      noteLoginFailure(keys.peer, LOGIN_PEER_MAX_FAILURES, LOGIN_PEER_LOCK_MS)
       res.writeHead(401, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
       res.end(loginPage({ error: 'Wrong password.' }))
     })
