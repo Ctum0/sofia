@@ -898,3 +898,93 @@ Still open: the amber "S" logo glyph (asset, not CSS) and real-device voice
   owner's ear: **ask him whether she now answers sooner after he stops talking.**
   The gate is kept at `/home/ctum/qa/vad-turn-gate.mjs` and deliberately not
   wired into `verify-release.sh` while it measures noise.
+
+  → **CORRECTED 2026-11-10 11:50 SLT, by the run that followed this one: the
+  browser-side number IS obtainable — and at 500 ms the value was eating half of
+  his sentence.** The "not obtainable with Chrome's fake mic" verdict was a
+  property of the fixture, not of Chrome: a looping sample never produces a
+  speech→silence edge *tied to a known offset*. Pad the spoken sample with long
+  digital silence and it does — `mic-one-line.wav` is 1.85 s of speech + 20 s of
+  silence, so within one loop there is exactly one onset and one end, and
+  `firstPlayed − speechEnd` is the hangover a person actually waits through.
+  *Measured at 500 ms, production deploy 118:* `speechEnd→inputTranscript
+  972 ms`, `speechEnd→played 1192 ms`, 8/8 — phase 0.5 met.
+  *The defect hiding behind that 8/8.* New gate `test/vad-cutoff-gate.mjs` feeds
+  **one** turn with a 600 ms breath inside it (1.9 s speech + 0.6 s silence +
+  1.9 s speech + 6 s tail = `mic-pause600.wav`, 10.40 s, recipe in the gate's
+  header). At 500 ms she answered **1799 ms before he finished** on production
+  and **1689 ms** on a scratch gateway — and the transcript read
+  `"in:Sofía, this is Sidham."`: the second clause never reached the model at
+  all. So 500 ms was not "faster", it was ending the turn mid-sentence and
+  dropping what came after it.
+  **Shipped 700 ms** (`d9d275b4a`, deploy `119`, then `120` which is the same
+  tree plus the auto-start dock): cut-off gate **7/7 on production** — she waits
+  for the whole turn and the transcript now carries both clauses
+  (`"Sofía, this is Sidham. Hey Sofía, this is Sidham."`); `vad-latency-gate`
+  on the same build: `speechEnd→inputTranscript 1124 ms`,
+  `speechEnd→played 1309 ms`; cut-off gate's own run measured 1640 ms.
+  *Honest cost:* phase 0.5's "under ~1.2 s" is now missed by ~109 ms on a clean
+  turn — it was met at 500 ms only by cutting him off. Transcript loss is
+  correctness; 109 ms is not perceptible. The knob is `LIVE_SILENCE_MS` on the
+  Coolify app if he ever wants the 100 ms back.
+  *Both VAD gates stay manual, not in `verify-release.sh`:* each opens a real
+  Live session, and two runs inside a minute collide on the model's per-key
+  session slot. Run them one at a time:
+  `docker exec -e BASE=https://sofia.ctum.org -e SOFIA_PASSWORD="$(cat /home/ctum/secrets/sofia-password)" sofia-qa sh -c "cd /qa && node vad-cutoff-gate.mjs"`.
+  *Concurrency note for the next run:* this queue is being advanced by more than
+  one run at a time right now (`8f1176271`, `c9ac7e7ef`, `0ccd059c5` landed while
+  this run was measuring). Deploy `120` swapped the container **in the middle**
+  of a gate run, which reads as `live session ready — idle`, `frames=0` — that is
+  a deploy artefact, not a product failure: re-run once the queue row reads
+  `finished` and it passes.
+
+- 2026-11-10 11:20–11:55 SLT — **The 500 ms end-of-speech value was cutting him off
+  mid-sentence; 700 ms shipped and gated. The previous run's "unobtainable"
+  measurement was a fixture bug.**
+
+  *The measurement that was called impossible.* `vad-latency-gate.mjs` (in
+  `/qa`, now also readable from the queue) puts **20 s of digital silence after
+  1.85 s of speech**, so a looping fake mic still contains one speech onset and
+  one real end; `speechEnd = firstFrame + 1.85 s` and `firstPlayed − speechEnd`
+  is the hangover. On the serving build at 700 ms: `speechEnd→inputTranscript
+  1124 ms`, `speechEnd→played 1309 ms` — two numbers where the last run recorded
+  only noise (31.2 s / 32.3 s / 14.1 s), because a sample with no silence never
+  ends a turn.
+
+  *The defect.* New gate `apps/sofia-gateway/test/vad-cutoff-gate.mjs` builds a
+  turn with a breath inside it and asserts she does **not** answer before he
+  stops. Fixture `mic-pause600.wav`: 1.9 s speech + 0.6 s silence + 1.9 s speech
+  + 6 s tail (ffmpeg line in the gate header). At 500 ms:
+  **production deploy 118 → −1799 ms** (answered 1.8 s before the turn ended),
+  scratch gateway → −1689 ms, and both transcripts read
+  `"in:Sofía, this is Sidham."` — *the second clause was never heard*. 6/7.
+  At 700 ms the same gate on the same fixture: **7/7**, waits for the whole turn,
+  transcript `"Sofía, this is Sidham. Hey Sofía, this is Sidham."`.
+
+  *The sweep, done without burning deploys.* A scratch container from the serving
+  image (`sofia-vadsweep`, `--env-file` copied from the live container's own env,
+  `--network host`, `PORT=8792`, `LIVE_SILENCE_MS` per run) let each value be
+  measured in one cycle instead of a 5-minute deploy.
+
+  *Shipped:* `d9d275b4a` — default `silenceDurationMs: 700`, with the bracket
+  (500 fails, 700 passes) written into the comment so the value is a decision
+  rather than an inheritance. Deploy `119` `finished` for it (05:40:23Z), then
+  `120` `finished` for `0ccd059c5` (auto-start dock, same tree + one commit);
+  `docker exec … grep "LIVE_SILENCE_MS || 700" /app/live.mjs` → hit.
+  Production after the swap: cut-off **7/7**, latency gate `1309 ms` (the
+  1200 ms assertion fails by 109 ms — recorded, not hidden).
+
+  *Two corrections to the previous run.* (1) "A browser-side number for speech
+  end → audible is not obtainable with Chrome's fake mic" — false; it is
+  obtainable, and the fixture was the bug. (2) The previous run left the queue
+  asking him to judge the speed by ear; there is now a number instead, and the
+  thing it exposed was not speed at all.
+
+  *Own traps this run.* (i) The first cut-off fixture had a 700 ms pause and **no
+  trailing silence**, so with a 700 ms threshold the model never saw an
+  end-of-turn at all — the gate reported `frames=1861, no reply`, which is the
+  fixture talking, not the product. Any silence fixture needs a tail longer than
+  the threshold under test. (ii) A gate that ran while deploy `120` swapped the
+  container read `live session ready — idle`, `frames=0`; re-run after the queue
+  row says `finished` and it passes. (iii) `execute_code` is blocked in cron and
+  a `<<'PY'` heredoc is blocked too — edit with the patch tool locally and `scp`.
