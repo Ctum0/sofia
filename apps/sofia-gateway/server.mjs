@@ -745,7 +745,10 @@ function urlFromText(text) {
 async function maybeOpenFromText(body) {
   let payload
   try { payload = JSON.parse(body.toString('utf8')) }
-  catch { return }
+  catch {
+    console.log(`[sofia-gateway] text: unreadable body (${body?.length ?? 'no'} bytes)`)
+    return
+  }
   const messages = Array.isArray(payload?.messages) ? payload.messages : []
   const lastUser = [...messages].reverse().find(m => m?.role === 'user')
   const text = typeof lastUser?.content === 'string'
