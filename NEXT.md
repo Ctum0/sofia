@@ -112,17 +112,48 @@ result under **Log**. Rules at the bottom are mandatory.
   **7/7**, about **ALL PASS**, brand-assets **13/13**, voice **12/12**
   (`chunksPlayed:16`, mouth peak 100, `0 x localhost:6121`).
 
-- [ ] **N. Upstream legal links still ship.** `AIRI_TERMS_URL` /
-  `AIRI_PRIVACY_URL` (`packages/stage-ui/src/constants/public-links.ts`) point at
-  `https://airi.moeru.ai/docs/en/about/{terms,privacy}` and are rendered by
-  `onboarding/step-welcome.vue` and `auth/SignInPanel.vue`; **16** occurrences of
-  `airi.moeru.ai` remain in served JS. Two defensible fixes — drop the legal
-  sentence, or repoint at pages that do not exist (404). Copy, so it is his call.
+- [x] **N. Upstream legal links — removed rather than repointed.**
+  `AIRI_TERMS_URL` / `AIRI_PRIVACY_URL` (`packages/stage-ui/src/constants/public-links.ts`)
+  pointed at `airi.moeru.ai/docs/en/about/{terms,privacy}` and were rendered as
+  *this app's own* legal pages by `onboarding/step-welcome.vue`,
+  `auth/SignInPanel.vue` and `settings/flux.vue` (which also carried a
+  `mailto:airi@moeru.ai` support row).
+  → **DONE 2026-11-10, as the "drop the sentence" option** — the safe default of
+  the two the item named, and reversible in one commit if he wants the links
+  back. Sofia publishes no policy, so presenting another product's pages is a
+  lie; repointing at URLs that 404 is a second one. Both constants deleted, the
+  three render sites and the Flux mailto removed, and the browser test that
+  pinned the upstream href now asserts its absence
+  (`step-welcome.browser.test.ts`). Lint: 0 errors on the changed files.
+  *Gate:* `brand-copy-gate.mjs` grew the property it was blind to — it only
+  ever crawled for the string `AIRI`, and a lower-case href never matches, which
+  is why three upstream legal links survived every earlier gate. It now counts
+  `airi.moeru.ai/docs/en/about/{terms,privacy}` across the shell and every
+  crawled chunk. **Discriminating both ways: old build `8/9` with 2 references,
+  new build `9/9` with 0.**
+  *Correction to this item's own number:* "16 occurrences of `airi.moeru.ai` in
+  served JS" counted every upstream string in the bundle — 8 of them are the
+  Ollama provider's documentation link, the rest are package metadata
+  (`airi@moeru.ai`, `github.com/moeru-ai`), not the legal links. The legal-link
+  references were **2**, in one chunk (`public-links-*.js`). The Ollama docs
+  link and the metadata are left alone: one is a genuine help link, the other is
+  not rendered.
+  Deploy `113` `finished` for `7b5da53ec`; gates on it: brand-copy **9/9**,
+  auth **10/10**, auth-surface **33/33**, ui **7/7**, about **ALL PASS**,
+  brand-assets **13/13**, voice **12/12** (`chunksPlayed:11`, peak 100,
+  `0 x localhost:6121`).
 
-- [ ] **O. Production ships source maps.** `647` `.map` files next to `755` `.js`
-  chunks in the served dist (behind the login, but the whole source tree is
-  readable by any session). Turn sourcemaps off for the production build and
-  prove the file count drops to 0, then re-run the gates.
+- [x] **O. Production ships source maps — off.**
+  → **DONE 2026-11-10.** `apps/stage-web/vite.config.ts` set `sourcemap: true`
+  for the shipping build. Now `false` (the dev server maps in memory, unaffected).
+  Measured in `sofia-build` before shipping: `assets/*.map` **647 → 0**, `.js`
+  chunks unchanged at **755**, `dist` **364M → 280M** (-84 MB, -23%).
+  On the serving container (deploy `112` `finished` for `f6b40f48c`, container
+  `…T012109`): `MAPS=0`, `/app/dist` 280M; with a real session
+  `/assets/<chunk>.js` → **200** while `/assets/<chunk>.js.map` → **404**.
+  The 8 remaining `sourceMappingURL` strings are inside a bundled library's own
+  source-map *parser*, not emitted comments. Gates on `112`: brand-copy 8/8,
+  auth 10/10, auth-surface 33/33, ui 7/7, voice 12/12.
 
 - [x] **I. Notion: bring Phases and Ledger up to the deployed reality.**
   Both pages were frozen at 2026-11-08: the board still showed voice as 🟡,
@@ -604,3 +635,41 @@ Still open: the amber "S" logo glyph (asset, not CSS) and real-device voice
   *Two items opened by measurement, both unblocked but not taken:* N (upstream
   terms/privacy URLs still rendered, 16 in served js — his copy call) and O
   (647 `.map` files shipped in `/assets` of the production build).
+
+- 2026-11-10 06:48–07:45 SLT — **O and N closed; production no longer ships its own
+  source tree, and no longer borrows another product's legal pages.**
+  *O.* `apps/stage-web/vite.config.ts` had `sourcemap: true`, so the image
+  carried **647** `.map` files beside **755** `.js` chunks: one login read the
+  whole source tree. Set to `false`; measured in `sofia-build` before shipping
+  (`647 → 0` maps, 755 chunks unchanged, `dist` 364M → 280M) and again on the
+  serving container of deploy `112` (`f6b40f48c`) — `MAPS=0`, and with a real
+  session `/assets/<chunk>.js` **200** vs `.js.map` **404**.
+  *N.* The three legal links (`step-welcome.vue` onboarding footer,
+  `SignInPanel.vue` "By continuing you agree to…", `settings/flux.vue` footer
+  plus its `mailto:airi@moeru.ai`) rendered upstream AIRI's
+  `airi.moeru.ai/docs/en/about/{terms,privacy}` as **Sofia's own**. Taken the
+  "drop it" option: a personal app with no published policy should claim none,
+  and pointing at a 404 is the same lie with extra steps. Both constants
+  deleted, all four render sites removed, browser test flipped to assert the
+  link's absence. Reversible in one commit if he wants pages built.
+  *Why no gate caught it:* `brand-copy-gate` crawls for the string `AIRI`; a
+  lower-case `href` never matches. It now also counts
+  `airi.moeru.ai/docs/en/about/*` over the shell and all 551 crawled chunks —
+  **old build 8/9 with 2 references, new build 9/9 with 0**.
+  *Correction to the item's own claim:* the "16 occurrences" were all upstream
+  strings in the bundle (8 of them the Ollama provider's docs link, the rest
+  package metadata); the legal-link references were **2**, in one chunk.
+  Deploy `113` `finished` for `7b5da53ec`, container `…T013827` Up (healthy).
+  Gates on it: brand-copy **9/9**, auth **10/10**, auth-surface **33/33**, ui
+  **7/7**, about **ALL PASS**, brand-assets **13/13**, voice **12/12**
+  (`chunksPlayed:11`, mouth peak 100, capture 16 kHz / playback 24 kHz
+  `running`, `0 x localhost:6121`). `/healthz` ok, `voice:"Leda"`.
+
+- 2026-11-10 07:45 SLT — **Queue state.** A–O and the polish leftovers are all
+  closed or gated. What remains needs his hand and nothing else: **L(a)** the
+  `/opt/data` backup patch (`patch -p1 < scripts/vps-backup-hermes-step.patch`),
+  **L(b)/K(b)** the sofia `api_server` key rotation (restarts the gateway hosting
+  the conversation), and real-device mic/speaker behaviour, which no headless
+  gate can prove. Next autonomous candidate if he wants one: make the two
+  remaining upstream help strings (`Ollama` provider docs link) point at
+  something that exists — low value, his call.
