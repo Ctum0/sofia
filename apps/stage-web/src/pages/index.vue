@@ -133,7 +133,14 @@ onMounted(() => {
 })
 onBeforeUnmount(() => window.removeEventListener('sofia:panel', onPanelEvent))
 
-onMounted(() => syncBackgroundTheme())
+onMounted(() => {
+  // The upstream splash is removed on a readiness signal that, in a headless
+  // browser and sometimes for him, arrives long after the stage is interactive —
+  // so a window could open onto a page still covered by "Loading". The stage
+  // has mounted: the splash has done its job.
+  document.getElementById('boot-splash')?.remove()
+  syncBackgroundTheme()
+})
 
 // Small screens offer no control for continuous listening, so only a voice call listens there.
 useVoiceListening({ continuous: () => !isMobile.value })
