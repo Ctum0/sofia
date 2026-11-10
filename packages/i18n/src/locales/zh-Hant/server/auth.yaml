@@ -1,17 +1,17 @@
 electronCallback:
   title:
     loading: 正在完成登入
-    openingAiri: 正在打開 AIRI
+    openingAiri: 正在打開 Sofia
     signedIn: 您已登入
     signInFailed: 登入失敗
-    finishSignInInAiri: 在 AIRI 中完成登入
-    openAiriToContinue: 開啟 AIRI 以繼續
+    finishSignInInAiri: 在 Sofia 中完成登入
+    openAiriToContinue: 開啟 Sofia 以繼續
   message:
-    checkingResponse: 正在檢查登入回應，準備將登入資訊傳送給 AIRI。
-    passingToAiri: 正在將登入資訊傳送給 AIRI，此頁面即將關閉。
-    syncedAndSafeToClose: 已通知你發起登入的 AIRI 用戶端。
+    checkingResponse: 正在檢查登入回應，準備將登入資訊傳送給 Sofia。
+    passingToAiri: 正在將登入資訊傳送給 Sofia，此頁面即將關閉。
+    syncedAndSafeToClose: 已通知你發起登入的 Sofia 用戶端。
     invalidResponse: 無法使用此登入回應。
-    loopbackUnreachable: 瀏覽器無法透過本機回呼連接埠連線至 AIRI。
+    loopbackUnreachable: 瀏覽器無法透過本機回呼連接埠連線至 Sofia。
     tryOpenDirectly: 我們將嘗試直接開啟本機交接連結。如果仍然失敗，請使用下方按鈕。
     automaticHandoffFailed: 此瀏覽器工作階段未能完成自動交接。
   label:
@@ -19,7 +19,7 @@ electronCallback:
     safeToClose: 現在可以安全地關閉此分頁。
     whyStillHere: 為什麼此分頁還沒關閉？
   action:
-    openAiriManually: 手動開啟 AIRI
+    openAiriManually: 手動開啟 Sofia
   hint:
     closeTabManually: 部分瀏覽器不允許此頁面自動關閉，你可以手動關閉。
 signIn:
@@ -154,7 +154,7 @@ profile:
     setLinkSent: 請查看 {email} 中的密碼設定連結。
     setLinkFailed: 無法寄送密碼設定連結。
   linkedAccounts:
-    description: 透過這些服務供應商登入 AIRI。解除連結可撤銷存取權，再次連結可改用其他帳戶。
+    description: 透過這些服務供應商登入 Sofia。解除連結可撤銷存取權，再次連結可改用其他帳戶。
     status:
       linked: 已連結
       notLinked: 未連結
@@ -196,6 +196,6 @@ webCallback:
     missingCodeOrState: 缺少授權碼或狀態
     missingFlowState: 缺少 OIDC 流程狀態，請重新登入
     tokenExchangeFailed: 權杖交換失敗
-    finalizing: 正在完成 AIRI 驗證。
+    finalizing: 正在完成 Sofia 驗證。
   action:
     tryAgain: 再試一次

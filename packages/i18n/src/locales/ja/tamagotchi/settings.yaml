@@ -4,7 +4,7 @@ allow-visible-on-all-workspaces:
 microphone-permission:
   prompt:
     title: マイクへのアクセスを許可しますか？
-    description: AIRIは音声入力と文字起こしにマイクを使います。この選択は設定でリセットするまで有効です。
+    description: Sofiaは音声入力と文字起こしにマイクを使います。この選択は設定でリセットするまで有効です。
     allow: 許可
     deny: 拒否
   states:
@@ -13,7 +13,7 @@ microphone-permission:
     denied: 拒否済み
   settings:
     title: マイク
-    description: AIRIによるマイクの使用を管理します。この選択をリセットすると、現在のマイク入力が停止し、次回再び許可を求めます。
+    description: Sofiaによるマイクの使用を管理します。この選択をリセットすると、現在のマイク入力が停止し、次回再び許可を求めます。
     revoke: アクセスを取り消す
     reset: 選択をリセット
 spotlight:
@@ -30,7 +30,7 @@ pages:
     general:
       hide-app-icon:
         title: タスクバー／Dockのアイコンを非表示
-        description: AIRIをトレイにのみ表示します。ウィンドウの表示や終了にはトレイメニューを使ってください。変更はすぐに適用されます。
+        description: Sofiaをトレイにのみ表示します。ウィンドウの表示や終了にはトレイメニューを使ってください。変更はすぐに適用されます。
         load-error: アプリアイコンの設定を読み込めませんでした。
         save-error: アプリアイコンの設定を更新できませんでした。
     sections:
@@ -46,7 +46,7 @@ pages:
         description: ショートカットをクリックしてから新しいショートカットを押します。Esc でキャンセルします。
       push-to-talk:
         title: プッシュトゥトークのショートカット
-        description: どのアプリでも、このショートカットを押しながらAIRIに話しかけられます。ショートカットをクリックして新しいキーの組み合わせを押してください。Escでキャンセルできます。
+        description: どのアプリでも、このショートカットを押しながらSofiaに話しかけられます。ショートカットをクリックして新しいキーの組み合わせを押してください。Escでキャンセルできます。
         inactive: このショートカットは、聴覚の入力モードがプッシュトゥトークで、マイクがオンの場合のみ使えます。
       actions:
         recording: キーを押してください
@@ -57,7 +57,7 @@ pages:
         failed: ショートカットの更新に失敗しました
         requiresModifier: Cmd、Ctrl、Alt、Super のいずれかを少なくとも 1 つ使用してください。
         requiresHoldModifier: Cmd、Ctrl、Alt、Superのいずれか、またはF13などのファンクションキーを使用してください。Shiftだけでは使えません。
-        denied: AIRIがグローバルキーを読み取れません。アクセシビリティ設定でAIRIを許可してから再試行してください。
+        denied: Sofiaがグローバルキーを読み取れません。アクセシビリティ設定でSofiaを許可してから再試行してください。
         unsupported: このシステムはグローバルショートカットのキーを離したことを検出できません。
       toggle-move:
         label: 移動の切り替え
@@ -89,7 +89,7 @@ devtools:
       unread:
         title: 未読メッセージ
         description: 頭上のパネルにマークと件数を表示します。
-      main-window-note: 変更はAIRIのメインウィンドウに反映されます。
+      main-window-note: 変更はSofiaのメインウィンドウに反映されます。
     live2d-ambient-light:
       title: Live2Dの環境光
       description: 画面のサンプリングとLive2Dのカラーライティングシェーダーを調整します
@@ -117,10 +117,10 @@ devtools:
       squint:
         title: 急な明るさの変化で目を細める
         description: キャラクターの順応より速く画面が明るくなると、目を細めます。明るさが続く場合は目を開いたままにします。0で無効になります。
-      main-window-note: 変更はAIRIのメインウィンドウに反映されます。
+      main-window-note: 変更はSofiaのメインウィンドウに反映されます。
       diagnostics:
         title: キャプチャ診断
-        waiting: AIRIのメインウィンドウからの診断を待機中です。
+        waiting: Sofiaのメインウィンドウからの診断を待機中です。
         status:
           disabled: 無効
           starting: 開始中
@@ -133,14 +133,14 @@ devtools:
           display: ディスプレイと範囲
           video-size: 入力映像
           sample-size: サンプルフレーム
-          window-bounds: AIRIウィンドウの範囲
+          window-bounds: Sofiaウィンドウの範囲
           excluded-region: 除外領域
           exposure: 画面の露光
           behind-luminance: キャラクターの背後の光
           updated: 最終更新
         preview:
           title: 縮小キャプチャ
-          description: 赤い長方形はAIRIのウィンドウを示します。破線の長方形はライトマップが覆う領域を示します。
+          description: 赤い長方形はSofiaのウィンドウを示します。破線の長方形はライトマップが覆う領域を示します。
           unavailable: キャプチャフレームがありません。
         pixels:
           title: ピクセルの判定
@@ -151,7 +151,7 @@ devtools:
           see-through: 透過
         maps:
           title: ライトマップ
-          window: 各マップはAIRIウィンドウと、その各辺から半ウィンドウ分までを覆います。輪郭線はウィンドウを示します。
+          window: 各マップはSofiaウィンドウと、その各辺から半ウィンドウ分までを覆います。輪郭線はウィンドウを示します。
           unavailable: 環境データがありません。
           target: 計測値
           applied: 平滑化後の適用値
@@ -214,7 +214,7 @@ devtools:
         filtered: シェーダー出力
         unavailable: プレビューにはWebGLが必要ですが、このウィンドウではコンテキストを作成できませんでした。
         environment:
-          live: 光はAIRIのメインウィンドウが公開した最新のスナップショットに基づきます。
+          live: 光はSofiaのメインウィンドウが公開した最新のスナップショットに基づきます。
           neutral: スナップショットがまだ届いていないため、プレビューはニュートラルな環境を使います。
         regions:
           title: テストカードの領域
@@ -222,8 +222,8 @@ devtools:
           bars: バーの幅は{first}、{second}、{third}、{fourth}、{fifth}ピクセルです。細い形状に光がどこまで回り込むかを示します。
           patches: 2つのパッチはアルファ値{strong}と{weak}で描画され、半透明部分の光の回り込み設定はこれらに作用します。
     editor:
-      title: AIRIエディタ
-      description: AIRIエディタウィンドウを開く
+      title: Sofiaエディタ
+      description: Sofiaエディタウィンドウを開く
       button: エディタを開く
     lag-visualizer:
       title: ラグビジュアライザー
@@ -295,7 +295,7 @@ devtools:
         reset-view: 表示をリセット
         export-project: プロジェクトをエクスポート
         import-project: プロジェクトをインポート
-        import-error: このファイルは有効なAIRI Live2Dモーションプロジェクトではありません。
+        import-error: このファイルは有効なSofia Live2Dモーションプロジェクトではありません。
         playback:
           label: タイムラインの再生操作
           start: 先頭へ移動
@@ -477,7 +477,7 @@ devtools:
           recording: モーションを収録中
           playing: モーションを再生中
           ready: '{count}サンプル · {duration}'
-        import-error: このファイルは有効なAIRI Live2Dモーション記録ではありません。
+        import-error: このファイルは有効なSofia Live2Dモーション記録ではありません。
     performance-visualizer:
       title: パフォーマンスビジュアライザー
       description: FPS/ロングタスク/メモリーオーバーレイの切り替え
@@ -552,5 +552,5 @@ screen-capture:
     dismiss: 閉じる
     instructions:
       step-1: '「システム設定」を開き、サイドバーから「プライバシーとセキュリティ」を選択します。'
-      step-2: '「画面収録とシステムオーディオ録音」および「システムオーディオ録音のみ」のセクションで、AIRI用のスイッチをオンにしてください。'
-      step-2-note: AIRIが表示されていない場合は、「+」ボタンをクリックして「アプリケーション」フォルダから「AIRI」を選択して手動で追加してください。
+      step-2: '「画面収録とシステムオーディオ録音」および「システムオーディオ録音のみ」のセクションで、Sofia用のスイッチをオンにしてください。'
+      step-2-note: Sofiaが表示されていない場合は、「+」ボタンをクリックして「アプリケーション」フォルダから「Sofia」を選択して手動で追加してください。

@@ -4,7 +4,7 @@ allow-visible-on-all-workspaces:
 microphone-permission:
   prompt:
     title: 允许使用麦克风吗？
-    description: AIRI 会使用麦克风进行语音输入和转写。此选择会一直生效，直到你在设置中重置。
+    description: Sofia 会使用麦克风进行语音输入和转写。此选择会一直生效，直到你在设置中重置。
     allow: 允许
     deny: 拒绝
   states:
@@ -13,7 +13,7 @@ microphone-permission:
     denied: 已拒绝
   settings:
     title: 麦克风
-    description: 控制 AIRI 是否可以使用麦克风。
+    description: 控制 Sofia 是否可以使用麦克风。
     revoke: 撤销权限
     reset: 重置选择
 spotlight:
@@ -52,7 +52,7 @@ pages:
         description: 点击快捷键后按下新的快捷键，按 Esc 取消。
       push-to-talk:
         title: 按住说话快捷键
-        description: 在任意应用中按住此快捷键对 AIRI 说话。点击快捷键后按下新的快捷键，按 Esc 取消。
+        description: 在任意应用中按住此快捷键对 Sofia 说话。点击快捷键后按下新的快捷键，按 Esc 取消。
         inactive: 仅当听觉输入模式为「按住说话」且麦克风已开启时，此快捷键才会生效。
       actions:
         recording: 请按键
@@ -63,7 +63,7 @@ pages:
         failed: 快捷键更新失败
         requiresModifier: 请至少使用 Cmd、Ctrl、Alt 或 Super 中的一个修饰键。
         requiresHoldModifier: 请使用 Cmd、Ctrl、Alt 或 Super，或使用 F13 等功能键。仅使用 Shift 不够。
-        denied: AIRI 无法读取全局按键。请在「辅助功能」设置中允许 AIRI，然后重试。
+        denied: Sofia 无法读取全局按键。请在「辅助功能」设置中允许 Sofia，然后重试。
         unsupported: 此系统无法检测全局快捷键的松开。
       toggle-move:
         label: 切换移动状态
@@ -95,7 +95,7 @@ devtools:
       unread:
         title: 未读消息
         description: 在头部旁以气泡显示，内含提示标记和数量。
-      main-window-note: 改动会即时反映在 AIRI 主窗口。
+      main-window-note: 改动会即时反映在 Sofia 主窗口。
     live2d-ambient-light:
       title: Live2D 环境光
       description: 调整屏幕采样和 Live2D 彩色光照着色器
@@ -123,10 +123,10 @@ devtools:
       squint:
         title: 亮度突变时眯眼
         description: 当屏幕变亮的速度超过角色的适应速度时眯眼。屏幕持续明亮时，眼睛保持睁开。设为 0 可关闭此功能。
-      main-window-note: 改动会即时反映在 AIRI 主窗口。
+      main-window-note: 改动会即时反映在 Sofia 主窗口。
       diagnostics:
         title: 捕获诊断
-        waiting: 正在等待 AIRI 主窗口的诊断信息。
+        waiting: 正在等待 Sofia 主窗口的诊断信息。
         status:
           disabled: 已禁用
           starting: 正在启动
@@ -139,14 +139,14 @@ devtools:
           display: 显示器与边界
           video-size: 源视频
           sample-size: 采样帧
-          window-bounds: AIRI 窗口边界
+          window-bounds: Sofia 窗口边界
           excluded-region: 排除区域
           exposure: 屏幕曝光
           behind-luminance: 角色背后的亮度
           updated: 上次更新
         preview:
           title: 缩小后的捕获画面
-          description: 红色矩形标记 AIRI 窗口，虚线矩形标记光照图覆盖的区域。
+          description: 红色矩形标记 Sofia 窗口，虚线矩形标记光照图覆盖的区域。
           unavailable: 暂无捕获帧。
         pixels:
           title: 像素筛选
@@ -157,7 +157,7 @@ devtools:
           see-through: 可透视
         maps:
           title: 光照图
-          window: 每张图覆盖 AIRI 窗口，并向四周各延伸半个窗口。轮廓线标记窗口位置。
+          window: 每张图覆盖 Sofia 窗口，并向四周各延伸半个窗口。轮廓线标记窗口位置。
           unavailable: 暂无环境数据。
           target: 实测
           applied: 平滑后应用
@@ -220,7 +220,7 @@ devtools:
         filtered: 着色器输出
         unavailable: 预览需要 WebGL，但此窗口无法创建上下文。
         environment:
-          live: 光照来自 AIRI 主窗口发布的最新快照。
+          live: 光照来自 Sofia 主窗口发布的最新快照。
           neutral: 尚未收到快照，预览使用中性环境。
         regions:
           title: 测试卡区域
@@ -228,8 +228,8 @@ devtools:
           bars: 条带宽度分别为 {first}、{second}、{third}、{fourth} 和 {fifth} 像素，用于观察光线包裹在细窄形状中的渗入距离。
           patches: 两个色块的透明度分别为 {strong} 和 {weak}，用于观察半透明包裹选项的作用。
     editor:
-      title: AIRI 编辑器
-      description: 打开独立的 AIRI 编辑器窗口
+      title: Sofia 编辑器
+      description: 打开独立的 Sofia 编辑器窗口
       button: 打开编辑器
     lag-visualizer:
       title: Lag 可视化
@@ -301,7 +301,7 @@ devtools:
         reset-view: 重置视图
         export-project: 导出项目
         import-project: 导入项目
-        import-error: 此文件不是有效的 AIRI Live2D 动作项目。
+        import-error: 此文件不是有效的 Sofia Live2D 动作项目。
         playback:
           label: 时间轴播放控制
           start: 跳至开头
@@ -483,7 +483,7 @@ devtools:
           recording: 正在录制动作
           playing: 正在播放动作
           ready: '{count} 个采样 · {duration}'
-        import-error: 此文件不是有效的 AIRI Live2D 动作录制。
+        import-error: 此文件不是有效的 Sofia Live2D 动作录制。
     performance-visualizer:
       title: 性能可视化
       description: 检查实时性能指标和运行时诊断数据
@@ -595,5 +595,5 @@ screen-capture:
     dismiss: 取消
     instructions:
       step-1: 打开「系统首选项」，从侧边栏选择「隐私与安全」。
-      step-2: 在「录屏与系统录音」和「仅系统录音」部分中，开启 AIRI 的开关。
-      step-2-note: 如果没有列出 AIRI，请通过单击「+」按钮和从应用程序文件夹中选择 AIRI 来手动添加。
+      step-2: 在「录屏与系统录音」和「仅系统录音」部分中，开启 Sofia 的开关。
+      step-2-note: 如果没有列出 Sofia，请通过单击「+」按钮和从应用程序文件夹中选择 Sofia 来手动添加。

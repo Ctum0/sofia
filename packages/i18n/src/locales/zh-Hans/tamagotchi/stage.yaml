@@ -94,8 +94,8 @@ window:
   restore: 还原
   close: 关闭
   titles:
-    about: 关于 AIRI
-    editor: AIRI 编辑器
+    about: 关于 Sofia
+    editor: Sofia 编辑器
 notice:
   'fade-on-hover':
     title: 悬停淡出
@@ -169,14 +169,14 @@ about:
     notices:
       admin-required:
         title: 需要管理员权限
-        description: AIRI 安装在受保护的 Windows 文件夹中，安装更新时 Windows 可能会弹出用户账户控制（UAC）窗口请求管理员权限。
+        description: Sofia 安装在受保护的 Windows 文件夹中，安装更新时 Windows 可能会弹出用户账户控制（UAC）窗口请求管理员权限。
         path: '安装位置：{path}'
       downgrade-available:
         title: 此更新是旧版本
-        description: 所选更新频道提供的版本比当前版本更旧。安装此更新会将 AIRI 降级到旧版本。
+        description: 所选更新频道提供的版本比当前版本更旧。安装此更新会将 Sofia 降级到旧版本。
       downgrade-downloaded:
         title: 已下载旧版本
-        description: 从所选更新频道下载的安装包是旧版本。重启 AIRI 后将安装该旧版本。
+        description: 从所选更新频道下载的安装包是旧版本。重启 Sofia 后将安装该旧版本。
 computer-use-tool-call:
   help: 帮助
   status:

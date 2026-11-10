@@ -4,7 +4,7 @@ allow-visible-on-all-workspaces:
 microphone-permission:
   prompt:
     title: 允許存取麥克風嗎？
-    description: AIRI 會使用麥克風進行語音輸入及轉錄。此選擇會持續有效，直到你在設定中重設。
+    description: Sofia 會使用麥克風進行語音輸入及轉錄。此選擇會持續有效，直到你在設定中重設。
     allow: 允許
     deny: 拒絕
   states:
@@ -13,7 +13,7 @@ microphone-permission:
     denied: 已拒絕
   settings:
     title: 麥克風
-    description: 控制 AIRI 是否能使用麥克風。重設此選擇會停止目前的麥克風串流，並在下次使用時重新詢問。
+    description: 控制 Sofia 是否能使用麥克風。重設此選擇會停止目前的麥克風串流，並在下次使用時重新詢問。
     revoke: 撤銷存取權
     reset: 重設選擇
 spotlight:
@@ -30,7 +30,7 @@ pages:
     general:
       hide-app-icon:
         title: 隱藏工作列／Dock 圖示
-        description: 只在系統匣中顯示 AIRI。使用系統匣選單開啟視窗或結束程式。變更會立即生效。
+        description: 只在系統匣中顯示 Sofia。使用系統匣選單開啟視窗或結束程式。變更會立即生效。
         load-error: 無法載入應用程式圖示設定。
         save-error: 無法更新應用程式圖示設定。
     sections:
@@ -46,7 +46,7 @@ pages:
         description: 點擊快捷鍵後按下新的快捷鍵，按 Esc 取消。
       push-to-talk:
         title: 按住說話快捷鍵
-        description: 在任何應用程式中按住此快捷鍵，即可向 AIRI 說話。點選快捷鍵後按下新的組合鍵。按 Esc 取消。
+        description: 在任何應用程式中按住此快捷鍵，即可向 Sofia 說話。點選快捷鍵後按下新的組合鍵。按 Esc 取消。
         inactive: 此快捷鍵僅在聽覺輸入模式設為按住說話且麥克風已開啟時有效。
       actions:
         recording: 請按鍵
@@ -57,7 +57,7 @@ pages:
         failed: 快捷鍵更新失敗
         requiresModifier: 請至少使用 Cmd、Ctrl、Alt 或 Super 中的一個修飾鍵。
         requiresHoldModifier: 請使用 Cmd、Ctrl、Alt、Super，或 F13 等功能鍵。僅使用 Shift 並不足夠。
-        denied: AIRI 無法讀取全域按鍵。請在輔助使用設定中允許 AIRI，再試一次。
+        denied: Sofia 無法讀取全域按鍵。請在輔助使用設定中允許 Sofia，再試一次。
         unsupported: 此系統無法偵測何時放開全域快捷鍵。
       toggle-move:
         label: 切換移動狀態
@@ -89,7 +89,7 @@ devtools:
       unread:
         title: 未讀訊息
         description: 以頭頂面板顯示，包含標記和數量。
-      main-window-note: 變更會顯示在 AIRI 主視窗中。
+      main-window-note: 變更會顯示在 Sofia 主視窗中。
     live2d-ambient-light:
       title: Live2D 環境光
       description: 調整螢幕取樣與 Live2D 彩色光照著色器
@@ -117,10 +117,10 @@ devtools:
       squint:
         title: 對亮度變化眯眼
         description: 當螢幕變亮的速度快於角色的適應速度時收窄眼睛。持續明亮的螢幕不會讓眼睛保持眯著。設為 0 可關閉。
-      main-window-note: 變更會顯示在 AIRI 主視窗中。
+      main-window-note: 變更會顯示在 Sofia 主視窗中。
       diagnostics:
         title: 擷取診斷
-        waiting: 正在等待 AIRI 主視窗傳送診斷資料。
+        waiting: 正在等待 Sofia 主視窗傳送診斷資料。
         status:
           disabled: 已停用
           starting: 啟動中
@@ -133,14 +133,14 @@ devtools:
           display: 顯示器與邊界
           video-size: 來源影片
           sample-size: 取樣畫面
-          window-bounds: AIRI 視窗邊界
+          window-bounds: Sofia 視窗邊界
           excluded-region: 排除區域
           exposure: 螢幕曝光
           behind-luminance: 角色背後的光線
           updated: 最後更新
         preview:
           title: 縮小後擷取畫面
-          description: 紅色矩形標示 AIRI 視窗。虛線矩形標示光照圖涵蓋的範圍。
+          description: 紅色矩形標示 Sofia 視窗。虛線矩形標示光照圖涵蓋的範圍。
           unavailable: 沒有可用的擷取畫面。
         pixels:
           title: 像素判定
@@ -151,7 +151,7 @@ devtools:
           see-through: 穿透
         maps:
           title: 光照圖
-          window: 每張光照圖涵蓋 AIRI 視窗，以及四邊各半個視窗的範圍。外框標示視窗位置。
+          window: 每張光照圖涵蓋 Sofia 視窗，以及四邊各半個視窗的範圍。外框標示視窗位置。
           unavailable: 沒有可用的環境資料。
           target: 實測值
           applied: 平滑後套用值
@@ -214,7 +214,7 @@ devtools:
         filtered: 著色器輸出
         unavailable: 預覽需要 WebGL，但此視窗無法建立繪圖環境。
         environment:
-          live: 光線來自 AIRI 主視窗發布的最新快照。
+          live: 光線來自 Sofia 主視窗發布的最新快照。
           neutral: 尚未收到快照，因此預覽使用中性環境。
         regions:
           title: 測試卡區域
@@ -222,8 +222,8 @@ devtools:
           bars: 長條寬度分別為 {first}、{second}、{third}、{fourth} 與 {fifth} 像素，用來顯示光線包覆延伸進細窄形狀的距離。
           patches: 兩個色塊以 {strong} 與 {weak} alpha 繪製，正是半透明包覆選項作用的對象。
     editor:
-      title: AIRI 編輯器
-      description: 開啟獨立的 AIRI 編輯器視窗
+      title: Sofia 編輯器
+      description: 開啟獨立的 Sofia 編輯器視窗
       button: 開啟編輯器
     lag-visualizer:
       title: 卡頓可視化
@@ -295,7 +295,7 @@ devtools:
         reset-view: 重設檢視
         export-project: 匯出專案
         import-project: 匯入專案
-        import-error: 此檔案不是有效的 AIRI Live2D 動作專案。
+        import-error: 此檔案不是有效的 Sofia Live2D 動作專案。
         playback:
           label: 時間軸播放控制
           start: 跳至開頭
@@ -477,7 +477,7 @@ devtools:
           recording: 正在錄製動作
           playing: 正在播放動作
           ready: '{count} 個取樣 · {duration}'
-        import-error: 此檔案不是有效的 AIRI Live2D 動作錄製檔。
+        import-error: 此檔案不是有效的 Sofia Live2D 動作錄製檔。
     performance-visualizer:
       title: 效能顯示器
       description: 切換 FPS/長任務/記憶體覆蓋
@@ -552,5 +552,5 @@ screen-capture:
     dismiss: 取消
     instructions:
       step-1: 打開「系統偏好設定」，從側邊欄中選擇「隱私與安全」。
-      step-2: 在「螢幕與系統錄音」以及「僅限系統錄音」區域，開啟 AIRI 的開關。
-      step-2-note: 如果 AIRI 沒有被列出，則請手動按下「+」按鈕並從應用資料夾選擇 AIRI。
+      step-2: 在「螢幕與系統錄音」以及「僅限系統錄音」區域，開啟 Sofia 的開關。
+      step-2-note: 如果 Sofia 沒有被列出，則請手動按下「+」按鈕並從應用資料夾選擇 Sofia。

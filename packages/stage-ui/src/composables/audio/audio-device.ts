@@ -41,12 +41,12 @@ function audioDeviceErrorCode(error: unknown): 'permission_denied' | 'device_una
 export type MicrophonePermission = 'granted' | 'denied' | 'prompt' | 'unknown'
 
 /**
- * The error of a capture that starts while the user has turned the microphone off in AIRI.
+ * The error of a capture that starts while the user has turned the microphone off in Sofia.
  * Controls check the switch before they start, so this error reaches only a consumer that did not check it.
  */
 export class MicrophoneOffError extends Error {
   constructor() {
-    super('The microphone is turned off in AIRI')
+    super('The microphone is turned off in Sofia')
     this.name = 'MicrophoneOffError'
   }
 }

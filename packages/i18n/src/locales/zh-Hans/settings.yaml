@@ -37,7 +37,7 @@ dialogs:
     credentialsSafeLocal: >-
       Sofia 完全本地运行在您的电脑中，我们绝不窃取您对大模型提供商的凭据。但请牢记，您的 API 密钥属于敏感信息。务必妥善保管，切勿与他人分享。
     credentialsSafeOpenSource: >-
-      AIRI 在 {github} 开源，如果您想确认我们如何存储您的凭据，您可以自由浏览源码。
+      Sofia 在 {github} 开源，如果您想确认我们如何存储您的凭据，您可以自由浏览源码。
     enableChatCheck: >-
       允许 Sofia 向第一个可用的聊天模式发送「ping」消息以检查可用性
     start: 开始吧！

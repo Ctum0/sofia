@@ -4,7 +4,7 @@ allow-visible-on-all-workspaces:
 microphone-permission:
   prompt:
     title: '¿Permitir el acceso al micrófono?'
-    description: AIRI usa el micrófono para la entrada de voz y la transcripción. Esta decisión se mantiene hasta que la restablezcas en los ajustes.
+    description: Sofia usa el micrófono para la entrada de voz y la transcripción. Esta decisión se mantiene hasta que la restablezcas en los ajustes.
     allow: Permitir
     deny: Denegar
   states:
@@ -13,7 +13,7 @@ microphone-permission:
     denied: Denegado
   settings:
     title: Micrófono
-    description: Controla si AIRI puede usar el micrófono. Restablecer esta decisión detiene el flujo actual del micrófono y vuelve a pedir permiso la próxima vez.
+    description: Controla si Sofia puede usar el micrófono. Restablecer esta decisión detiene el flujo actual del micrófono y vuelve a pedir permiso la próxima vez.
     revoke: Revocar acceso
     reset: Restablecer decisión
 spotlight:
@@ -30,7 +30,7 @@ pages:
     general:
       hide-app-icon:
         title: Ocultar icono de la barra de tareas / Dock
-        description: Mantén AIRI solo en la bandeja del sistema. Usa su menú para abrir ventanas o salir. Los cambios se aplican inmediatamente.
+        description: Mantén Sofia solo en la bandeja del sistema. Usa su menú para abrir ventanas o salir. Los cambios se aplican inmediatamente.
         load-error: No se pudo cargar el ajuste del icono de la aplicación.
         save-error: No se pudo actualizar el ajuste del icono de la aplicación.
     sections:
@@ -46,7 +46,7 @@ pages:
         description: Haz clic en el atajo y pulsa un nuevo atajo. Pulsa Esc para cancelar.
       push-to-talk:
         title: Atajo de pulsar para hablar
-        description: Mantén pulsado este atajo en cualquier aplicación mientras hablas con AIRI. Haz clic en el atajo y pulsa uno nuevo. Pulsa Esc para cancelar.
+        description: Mantén pulsado este atajo en cualquier aplicación mientras hablas con Sofia. Haz clic en el atajo y pulsa uno nuevo. Pulsa Esc para cancelar.
         inactive: Este atajo solo funciona cuando el modo de entrada de Audición es pulsar para hablar y el micrófono está encendido.
       actions:
         recording: Pulsa las teclas
@@ -57,7 +57,7 @@ pages:
         failed: No se pudo actualizar el atajo
         requiresModifier: 'Usa al menos una de estas teclas: Cmd, Ctrl, Alt o Super.'
         requiresHoldModifier: Usa Cmd, Ctrl, Alt o Super, o una tecla de función como F13. Shift por sí sola no basta.
-        denied: AIRI no puede leer las teclas globales. Permite AIRI en los ajustes de accesibilidad y vuelve a intentarlo.
+        denied: Sofia no puede leer las teclas globales. Permite Sofia en los ajustes de accesibilidad y vuelve a intentarlo.
         unsupported: Este sistema no puede detectar cuándo sueltas un atajo global.
       toggle-move:
         label: Alternar Mover
@@ -89,7 +89,7 @@ devtools:
       unread:
         title: Mensajes sin leer
         description: Se muestra como un panel sobre la cabeza, con una marca y el número.
-      main-window-note: Los cambios aparecen en la ventana principal de AIRI.
+      main-window-note: Los cambios aparecen en la ventana principal de Sofia.
     live2d-ambient-light:
       title: Luz ambiente Live2D
       description: Ajustar muestreo de pantalla y el sombreado de color Live2D
@@ -117,10 +117,10 @@ devtools:
       squint:
         title: Entrecerrar los ojos ante cambios luminosos
         description: Entrecierra los ojos cuando la pantalla se ilumina más rápido de lo que el personaje puede adaptarse a ella. Una pantalla que permanece brillante mantiene los ojos abiertos. El valor 0 desactiva esta función.
-      main-window-note: Los cambios aparecen en la ventana principal de AIRI.
+      main-window-note: Los cambios aparecen en la ventana principal de Sofia.
       diagnostics:
         title: Diagnóstico de captura
-        waiting: Esperando el diagnóstico de la ventana principal de AIRI.
+        waiting: Esperando el diagnóstico de la ventana principal de Sofia.
         status:
           disabled: Desactivado
           starting: Iniciando
@@ -132,14 +132,14 @@ devtools:
           display: Pantalla y límites
           video-size: Fuente de vídeo
           sample-size: Fotograma de muestra
-          window-bounds: Límites de ventana de AIRI
+          window-bounds: Límites de ventana de Sofia
           excluded-region: Región excluida
           exposure: Exposición de pantalla
           behind-luminance: Luz detrás del personaje
           updated: Última actualización
         preview:
           title: Captura a baja escala
-          description: El rectángulo rojo marca la ventana de AIRI. El rectángulo con guiones marca el área que cubre el mapa de luz.
+          description: El rectángulo rojo marca la ventana de Sofia. El rectángulo con guiones marca el área que cubre el mapa de luz.
           unavailable: No hay ningún fotograma capturado disponible.
         pixels:
           title: Clasificación de píxeles
@@ -149,7 +149,7 @@ devtools:
           see-through: Translúcido
         maps:
           title: Mapas de luz
-          window: Cada mapa cubre la ventana de AIRI y media ventana adicional por cada lado. El contorno marca la ventana.
+          window: Cada mapa cubre la ventana de Sofia y media ventana adicional por cada lado. El contorno marca la ventana.
           unavailable: No hay entorno disponible.
           target: Medido
           applied: Aplicado después de suavizado
@@ -212,7 +212,7 @@ devtools:
         filtered: Salida del shader
         unavailable: La vista previa necesita WebGL, pero esta ventana no pudo crear un contexto.
         environment:
-          live: La luz procede de la última instantánea publicada por la ventana principal de AIRI.
+          live: La luz procede de la última instantánea publicada por la ventana principal de Sofia.
           neutral: Aún no ha llegado ninguna instantánea, así que la vista previa usa el entorno neutro.
         regions:
           title: Regiones de la carta de prueba
@@ -220,8 +220,8 @@ devtools:
           bars: Las barras tienen {first}, {second}, {third}, {fourth} y {fifth} píxeles de ancho. Muestran hasta dónde llega la luz dentro de una forma fina.
           patches: Las dos muestras usan alfa {strong} y {weak}. La opción de luz en partes translúcidas actúa sobre estos valores.
     editor:
-      title: Editor de AIRI
-      description: Abrir la ventana independiente del editor de AIRI
+      title: Editor de Sofia
+      description: Abrir la ventana independiente del editor de Sofia
       button: Abrir editor
     lag-visualizer:
       title: Visualizador de retraso
@@ -293,7 +293,7 @@ devtools:
         reset-view: Restablecer vista
         export-project: Exportar proyecto
         import-project: Importar proyecto
-        import-error: Este archivo no es un proyecto de movimiento Live2D de AIRI válido.
+        import-error: Este archivo no es un proyecto de movimiento Live2D de Sofia válido.
         playback:
           label: Controles de reproducción de la línea de tiempo
           start: Ir al inicio
@@ -475,7 +475,7 @@ devtools:
           recording: Grabando movimiento
           playing: Reproduciendo movimiento
           ready: '{count} muestras · {duration}'
-        import-error: Este archivo no es una grabación de movimiento Live2D de AIRI válida.
+        import-error: Este archivo no es una grabación de movimiento Live2D de Sofia válida.
     performance-visualizer:
       title: Visualizador de rendimiento
       description: Cambiar FPS/tareas largas/superposición de memoria
@@ -548,5 +548,5 @@ screen-capture:
     dismiss: Descartar
     instructions:
       step-1: Abre "Preferencias del sistema", selecciona "Privacidad y Seguridad" en la barra lateral.
-      step-2: En las secciones "Grabación de pantalla y del audio del sistema" y "Solo grabación del audio del sistema", encienda los interruptores para AIRI.
-      step-2-note: Si AIRI no aparece en la lista, añádelo manualmente haciendo clic en el botón "+" y seleccionando AIRI de la carpeta Aplicaciones.
+      step-2: En las secciones "Grabación de pantalla y del audio del sistema" y "Solo grabación del audio del sistema", encienda los interruptores para Sofia.
+      step-2-note: Si Sofia no aparece en la lista, añádelo manualmente haciendo clic en el botón "+" y seleccionando Sofia de la carpeta Aplicaciones.

@@ -1,17 +1,17 @@
 electronCallback:
   title:
     loading: Finalizando inicio de sesión
-    openingAiri: Abriendo AIRI
+    openingAiri: Abriendo Sofia
     signedIn: Has iniciado sesión
     signInFailed: Error al iniciar sesión
-    finishSignInInAiri: Terminar sesión en AIRI
-    openAiriToContinue: Abrir AIRI para continuar
+    finishSignInInAiri: Terminar sesión en Sofia
+    openAiriToContinue: Abrir Sofia para continuar
   message:
-    checkingResponse: Comprobando su respuesta de inicio de sesión y preparando el handoff para AIRI.
-    passingToAiri: Estamos transfiriendo tu inicio de sesión a AIRI. Esta página se cerrará en unos instantes.
-    syncedAndSafeToClose: Hemos notificado al cliente de AIRI del que firmó.
+    checkingResponse: Comprobando su respuesta de inicio de sesión y preparando el handoff para Sofia.
+    passingToAiri: Estamos transfiriendo tu inicio de sesión a Sofia. Esta página se cerrará en unos instantes.
+    syncedAndSafeToClose: Hemos notificado al cliente de Sofia del que firmó.
     invalidResponse: No pudimos utilizar esta respuesta de inicio de sesión.
-    loopbackUnreachable: El navegador no pudo acceder a AIRI a través del puerto de devolución de llamada local.
+    loopbackUnreachable: El navegador no pudo acceder a Sofia a través del puerto de devolución de llamada local.
     tryOpenDirectly: Intentaremos abrir el handoff local directamente. Si esto todavía falla, utilice el botón de abajo.
     automaticHandoffFailed: El handoff automático no ha finalizado en esta sesión del navegador.
   label:
@@ -19,7 +19,7 @@ electronCallback:
     safeToClose: Es seguro cerrar la pestaña ahora.
     whyStillHere: '¿Por qué esta pestaña sigue aquí?'
   action:
-    openAiriManually: Abrir AIRI manualmente
+    openAiriManually: Abrir Sofia manualmente
   hint:
     closeTabManually: Algunos navegadores no permiten que esta página se cierre automáticamente. Puede cerrarla manualmente.
 signIn:
@@ -155,7 +155,7 @@ profile:
     setLinkSent: Revisa {email} para ver el enlace para establecer tu contraseña.
     setLinkFailed: No se pudo enviar el enlace de configuración de contraseña.
   linkedAccounts:
-    description: Inicia sesión en AIRI a través de estos proveedores. Desvincúlate para revocar el acceso y vuelve a enlazar para cambiar a una cuenta diferente.
+    description: Inicia sesión en Sofia a través de estos proveedores. Desvincúlate para revocar el acceso y vuelve a enlazar para cambiar a una cuenta diferente.
     status:
       linked: Vinculado
       notLinked: No vinculado
@@ -197,6 +197,6 @@ webCallback:
     missingCodeOrState: Falta el código de autorización o estado
     missingFlowState: Falta el estado de flujo OIDC - por favor intente iniciar sesión de nuevo
     tokenExchangeFailed: Fallo en el cambio de token
-    finalizing: Finalizando autenticación con AIRI.
+    finalizing: Finalizando autenticación con Sofia.
   action:
     tryAgain: Inténtalo de nuevo

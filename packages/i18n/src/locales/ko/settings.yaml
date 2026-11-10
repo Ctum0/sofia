@@ -37,7 +37,7 @@ dialogs:
     credentialsSafeLocal: >-
       Sofia는 PC에서 온전히 로컬에서 실행되며 AI / LLM 제공자에 대한 자격 증명을 절대 훔치지 않아요. 당신의 API 키는 민감한 정보라는 점을 명심해주세요. 보안에 신경써주시고 절대 누구와도 공유하지 마세요.
     credentialsSafeOpenSource: >-
-      AIRI는 {github}에서 오픈 소스입니다. 당신의 자격 증명을 처리하는 방법을 확인하려면 언제든지 코드를 검사하실 수 있어요.
+      Sofia는 {github}에서 오픈 소스입니다. 당신의 자격 증명을 처리하는 방법을 확인하려면 언제든지 코드를 검사하실 수 있어요.
     enableChatCheck: >-
       Airi가 첫 모델에게 "Ping" 메시지를 보낼 수 있도록 허용하기
     start: 그럼 시작합시다!

@@ -60,7 +60,7 @@ export const providerOfficialChat = defineProvider<OfficialChatConfig, typeof OF
   order: -1,
   name: 'Official Provider',
   nameLocalize: ({ t }) => t('settings.pages.providers.provider.official.title'),
-  description: 'Official AI provider by AIRI.',
+  description: 'Official AI provider by Sofia.',
   descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.official.description'),
   tasks: ['text-generation'],
   icon: OFFICIAL_ICON,
@@ -119,7 +119,7 @@ export const providerOfficialSpeech = defineProvider({
   order: -1,
   name: 'Official Speech Provider',
   nameLocalize: ({ t }) => t('settings.pages.providers.provider.official.speech-title'),
-  description: 'Official text-to-speech provider by AIRI.',
+  description: 'Official text-to-speech provider by Sofia.',
   descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.official.speech-description'),
   tasks: ['text-to-speech'],
   icon: OFFICIAL_ICON,
@@ -216,7 +216,7 @@ export const providerOfficialSpeech = defineProvider({
           // provider resolves voices through the server's /audio/voices?model=
           // endpoint, which already returns only voices valid for the active
           // model. Re-applying the client-side filter on top can zero out the
-          // list when upstream compatibility ids differ from AIRI's router ids.
+          // list when upstream compatibility ids differ from Sofia's router ids.
           // See packages/stage-pages/.../speech.vue filter predicate.
           languages: Array.isArray(v.languages) ? v.languages : [],
         }
@@ -242,7 +242,7 @@ export const providerOfficialSpeechStreaming = defineProvider({
   order: -1,
   name: 'Official Streaming Speech Provider',
   nameLocalize: ({ t }) => t('settings.pages.providers.provider.official.speech-streaming-title'),
-  description: 'Official streaming text-to-speech provider by AIRI (low-latency bidirectional WebSocket).',
+  description: 'Official streaming text-to-speech provider by Sofia (low-latency bidirectional WebSocket).',
   descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.official.speech-streaming-description'),
   tasks: ['text-to-speech'],
   icon: OFFICIAL_ICON,
@@ -338,7 +338,7 @@ export const providerOfficialTranscription = defineProvider({
   order: -1,
   name: 'Official Transcription Provider',
   nameLocalize: ({ t }) => t('settings.pages.providers.provider.official.transcription-title'),
-  description: 'Official realtime speech-to-text provider by AIRI.',
+  description: 'Official realtime speech-to-text provider by Sofia.',
   descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.official.transcription-description'),
   tasks: ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt', 'streaming-transcription'],
   icon: OFFICIAL_ICON,
@@ -369,7 +369,7 @@ export const providerOfficialTranscription = defineProvider({
         id: 'auto',
         name: 'Auto',
         provider: OFFICIAL_TRANSCRIPTION_PROVIDER_ID,
-        description: 'Realtime transcription routed by AIRI',
+        description: 'Realtime transcription routed by Sofia',
       },
     ],
   },

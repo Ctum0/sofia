@@ -46,8 +46,8 @@ it('closes every capture and opens no new one while the microphone is off', asyn
   await expect.poll(() => track.readyState).toBe('ended')
   expect(await reader.read()).toEqual({ done: true, value: undefined })
   const openMicrophone = vi.spyOn(navigator.mediaDevices, 'getUserMedia')
-  await expect(device.input.value.subscribe().getReader().read()).rejects.toThrow('The microphone is turned off in AIRI')
-  await expect(device.unprocessedInput.value.subscribe().getReader().read()).rejects.toThrow('The microphone is turned off in AIRI')
+  await expect(device.input.value.subscribe().getReader().read()).rejects.toThrow('The microphone is turned off in Sofia')
+  await expect(device.unprocessedInput.value.subscribe().getReader().read()).rejects.toThrow('The microphone is turned off in Sofia')
   expect(openMicrophone).not.toHaveBeenCalled()
 
   off.value = false

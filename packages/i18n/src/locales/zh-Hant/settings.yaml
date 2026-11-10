@@ -37,7 +37,7 @@ dialogs:
     credentialsSafeLocal: >-
       Sofia 完全在您的電腦本機執行，我們絕不會竊取您用於 AI / LLM 提供者的憑證。但請注意，API 金鑰屬於敏感資訊，請妥善保管，切勿與他人分享。
     credentialsSafeOpenSource: >-
-      AIRI 以 {github} 開放原始碼，如果您想了解我們如何處理您的憑證，歡迎檢視我們的程式碼。
+      Sofia 以 {github} 開放原始碼，如果您想了解我們如何處理您的憑證，歡迎檢視我們的程式碼。
     enableChatCheck: >-
       允許 airi 傳送「ping」訊息給第一個可用的聊天模型，以檢查是否可用
     start: 開始吧！

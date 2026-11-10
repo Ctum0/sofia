@@ -37,7 +37,7 @@ dialogs:
     credentialsSafeLocal: >-
       Sofia fonctionne entièrement en local sur votre PC et nous ne volerons jamais vos identifiants pour les fournisseurs d'IA / LLM. Gardez toutefois à l'esprit que vos clés API sont des informations sensibles. Veillez à les conserver en lieu sûr et à ne les partager avec personne.
     credentialsSafeOpenSource: >-
-      AIRI est open source sur {github}, si vous souhaitez vérifier comment nous gérons vos identifiants, n'hésitez pas à inspecter notre code.
+      Sofia est open source sur {github}, si vous souhaitez vérifier comment nous gérons vos identifiants, n'hésitez pas à inspecter notre code.
     enableChatCheck: >-
       Autoriser Sofia à envoyer un message "ping" au premier modèle de chat disponible pour vérifier sa disponibilité
     start: Commençons !

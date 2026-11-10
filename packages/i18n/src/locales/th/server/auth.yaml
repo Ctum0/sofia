@@ -1,17 +1,17 @@
 electronCallback:
   title:
     loading: กำลังเข้าสู่ระบบให้เสร็จสิ้น
-    openingAiri: กำลังเปิด AIRI
+    openingAiri: กำลังเปิด Sofia
     signedIn: คุณเข้าสู่ระบบแล้ว
     signInFailed: เข้าสู่ระบบไม่สำเร็จ
-    finishSignInInAiri: เข้าสู่ระบบให้เสร็จใน AIRI
-    openAiriToContinue: เปิด AIRI เพื่อดำเนินการต่อ
+    finishSignInInAiri: เข้าสู่ระบบให้เสร็จใน Sofia
+    openAiriToContinue: เปิด Sofia เพื่อดำเนินการต่อ
   message:
-    checkingResponse: กำลังตรวจสอบผลการเข้าสู่ระบบและเตรียมส่งต่อไปยัง AIRI
-    passingToAiri: กำลังส่งการเข้าสู่ระบบของคุณกลับไปยัง AIRI หน้านี้น่าจะปิดในอีกสักครู่
-    syncedAndSafeToClose: เราแจ้งไคลเอนต์ AIRI ที่คุณใช้เข้าสู่ระบบแล้ว
+    checkingResponse: กำลังตรวจสอบผลการเข้าสู่ระบบและเตรียมส่งต่อไปยัง Sofia
+    passingToAiri: กำลังส่งการเข้าสู่ระบบของคุณกลับไปยัง Sofia หน้านี้น่าจะปิดในอีกสักครู่
+    syncedAndSafeToClose: เราแจ้งไคลเอนต์ Sofia ที่คุณใช้เข้าสู่ระบบแล้ว
     invalidResponse: เราใช้ผลการเข้าสู่ระบบนี้ไม่ได้
-    loopbackUnreachable: เบราว์เซอร์ติดต่อ AIRI ผ่านพอร์ต callback ในเครื่องไม่ได้
+    loopbackUnreachable: เบราว์เซอร์ติดต่อ Sofia ผ่านพอร์ต callback ในเครื่องไม่ได้
     tryOpenDirectly: เราจะลองเปิดการส่งต่อในเครื่องโดยตรง ถ้ายังไม่สำเร็จ ให้ใช้ปุ่มด้านล่าง
     automaticHandoffFailed: การส่งต่ออัตโนมัติไม่เสร็จสิ้นในเซสชันเบราว์เซอร์นี้
   label:
@@ -19,7 +19,7 @@ electronCallback:
     safeToClose: ตอนนี้ปิดแท็บนี้ได้อย่างปลอดภัยแล้ว
     whyStillHere: ทำไมแท็บนี้ยังอยู่?
   action:
-    openAiriManually: เปิด AIRI ด้วยตัวเอง
+    openAiriManually: เปิด Sofia ด้วยตัวเอง
   hint:
     closeTabManually: เบราว์เซอร์บางตัวไม่อนุญาตให้หน้านี้ปิดตัวเองโดยอัตโนมัติ คุณปิดแท็บนี้เองได้
 signIn:
@@ -154,7 +154,7 @@ profile:
     setLinkSent: ตรวจสอบลิงก์สำหรับตั้งรหัสผ่านที่ {email}
     setLinkFailed: เราส่งลิงก์สำหรับตั้งรหัสผ่านไม่ได้
   linkedAccounts:
-    description: เข้าสู่ระบบ AIRI ผ่านผู้ให้บริการเหล่านี้ ยกเลิกการเชื่อมโยงเพื่อเพิกถอนการเข้าถึง แล้วเชื่อมโยงอีกครั้งเพื่อเปลี่ยนไปใช้บัญชีอื่น
+    description: เข้าสู่ระบบ Sofia ผ่านผู้ให้บริการเหล่านี้ ยกเลิกการเชื่อมโยงเพื่อเพิกถอนการเข้าถึง แล้วเชื่อมโยงอีกครั้งเพื่อเปลี่ยนไปใช้บัญชีอื่น
     status:
       linked: เชื่อมโยงแล้ว
       notLinked: ยังไม่ได้เชื่อมโยง
@@ -196,6 +196,6 @@ webCallback:
     missingCodeOrState: ไม่มีรหัสการอนุญาตหรือค่า state
     missingFlowState: ไม่มีสถานะขั้นตอน OIDC โปรดลองเข้าสู่ระบบอีกครั้ง
     tokenExchangeFailed: การแลกเปลี่ยนโทเค็นล้มเหลว
-    finalizing: กำลังยืนยันตัวตนกับ AIRI ให้เสร็จสิ้น
+    finalizing: กำลังยืนยันตัวตนกับ Sofia ให้เสร็จสิ้น
   action:
     tryAgain: ลองอีกครั้ง

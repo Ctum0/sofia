@@ -1,17 +1,17 @@
 electronCallback:
   title:
     loading: サインインを完了しています
-    openingAiri: AIRIを開く
+    openingAiri: Sofiaを開く
     signedIn: サインインしています
     signInFailed: ログインに失敗しました
-    finishSignInInAiri: AIRIへのサインインを完了してください
-    openAiriToContinue: AIRIを開いて続行してください
+    finishSignInInAiri: Sofiaへのサインインを完了してください
+    openAiriToContinue: Sofiaを開いて続行してください
   message:
-    checkingResponse: サインイン応答を確認し、AIRIへの引き継ぎを準備しています。
-    passingToAiri: サインイン情報をAIRIに転送しています。まもなくこのページは閉じます。
-    syncedAndSafeToClose: 当社は、お客様がAIRIから署名したクライアントに通知しました。
+    checkingResponse: サインイン応答を確認し、Sofiaへの引き継ぎを準備しています。
+    passingToAiri: サインイン情報をSofiaに転送しています。まもなくこのページは閉じます。
+    syncedAndSafeToClose: 当社は、お客様がSofiaから署名したクライアントに通知しました。
     invalidResponse: このサインイン応答を使用できませんでした。
-    loopbackUnreachable: ブラウザーはローカルコールバックポートからAIRIに到達できませんでした。
+    loopbackUnreachable: ブラウザーはローカルコールバックポートからSofiaに到達できませんでした。
     tryOpenDirectly: 私たちは直接ローカルハンドオフを開いてみます。それでも失敗する場合は、下のボタンを使用してください。
     automaticHandoffFailed: このブラウザセッションで自動ハンドオフは終了しませんでした。
   label:
@@ -19,7 +19,7 @@ electronCallback:
     safeToClose: このタブを閉じても安全です。
     whyStillHere: なぜこのタブはまだここにありますか？
   action:
-    openAiriManually: 手動でAIRIを開く
+    openAiriManually: 手動でSofiaを開く
   hint:
     closeTabManually: 一部のブラウザではこのページを自動的に閉じることができません。手動で閉じることができます。
 signIn:
@@ -154,7 +154,7 @@ profile:
     setLinkSent: パスワードを設定するには、 {email} を確認してください。
     setLinkFailed: パスワード設定リンクを送信できませんでした。
   linkedAccounts:
-    description: これらのプロバイダを通じてAIRIにサインインします。リンクを解除してアクセスを取り消し、もう一度リンクして別のアカウントに切り替えます。
+    description: これらのプロバイダを通じてSofiaにサインインします。リンクを解除してアクセスを取り消し、もう一度リンクして別のアカウントに切り替えます。
     status:
       linked: リンク済
       notLinked: リンクされていません
@@ -196,6 +196,6 @@ webCallback:
     missingCodeOrState: 認証コードまたは状態がありません
     missingFlowState: OIDCフロー状態がありません。もう一度ログインしてください
     tokenExchangeFailed: トークンの交換に失敗しました
-    finalizing: AIRIで認証を完了しています。
+    finalizing: Sofiaで認証を完了しています。
   action:
     tryAgain: もう一度やり直してください
