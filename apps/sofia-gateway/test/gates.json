@@ -23,7 +23,7 @@
     },
     "brand-assets-gate.mjs": {
       "auto": true,
-      "why": "manual"
+      "why": "runs inside the verifier: logo, icons, manifest and the white-surface count"
     },
     "brand-copy-gate.mjs": {
       "auto": false,
@@ -63,7 +63,7 @@
     },
     "voice-gate.mjs": {
       "auto": true,
-      "why": "manual"
+      "why": "one real Live session per release; asserts mic frames, transcript, playback and mouth"
     },
     "windows-gate.mjs": {
       "auto": true,

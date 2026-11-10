@@ -1,5 +1,13 @@
 // windows-gate.mjs — the stage's windows: several at once, above the page, not
 // inside the chat column, each movable and closable.
+//
+// Pointer assertions read HIT-TESTING, not visibility. The defect this gate was
+// written after: `section.startup-screen` (a Vue Teleport overlay, z-index
+// 10000) stayed on screen for ~13 s after login and swallowed every click, while
+// a visibility check on `#boot-splash` — a different, already-removed element —
+// reported "splash gone". A gate that certifies the wrong element passes for the
+// wrong reason, so the two checks below are (a) does an overlay still intercept
+// a point, and (b) is this predicate able to see an overlay at all.
 import { chromium } from 'playwright'
 
 const BASE = process.env.BASE || 'https://sofia.ctum.org'
@@ -34,6 +42,37 @@ const state = () => page.evaluate(() => {
   }
 })
 
+// What is actually under this point? The whole point of the gate.
+const hitAt = (x, y) => page.evaluate(([x, y]) => {
+  const el = document.elementFromPoint(x, y)
+  if (!el) return { tag: null, cls: '', windowId: null, overlay: null }
+  const win = el.closest('[data-testid=sofia-window]')
+  const ov = el.closest('.startup-screen, #boot-splash')
+  return {
+    tag: el.tagName.toLowerCase(),
+    cls: typeof el.className === 'string' ? el.className.slice(0, 48) : '',
+    windowId: win ? win.getAttribute('data-window-id') : null,
+    overlay: ov ? `${ov.tagName.toLowerCase()}.${(typeof ov.className === 'string' ? ov.className : '').split(' ')[0]}` : null,
+  }
+}, [x, y])
+
+// Does anything from the splash/overlay family intercept the viewport?
+const overlayHits = () => page.evaluate(() => {
+  const hits = []
+  for (const f of [0.25, 0.5, 0.75]) {
+    for (const g of [0.25, 0.5, 0.75]) {
+      const el = document.elementFromPoint(Math.round(innerWidth * f), Math.round(innerHeight * g))
+      const ov = el && el.closest('.startup-screen, #boot-splash')
+      if (ov)
+        hits.push(`${Math.round(innerWidth * f)},${Math.round(innerHeight * g)} → ${ov.tagName.toLowerCase()}.${(typeof ov.className === 'string' ? ov.className : '').split(' ')[0]}`)
+    }
+  }
+  const s = document.querySelector('.startup-screen')
+  const sDisplay = s ? getComputedStyle(s).display : 'absent'
+  const sPointer = s ? getComputedStyle(s).pointerEvents : 'absent'
+  return { hits, sDisplay, sPointer, sPresent: !!s }
+})
+
 try {
   await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   const f = await page.$('input[type=password]')
@@ -63,19 +102,48 @@ try {
   step('windows are NOT inside the chat column', two.insideChatColumn === false, `layer position ${two.layerFixed}`)
   step('the chat yields while windows are open', two.chatVisible === false)
 
-  // The boot splash sits above the page while the stage loads and swallows
-  // clicks; the first cut of this gate clicked into it and reported a product
-  // failure. Wait for it to leave before touching anything.
-  const splashAt = (await state()).splashVisible
+  // (a) Wait until nothing overlay-shaped intercepts the viewport. `#boot-splash`
+  // is the static HTML splash; `section.startup-screen` is the Vue one and is the
+  // element that actually ate the clicks. Neither may hit-test.
   await page.waitForFunction(() => {
-    const s = document.getElementById('boot-splash')
-    return !s || s.getBoundingClientRect().height === 0 || getComputedStyle(s).display === 'none'
+    const s = document.querySelector('.startup-screen')
+    const hidden = !s || getComputedStyle(s).display === 'none' || getComputedStyle(s).pointerEvents === 'none'
+    const b = document.getElementById('boot-splash')
+    const bootGone = !b || getComputedStyle(b).display === 'none' || getComputedStyle(b).pointerEvents === 'none'
+    if (!hidden || !bootGone) return false
+    for (const f of [0.25, 0.5, 0.75]) {
+      for (const g of [0.25, 0.5, 0.75]) {
+        const el = document.elementFromPoint(Math.round(innerWidth * f), Math.round(innerHeight * g))
+        if (el && el.closest('.startup-screen, #boot-splash')) return false
+      }
+    }
+    return true
   }, { timeout: 90000 }).catch(() => {})
-  step('the boot splash is out of the way before pointer input', !(await state()).splashVisible, `was visible: ${splashAt}`)
+  const ov = await overlayHits()
+  step('no splash overlay intercepts the viewport', ov.hits.length === 0,
+    `intercepts: ${ov.hits.length ? ov.hits.join(' | ') : 0}; .startup-screen display=${ov.sDisplay} pointer-events=${ov.sPointer} present=${ov.sPresent}`)
+
+  // (b) Is that predicate able to see an overlay? Inject one and watch it fail.
+  const first = two.wins[0]
+  const barX = first.x + Math.round(first.w / 2)
+  const barY = first.y + 16
+  const barClean = await hitAt(barX, barY)
+  step('the top window\'s title bar takes the pointer', barClean.windowId === first.id,
+    `at ${barX},${barY} → ${barClean.tag}.${barClean.cls} windowId=${barClean.windowId} overlay=${barClean.overlay}`)
+  await page.evaluate(() => {
+    const d = document.createElement('div')
+    d.id = '__gate_overlay'
+    d.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.01)'
+    document.body.appendChild(d)
+  })
+  const barBlocked = await hitAt(barX, barY)
+  await page.evaluate(() => document.getElementById('__gate_overlay')?.remove())
+  const barCleanAgain = await hitAt(barX, barY)
+  step('the hit-test assertion can see an overlay (discriminating)', barBlocked.windowId === null && barCleanAgain.windowId === first.id,
+    `injected → ${barBlocked.tag}.${barBlocked.cls} windowId=${barBlocked.windowId}; removed → windowId=${barCleanAgain.windowId}`)
 
   // raise the first window by clicking its bar
-  const first = two.wins[0]
-  await page.mouse.click(first.x + Math.round(first.w / 2), first.y + 16)
+  await page.mouse.click(barX, barY)
   await page.waitForTimeout(400)
   const raised = await state()
   step('clicking a window raises it', raised.wins.find(w => w.id === first.id)?.active === 'true',
