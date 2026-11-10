@@ -899,7 +899,7 @@ Still open: the amber "S" logo glyph (asset, not CSS) and real-device voice
   The gate is kept at `/home/ctum/qa/vad-turn-gate.mjs` and deliberately not
   wired into `verify-release.sh` while it measures noise.
 
-  → **CORRECTED 2026-11-10 11:50 SLT, by the run that followed this one: the
+  → **CORRECTED 2026-11-10 11:19 SLT, by the run that followed this one: the
   browser-side number IS obtainable — and at 500 ms the value was eating half of
   his sentence.** The "not obtainable with Chrome's fake mic" verdict was a
   property of the fixture, not of Chrome: a looping sample never produces a
@@ -938,7 +938,7 @@ Still open: the amber "S" logo glyph (asset, not CSS) and real-device voice
   a deploy artefact, not a product failure: re-run once the queue row reads
   `finished` and it passes.
 
-- 2026-11-10 11:20–11:55 SLT — **The 500 ms end-of-speech value was cutting him off
+- 2026-11-10 10:57–11:19 SLT — **The 500 ms end-of-speech value was cutting him off
   mid-sentence; 700 ms shipped and gated. The previous run's "unobtainable"
   measurement was a fixture bug.**
 
