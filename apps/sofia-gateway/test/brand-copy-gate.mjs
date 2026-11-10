@@ -35,7 +35,7 @@ const step = (n, ok, d = '') => {
 const ALLOW = [
   [/AIRI_[A-Z_]+/, 'internal constant / shader token (AIRI_DIFFUSE_*, AIRI_OUTLINE_*, AIRI_ALL_OUTLINE)'],
   [/AIRI_[a-z]/, 'GLSL function name inside the shader (AIRI_evalIrradianceSH)'],
-  [/group ?[:=]=? ?`AIRI`/, 'Live2D motion group name bound to the model\'s own group fields; renaming breaks motion selection'],
+  [/group ?[:=]{1,3} ?`AIRI`/, 'Live2D motion group name bound to the model\'s own group fields; renaming breaks motion selection'],
   [/AIRIStream/, 'internal type name'],
   [/Moeru AI Project AIRI Team/, 'package.json author metadata, not rendered'],
   [/airi@moeru\.ai/, 'package.json author email, not rendered'],

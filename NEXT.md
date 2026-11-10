@@ -88,6 +88,42 @@ result under **Log**. Rules at the bottom are mandatory.
   `voice-gate.mjs` against https://sofia.ctum.org → **12/12** (54 mic frames,
   1576 frames sent, 11 reply chunks, mouth peak 100, 0 x localhost:6121).
 
+- [x] **M. Copy layer: the ~300 AIRI strings the earlier sweep missed.**
+  → **DONE 2026-11-10.** The F entry claimed 602 replacements; the served bundle
+  still held **326 AIRI hits / 301 non-internal** because the sweep only ever
+  touched the English locale — nine other locales were untouched and they ship
+  in lazily imported chunks (`src-*.js`, `auxiliary-*.js`) that index.html never
+  references, which is why no earlier probe saw them.
+  Rewritten: **285 AIRI values across 28 files in 9 locales** (es, fr, ja, ko,
+  ru, th, vi, zh-Hans, zh-Hant; keys untouched, values only), plus the shipped
+  English copy that was still branded — mic error `audio-device.ts`,
+  four official-provider descriptions, the Live2D validator message, the
+  server-sdk invalid-message error, the devtools role label, the journal export
+  filename (`AIRI-Journal-*.png` → `Sofia-Journal-*.png`) and the MToon outline
+  `[AIRI]` console prefix. Identifiers, `AIRI_DIFFUSE_*`/`AIRI_OUTLINE_*` shader
+  tokens and Live2D motion-group names stay so the fork keeps merging upstream.
+  **New gate `test/brand-copy-gate.mjs` — discriminating both ways:** old build
+  **7/8** (326 hits, 301 violations), new build **8/8** (552 chunks crawled,
+  29 hits, all 29 allowlisted with a reason, 0 violations). It crawls chunk
+  references found *inside* chunks, because the entry bundle alone never reaches
+  the lazy locale bundles.
+  Deploy `111` `finished` for **`28a2647f8`**, container `…T003926` Up (healthy).
+  Regressions on the same build: auth **10/10**, auth-surface **33/33**, ui
+  **7/7**, about **ALL PASS**, brand-assets **13/13**, voice **12/12**
+  (`chunksPlayed:16`, mouth peak 100, `0 x localhost:6121`).
+
+- [ ] **N. Upstream legal links still ship.** `AIRI_TERMS_URL` /
+  `AIRI_PRIVACY_URL` (`packages/stage-ui/src/constants/public-links.ts`) point at
+  `https://airi.moeru.ai/docs/en/about/{terms,privacy}` and are rendered by
+  `onboarding/step-welcome.vue` and `auth/SignInPanel.vue`; **16** occurrences of
+  `airi.moeru.ai` remain in served JS. Two defensible fixes — drop the legal
+  sentence, or repoint at pages that do not exist (404). Copy, so it is his call.
+
+- [ ] **O. Production ships source maps.** `647` `.map` files next to `755` `.js`
+  chunks in the served dist (behind the login, but the whole source tree is
+  readable by any session). Turn sourcemaps off for the production build and
+  prove the file count drops to 0, then re-run the gates.
+
 - [x] **I. Notion: bring Phases and Ledger up to the deployed reality.**
   Both pages were frozen at 2026-11-08: the board still showed voice as 🟡,
   hands as ⬜, presence ⬜, deploy 🟡 ("auth still open"), and the ledger still
@@ -534,3 +570,37 @@ Still open: the amber "S" logo glyph (asset, not CSS) and real-device voice
   *Queue state:* every Sofia item A–K, plus the polish leftovers, is now closed
   or gated. **The queue is blocked on him:** L(a) backup patch, L(b) key
   rotation. Nothing else in it can be advanced without his hand.
+
+- 2026-11-10 05:56–06:5x SLT — **M done: the copy layer is clean, and the "F done"
+  claim was half true.** F reported 602 AIRI→Sofia replacements; the served
+  bundle still carried **326** hits, **301** of them non-internal, because the
+  sweep covered the English locale only. Nine locales were untouched and they
+  ship in lazy chunks (`src-*.js`, `auxiliary-*.js`) that index.html does not
+  reference — a shell fetch, a DOM walk and the About gate all read clean while
+  a language switch showed upstream branding.
+  *Fixed:* 285 values in 28 files across es/fr/ja/ko/ru/th/vi/zh-Hans/zh-Hant
+  (keys untouched), plus `audio-device.ts` mic error, four provider
+  descriptions, `live2d-validator.ts`, `server-sdk/codec.ts`, the devtools role
+  label, the journal export filename (`AIRI-Journal-` → `Sofia-Journal-`) and
+  the MToon outline `[AIRI]` console prefix. `pnpm -F @proj-airi/i18n build` →
+  `packages/i18n/dist` AIRI **0**; local stage build → js hits 327 → 33, of
+  which 29 are identifiers/shader tokens/metadata. eslint on the changed source:
+  0 errors (3 pre-existing comment-length warnings).
+  *New gate:* `test/brand-copy-gate.mjs`, node builtins only, logs in, reads the
+  shell, then crawls every `assets/*.js` ref found inside chunks (**552**) and
+  fails on any AIRI outside a reasoned allowlist. **Discriminating:** old build
+  `7/8`, 301 violations (first 12 printed with context); new build `8/8`,
+  0 violations, 29 allowlisted. Deploy `110` `finished` for `f5609ae1b` (locale
+  sweep) and `111` `finished` for `28a2647f8` (filename + console prefix + gate).
+  *Gates on 111:* brand-copy **8/8**, auth **10/10**, auth-surface **33/33**,
+  ui **7/7**, about **ALL PASS**, brand-assets **13/13**, voice **12/12**
+  (`chunksPlayed:16`, `peak 100`, capture/playback `running`,
+  `0 x localhost:6121`).
+  *Correction to F:* "the served card now reads 'Your name is Sofia'" was true
+  for English only; the character/persona copy in nine locales said AIRI/Sofia
+  inconsistently until this run. Also worth stating plainly: `AIRI` will never
+  reach zero in the bundle — the Live2D shader tokens, `AIRI_OUTLINE_*`
+  constants, motion-group names and package metadata are load-bearing.
+  *Two items opened by measurement, both unblocked but not taken:* N (upstream
+  terms/privacy URLs still rendered, 16 in served js — his copy call) and O
+  (647 `.map` files shipped in `/assets` of the production build).
