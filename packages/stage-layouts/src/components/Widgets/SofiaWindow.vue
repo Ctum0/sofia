@@ -97,6 +97,14 @@ let originY = 0
 function onMove(event: MouseEvent) {
   if (!dragging.value)
     return
+  // A mouseup released outside the page (browser chrome, OS bar, past the viewport)
+  // is never delivered to document, so the window follows the cursor forever with
+  // `--dragging` on and swallows every click on its own ✕. A move with no button
+  // held IS the missed release.
+  if (event.buttons === 0) {
+    onUp()
+    return
+  }
   const x = Math.max(0, Math.min(window.innerWidth - props.win.w, originX + event.clientX - startX))
   const y = Math.max(0, Math.min(window.innerHeight - 80, originY + event.clientY - startY))
   emit('move', { id: props.win.id, x, y })
@@ -106,6 +114,7 @@ function onUp() {
   dragging.value = false
   document.removeEventListener('mousemove', onMove)
   document.removeEventListener('mouseup', onUp)
+  window.removeEventListener('blur', onUp)
 }
 
 function onDown(event: MouseEvent) {
@@ -119,6 +128,9 @@ function onDown(event: MouseEvent) {
   originY = props.win.y
   document.addEventListener('mousemove', onMove)
   document.addEventListener('mouseup', onUp)
+  // A drag interrupted by the tab losing focus (alt-tab, a native dialog) never
+  // gets its mouseup either.
+  window.addEventListener('blur', onUp)
 }
 
 function openExternal() {

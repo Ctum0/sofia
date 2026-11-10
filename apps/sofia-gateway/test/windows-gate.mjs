@@ -187,12 +187,37 @@ try {
   step('a window can be dragged', !!after && (after.x !== first.x || after.y !== first.y),
     `${first.x},${first.y} → ${after?.x},${after?.y}`)
 
+  // A drag RELEASED OUTSIDE the page gets no mouseup: the window then follows the
+  // cursor with `--dragging` on and swallows every real click on its own ✕, so it
+  // can only be closed by reloading. Measured before the fix (drag released at
+  // -500,-500): class stayed `sofia-window--active sofia-window--dragging`, a raw
+  // click on the ✕ did nothing, a JS .click() closed it — so the close logic was
+  // fine and the input path was stuck.
+  // Order matters: this runs while the window is still at its dragged position,
+  // because from (0,0) the same gesture does not reproduce.
+  const pre = (await state()).wins.find(w => w.id === first.id)
+  await page.mouse.move(pre.x + 120, pre.y + 8)
+  await page.mouse.down()
+  await page.mouse.move(-500, -500, { steps: 6 })
+  await page.mouse.up()
+  await page.waitForTimeout(200)
+  const stuck = (await state()).wins.find(w => w.id === first.id)
+  // What a person does next: move the mouse. That move is the missed release.
+  await page.mouse.move(stuck.x + 60, stuck.y + 60)
+  await page.waitForTimeout(300)
+  const settled = (await state()).wins.find(w => w.id === first.id)
+  const draggingNow = await page.evaluate(() => !!document.querySelector('.sofia-window--dragging'))
+  step('a drag released outside the page does not leave the window stuck',
+    !draggingNow && settled.x === stuck.x && settled.y === stuck.y,
+    `dragging=${draggingNow}; ${stuck.x},${stuck.y} → ${settled.x},${settled.y} after a no-button move`)
+
   // Pushed hard at the top-left the window must stop at 0 instead of leaving the
   // screen where it cannot be grabbed back. This clamp came with the plain-mouse
   // drag rewrite and the live-window rewrite dropped the assertion, not the code.
-  await page.mouse.move((after?.x ?? first.x) + 120, (after?.y ?? first.y) + 8)
+  const edgeFrom = (await state()).wins.find(w => w.id === first.id) ?? first
+  await page.mouse.move(edgeFrom.x + 120, edgeFrom.y + 8)
   await page.mouse.down()
-  await page.mouse.move(-500, -500, { steps: 8 })
+  await page.mouse.move(2, 2, { steps: 8 })
   await page.mouse.up()
   await page.waitForTimeout(350)
   const clamped = (await state()).wins.find(w => w.id === first.id)
