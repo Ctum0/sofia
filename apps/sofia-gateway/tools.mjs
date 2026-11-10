@@ -29,11 +29,11 @@ export const LIVE_TOOLS = [
       },
       {
         name: 'show_panel',
-        description: 'Put something on his screen beside you. Use it when he asks to see a picture, a logo, a screenshot, or a web page, or when showing is clearer than describing. kind "image" renders the picture inline; kind "web" shows a card that opens the site in a new tab (most sites refuse to be embedded).',
+        description: 'Put something on his screen beside you. Use it when he asks to see a picture, a logo, a screenshot, or a web page, or when showing is clearer than describing. kind "live" opens the site in a real browser window on the stage that he can scroll and click (prefer this for any website); kind "image" renders a picture inline; kind "web" shows a small card with a link.',
         parameters: {
           type: 'OBJECT',
           properties: {
-            kind: { type: 'STRING', enum: ['image', 'web'], description: 'image for a picture, web for a website.' },
+            kind: { type: 'STRING', enum: ['image', 'web', 'live'], description: 'live opens the site in a real browser window he can click and scroll; web shows a small card with a link; image shows a picture.' },
             url: { type: 'STRING', description: 'An absolute https URL, or a path on this site. Only PUBLIC paths work without a session, e.g. /og.png.' },
             title: { type: 'STRING', description: 'A short human title for the panel.' },
           },
@@ -183,12 +183,34 @@ export async function executeToolCall(call, ctx = {}) {
   try {
     if (name === 'show_panel') {
       const url = String(args.url || '').trim()
-      const kind = String(args.kind || 'image').toLowerCase() === 'web' ? 'web' : 'image'
+      const asked = String(args.kind || 'image').toLowerCase()
+      const kind = asked === 'live' ? 'live' : asked === 'web' ? 'web' : 'image'
       if (!url) throw new Error('no url was given')
-      if (kind === 'web' && !/^https?:\/\//i.test(url)) throw new Error('a web panel needs an http(s) url')
+      if (kind !== 'image' && !/^https?:\/\//i.test(url)) throw new Error('a web panel needs an http(s) url')
       if (typeof ctx.onPanel !== 'function') throw new Error('this session cannot open panels')
-      ctx.onPanel({ kind, url, title: String(args.title || '').slice(0, 80) })
-      text = kind === 'image' ? 'The picture is on the screen beside you.' : 'The page card is on the screen beside you.'
+      if (kind === 'live') {
+        const base = process.env.BROWSER_URL || 'http://sofia-browser:8790'
+        let opened
+        try {
+          const res = await fetch(`${base}/open`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ url }),
+            signal: AbortSignal.timeout(45000),
+          })
+          opened = await res.json()
+          if (!res.ok) throw new Error(opened.error || `status ${res.status}`)
+        }
+        catch (error) {
+          throw new Error(`the browser could not open that page (${String(error.message || error).slice(0, 100)})`)
+        }
+        ctx.onPanel({ kind: 'live', sid: opened.sid, url: opened.url || url, title: String(opened.title || args.title || '').slice(0, 80) })
+        text = `The page is open beside you — ${opened.title || 'it'} — and I can click or scroll it for you.`
+      }
+      else {
+        ctx.onPanel({ kind, url, title: String(args.title || '').slice(0, 80) })
+        text = kind === 'image' ? 'The picture is on the screen beside you.' : 'The page card is on the screen beside you.'
+      }
     }
     else if (name === 'local_time') text = timeText()
     else if (name === 'ask_hermes') {

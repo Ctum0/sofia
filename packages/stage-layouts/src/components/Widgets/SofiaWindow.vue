@@ -1,12 +1,13 @@
 <script setup lang="ts">
 // One floating window. Not a chat bubble, not a column: a thing she opened on
 // the stage, which he can move, stack, and close.
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 export interface SofiaWindowState {
   id: string
-  kind: 'image' | 'web'
+  kind: 'image' | 'web' | 'live'
   url: string
+  sid?: string
   title: string
   x: number
   y: number
@@ -20,11 +21,63 @@ const emit = defineEmits<{
   close: [id: string]
   focus: [id: string]
   move: [payload: { id: string, x: number, y: number }]
+  retitle: [payload: { id: string, title: string, url: string }]
 }>()
 
 const host = computed(() => {
   try { return new URL(props.win.url, window.location.origin).host || 'this site' }
   catch { return 'this site' }
+})
+
+// --- a live page -------------------------------------------------------------
+// The browser service renders 1280x800; the window shows that picture and maps
+// a click back into page coordinates. No iframe anywhere: real sites refuse.
+const PAGE = { w: 1280, h: 800 }
+const frameTick = ref(0)
+const frameData = ref('')
+const busy = ref(false)
+const frameSrc = computed(() => frameData.value || `/api/browse/frame?sid=${encodeURIComponent(props.win.sid || '')}&t=${frameTick.value}`)
+
+async function act(action: string, extra: Record<string, unknown> = {}) {
+  if (!props.win.sid || busy.value)
+    return
+  busy.value = true
+  try {
+    const res = await fetch('/api/browse/act', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sid: props.win.sid, action, ...extra }),
+    })
+    const body = await res.json()
+    if (body?.png) {
+      frameData.value = `data:image/png;base64,${body.png}`
+      if (body.url)
+        emit('retitle', { id: props.win.id, title: body.title || props.win.title, url: body.url })
+    }
+  }
+  catch { /* a dead page shows its last frame; the toolbar can reload */ }
+  finally { busy.value = false }
+}
+
+function onPageClick(event: MouseEvent) {
+  const img = event.currentTarget as HTMLImageElement
+  const rect = img.getBoundingClientRect()
+  const x = Math.round((event.clientX - rect.left) * (PAGE.w / rect.width))
+  const y = Math.round((event.clientY - rect.top) * (PAGE.h / rect.height))
+  void act('click', { x, y })
+}
+
+function onWheel(event: WheelEvent) {
+  const img = event.currentTarget as HTMLImageElement
+  const rect = img.getBoundingClientRect()
+  const x = Math.round((event.clientX - rect.left) * (PAGE.w / rect.width))
+  const y = Math.round((event.clientY - rect.top) * (PAGE.h / rect.height))
+  void act('scroll', { x, y, text: String(Math.sign(event.deltaY) * 500) })
+}
+
+onMounted(() => {
+  if (props.win.kind === 'live')
+    frameTick.value++
 })
 
 const dragging = ref(false)
@@ -91,6 +144,22 @@ function openExternal() {
       <img :src="win.url" :alt="win.title || 'image'">
     </div>
 
+    <div v-else-if="win.kind === 'live'" class="sofia-window__body sofia-window__body--live">
+      <div class="sofia-window__tools">
+        <button type="button" class="sofia-window__btn" title="Back" @click="act('back')">←</button>
+        <button type="button" class="sofia-window__btn" title="Reload" @click="act('reload')">⟳</button>
+        <span class="sofia-window__urltab">{{ host }}</span>
+      </div>
+      <img
+        class="sofia-window__page"
+        :src="frameSrc"
+        alt=""
+        draggable="false"
+        @pointerdown="onPageClick"
+        @wheel.prevent="onWheel"
+      >
+    </div>
+
     <div v-else class="sofia-window__body sofia-window__body--web">
       <p class="sofia-window__wtitle">{{ win.title || host }}</p>
       <p class="sofia-window__note">Sites refuse to be embedded, so this one opens in a real tab — or ask her to read it for you.</p>
@@ -139,6 +208,17 @@ function openExternal() {
 .sofia-window__btn:hover { background: #2a1a1e; color: #f5e6d3; }
 .sofia-window__body { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0.7rem; }
 .sofia-window__body img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; }
+.sofia-window__body--live { flex-direction: column; align-items: stretch; padding: 0; gap: 0; }
+.sofia-window__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.55rem;
+  border-bottom: 1px solid #2a1a1e;
+  background: #140e10;
+}
+.sofia-window__urltab { font-size: 0.7rem; color: #8f7a72; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sofia-window__page { width: 100%; flex: 1; min-height: 0; object-fit: fill; cursor: crosshair; border-radius: 0 0 13px 13px; }
 .sofia-window__body--web { flex-direction: column; gap: 0.5rem; text-align: center; }
 .sofia-window__wtitle { color: #f5e6d3; font-size: 0.95rem; }
 .sofia-window__note { color: #8f7a72; font-size: 0.76rem; max-width: 26rem; }

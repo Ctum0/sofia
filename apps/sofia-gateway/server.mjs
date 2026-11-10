@@ -485,7 +485,7 @@ function noteLoginFailure(key, maxFailures = LOGIN_MAX_FAILURES, lockMs = LOGIN_
   }
 }
 
-const server = createServer((req, res) => {
+const server = createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
 
   if (url.pathname === '/healthz') {
@@ -648,6 +648,63 @@ self.addEventListener('activate', (event) => {
 
   if (url.pathname.startsWith('/public/')) {
     serveFrom(req, res, PUBLIC, url.pathname.slice('/public/'.length))
+    return
+  }
+
+  // --- her eyes and hands on the web --------------------------------------
+  // A real Chromium lives beside the gateway (container `sofia-browser`). Each
+  // window gets one page there; the window shows a screenshot and relays the
+  // pointer back. Nothing is iframed, because almost no real site allows it.
+  if (url.pathname.startsWith('/api/browse/')) {
+    const base = process.env.BROWSER_URL || 'http://sofia-browser:8790'
+    try {
+      if (url.pathname === '/api/browse/frame') {
+        const sid = url.searchParams.get('sid') || ''
+        const upstream = await fetch(`${base}/frame?sid=${encodeURIComponent(sid)}`, { signal: AbortSignal.timeout(20000) })
+        if (!upstream.ok) {
+          sendJson(res, 502, { error: 'the page did not render' })
+          return
+        }
+        const png = Buffer.from(await upstream.arrayBuffer())
+        res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' })
+        res.end(png)
+        return
+      }
+      const routes = { '/api/browse/open': '/open', '/api/browse/act': '/act', '/api/browse/close': '/close' }
+      const target = routes[url.pathname]
+      if (!target) {
+        sendJson(res, 404, { error: 'no route' })
+        return
+      }
+      if (req.method !== 'POST') {
+        sendJson(res, 405, { error: 'method not allowed' })
+        return
+      }
+      const body = await new Promise((resolve) => {
+        let raw = ''
+        req.on('data', (chunk) => {
+          raw += chunk
+          if (raw.length > 5e5)
+            req.destroy()
+        })
+        req.on('end', () => {
+          try { resolve(raw ? JSON.parse(raw) : {}) }
+          catch { resolve({}) }
+        })
+      })
+      const upstream = await fetch(base + target, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(45000),
+      })
+      const text = await upstream.text()
+      res.writeHead(upstream.status, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+      res.end(text)
+    }
+    catch (error) {
+      sendJson(res, 502, { error: `the browser is not answering: ${String(error.message || error).slice(0, 120)}` })
+    }
     return
   }
 

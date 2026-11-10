@@ -11,6 +11,7 @@ const emit = defineEmits<{
   close: [id: string]
   focus: [id: string]
   move: [payload: { id: string, x: number, y: number }]
+  retitle: [payload: { id: string, title: string, url: string }]
 }>()
 
 const topZ = computed(() => Math.max(0, ...props.windows.map(w => w.z)))
@@ -26,6 +27,7 @@ const topZ = computed(() => Math.max(0, ...props.windows.map(w => w.z)))
       @close="emit('close', $event)"
       @focus="emit('focus', $event)"
       @move="emit('move', $event)"
+      @retitle="emit('retitle', $event)"
     />
   </div>
 </template>
