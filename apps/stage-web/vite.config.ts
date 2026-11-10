@@ -116,7 +116,11 @@ export default defineConfig({
         },
       },
     },
-    sourcemap: true,
+    // Production must not ship sourcemaps. With this on, the image carried 647
+    // `.map` files next to 755 `.js` chunks under `/assets`, so one login was
+    // enough to read the entire source tree. Dev keeps sourcemaps for free
+    // (the dev server maps in memory); only the shipping build is affected.
+    sourcemap: false,
   },
   worker: {
     format: 'es',
