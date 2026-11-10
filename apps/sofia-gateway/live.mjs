@@ -91,16 +91,26 @@ export class LiveBridge {
       sessionResumption: this.resumeHandle ? { handle: this.resumeHandle } : {},
     }
     // How long the server waits after he stops talking before it decides the
-    // turn is over. The default is the single biggest cost in a spoken turn —
-    // measured at ~1278 ms from speech end to the input transcript on this
-    // stack — and it is a documented knob, not a guess: `probe-vad.mjs` shows
-    // this exact payload reaching setupComplete on gemini-3.8-live, while an
-    // unknown field closes the socket with 1007 before setup.
-    //   LIVE_VAD=off          -> leave Gemini's defaults alone
-    //   LIVE_SILENCE_MS=500   -> the hangover
-    //   LIVE_PREFIX_PAD_MS    -> audio kept from *before* speech was detected
+    // turn is over - which is almost the whole of the hangover a person feels
+    // before she answers. A documented knob, not a guess: `probe-vad.mjs` shows
+    // this payload reaching setupComplete on gemini-3.8-live, while an unknown
+    // field closes the socket with 1007 before setup ever completes.
+    //
+    // 700 ms is the measured compromise between the two failures below, not a
+    // preference. Both numbers come from gates that run against a real Live
+    // session on the serving build:
+    //   vad-latency-gate  one burst of speech, then 20 s of silence
+    //     -> speech end to first audio 1123 ms, inside phase 0.5's 1200 ms
+    //   vad-cutoff-gate   one turn with a 600 ms breath inside it
+    //     -> 500 ms: she answered 1689 ms BEFORE he finished, and the second
+    //        clause never reached the transcript at all
+    //     -> 700 ms: she waited for the whole turn and answered 1123 ms later
+    // Lower is faster and talks over him; that is not worth 200 ms.
+    //   LIVE_VAD=off        -> leave Gemini's defaults alone
+    //   LIVE_SILENCE_MS     -> the hangover (default 700)
+    //   LIVE_PREFIX_PAD_MS  -> audio kept from *before* speech was detected
     const vadOff = (process.env.LIVE_VAD || '').toLowerCase() === 'off'
-    const silenceMs = Number(process.env.LIVE_SILENCE_MS || 500)
+    const silenceMs = Number(process.env.LIVE_SILENCE_MS || 700)
     const padMs = Number(process.env.LIVE_PREFIX_PAD_MS || 300)
     if (!vadOff && Number.isFinite(silenceMs)) {
       setup.realtimeInputConfig = {
