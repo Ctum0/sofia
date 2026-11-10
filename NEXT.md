@@ -293,22 +293,55 @@ result under **Log**. Rules at the bottom are mandatory.
   Gate: `apps/sofia-gateway/test/session-longevity-gate.mjs` (75 s smoke 5/5,
   700 s production run 5/5).
 
-- [ ] **S. Barge-in: the server said "interrupted" and nothing stopped her.**
+- [x] **S. Barge-in: the server said "interrupted" and nothing stopped her.**
   `live.mjs` forwards `serverContent.interrupted` as `{type:'interrupted'}`;
   `public/voice-client.mjs` had **no branch for it** and `stopPlayback()` — the
   method written for exactly this, commented "Barge-in: drop everything queued
   so the user's voice wins" — had **zero callers** anywhere in the repo. Phase
   0.5's "barge-in cuts her mid-word" was therefore never true.
-  → **FIX BUILT AND PROVEN DISCRIMINATING 2026-11-10 09:35 SLT; production gate
-  pending.** Client now: `interrupted` → count it, `stopPlayback()`, and mute
-  inbound audio for 1200 ms so the tail already on the wire is discarded
+  → **DONE 2026-11-10, live.** Shipped in `f5bc9ec3c`, deploy **116**
+  `finished`, image `zp31…:f5bc9ec3c`, container `…T040256` Up (healthy). Client
+  now: `interrupted` → count it, `stopPlayback()`, and mute inbound audio for
+  1200 ms so the tail already on the wire is discarded
   (`stats.droppedAfterInterrupt`) instead of spoken over the person.
   *Evidence, new gate `test/barge-in-gate.mjs` (node builtins + playwright, a
   real WebSocket server pushing real 24 kHz PCM, the module the stage imports):*
-  against the **serving build** (`BASE=http://127.0.0.1:3005`, deploy 115) →
+  against the **serving build** (deploy 115, `BASE=http://127.0.0.1:3005`) →
   **6/10**, `interrupted` never counted, `isPlaying=true` 400 ms after the
   frame, `chunksPlayed 15 → 63` (the whole 30 s queue plus the tail played on).
   That is the defect in product terms, not in code-shape terms.
+  Against **deploy 116**, 10/10 — re-run 2026-11-10 10:2x SLT after hardening the
+  gate itself: `interruptions=1`, `isPlaying=false level=0.000`,
+  `droppedAfterInterrupt=3 of 3`, `chunksPlayed 60 → 60`, `0 x localhost:6121`.
+  *Gate correction.* The first version fired the interrupt from a **3 s timer**,
+  so whether she was still speaking depended on how fast the browser pushed 60
+  buffers — a race that could pass a broken client or fail a good one. The gate
+  now waits for `chunksPlayed >= 60` and fires the interrupt itself
+  (`control.interrupt()`, tail 150 ms behind), so the frame lands while the queue
+  is provably full. An intermediate 9/10 in the previous run was this same
+  artefact, not a product regression.
+
+- [x] **T. Turn latency: nobody had ever measured it.** Phase 0.5's done-when
+  says a turn answers "in under ~1.2 s", while the design table claims 2.4-3.2 s
+  to first sound on this stack — two documents, zero measurements, and the voice
+  gate only asserted `chunksPlayed > 0` with no timing at all.
+  → **DONE 2026-11-10, measured through https://sofia.ctum.org.** New gate
+  `test/latency-gate.mjs`: logs in, clicks a real button (so both AudioContexts
+  are allowed under `--autoplay-policy=user-gesture-required`), imports
+  `/public/voice-client.mjs` — the exact module the stage loads — opens a Live
+  session and times each segment. Two runs, 45 s apart:
+  run 1 `socket-open 67 ms / ready 547 ms / first-audio 426 ms`;
+  run 2 `socket-open 80 ms / ready 848 ms / first-audio 421 ms`. **6/6 both.**
+  Both beats inside phase 0.5's 1200 ms and far inside the 3200 ms assumption,
+  so the 2.4-3.2 s figure is a stale estimate for this build, not a property of
+  the transport.
+  *Scope of the number, stated plainly:* it is a **text** turn on the open Live
+  socket (send → first PCM scheduled on the audio clock). A spoken turn adds the
+  model's end-of-speech VAD hangover before the same path, which the fake mic
+  cannot measure because Chrome loops the WAV forever and never produces a
+  "speech ended" edge. So "under 1.2 s after he stops talking" remains
+  **UNVERIFIED at the VAD boundary**; everything after speech is accepted is now
+  a measured 421-426 ms.
 
 - [x] **P. Login limiter: measure it, and bound the path a forged header opens.**
   → **DONE 2026-11-10 08:05 SLT.** New gate `apps/sofia-gateway/test/rate-limit-gate.mjs`
@@ -797,3 +830,37 @@ Still open: the amber "S" logo glyph (asset, not CSS) and real-device voice
   *Closed as stale:* the "amber S glyph (#e0a35c)" leftover from earlier runs —
   `grep -r e0a35c` over `/app/dist` and `/app/public` returns nothing; the login
   mark is white on wine, and `#c8a06a` is a deliberate brass accent.
+
+- 2026-11-10 10:16–10:5x SLT — **S closed on the serving build; the queue's
+  remaining items all need his hand. T added and measured on the way.**
+  *State verified first, not assumed.* `/healthz` →
+  `brand:["splash:palette","splash:logo-filter","splash:button","splash:dark"]`
+  `hermes:"reachable" key:"set" reasoning:"stripped" voice:"Leda"`; deploy row
+  **116 `finished`** for `f5bc9ec3c7f6…`, container `…T040256` Up 39 min
+  (healthy); `main...origin/main` `0 0` — so the barge-in fix is in the tree that
+  is serving.
+  *S — barge-in, gate hardened and re-run against deploy 116.* The gate fired
+  its interrupt from a 3 s timer, which made "is she still speaking?" a race with
+  the browser's audio clock. It now waits for `chunksPlayed >= 60` and fires the
+  interrupt itself. Measured on the serving build: **10/10**,
+  `interruptions=1`, `isPlaying=false level=0.000` (was `1.000`),
+  `droppedAfterInterrupt=3 of 3`, `chunksPlayed 60 → 60`, `0 x localhost:6121`.
+  *T — the number nobody had measured.* Phase 0.5 says "under ~1.2 s"; the design
+  table says 2.4-3.2 s; the voice gate had no timing at all. New
+  `test/latency-gate.mjs` (Playwright, strict autoplay policy, real click,
+  imports the same `/public/voice-client.mjs` the stage loads) against
+  **https://sofia.ctum.org**, two runs 45 s apart: `socket-open 67 / ready 547 /
+  first-audio 426 ms` and `80 / 848 / 421 ms`, **6/6** both. The transport is
+  fast; the 3 s figure was a stale estimate. The **VAD hangover** before a spoken
+  turn is still UNVERIFIED — a looping fake WAV produces no speech-end edge.
+  *Two of this run's own measurements were wrong before they were right.* (1) The
+  first latency run reported `NaN` everywhere because
+  `waitForFunction(...).jsonValue()` returns the **predicate's** value (the
+  truthy timestamp), not `window.__lat`; it printed "2/6" like a product failure.
+  (2) `execute_code` is blocked in unattended cron runs — do the edit with the
+  patch tool, not a Python helper.
+  *Queue state after this run:* only **K(c)/L(a)** (apply the `/opt/data` backup
+  patch), **K(b)/L(b)** (rotate the sofia `api_server` key — restarts the gateway
+  hosting the conversation), and **Q** (root firewall: origin must accept 443
+  from Cloudflare only) remain, and every one of them is his hand. Nothing else
+  in the queue is unblocked.

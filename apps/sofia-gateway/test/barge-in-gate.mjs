@@ -83,6 +83,7 @@ const CHUNKS_BEFORE = 60 // 30 s of speech queued: a headless audio clock runs
 const TAIL_CHUNKS = 3 // chunks already on the wire when the interrupt lands
 
 const timeline = { ready: 0, chunks: 0, interrupted: 0, tail: 0 }
+let control = null
 
 function serve(ws) {
   const send = (obj) => {
@@ -92,13 +93,20 @@ function serve(ws) {
   send({ type: 'ready', model: 'gate-mock', voice: 'none' })
   timeline.ready += 1
   for (let i = 0; i < CHUNKS_BEFORE; i++) {
-    setTimeout(() => { send({ type: 'audio', data: toneChunk() }); timeline.chunks += 1 }, 5 * i)
+    setTimeout(() => { send({ type: 'audio', data: toneChunk() }); timeline.chunks += 1 }, 20 * i)
   }
-  // The interruption, then the tail that was already in flight behind it. Late
-  // enough that the page has measured "she is speaking" before it lands.
-  setTimeout(() => { send({ type: 'interrupted' }); timeline.interrupted += 1 }, 3000)
-  for (let i = 0; i < TAIL_CHUNKS; i++) {
-    setTimeout(() => { send({ type: 'audio', data: toneChunk() }); timeline.tail += 1 }, 3150 + 130 * i)
+  // The interrupt is fired by the gate, not by a clock: the browser needs an
+  // unpredictable amount of time to push 60 buffers through an AudioContext, and
+  // a timed interrupt either lands before she is speaking or after the queue has
+  // drained — both of which make this gate lie.
+  control = {
+    interrupt() {
+      send({ type: 'interrupted' })
+      timeline.interrupted += 1
+      for (let i = 0; i < TAIL_CHUNKS; i++) {
+        setTimeout(() => { send({ type: 'audio', data: toneChunk() }); timeline.tail += 1 }, 150 + 130 * i)
+      }
+    },
   }
 }
 
@@ -193,8 +201,8 @@ try {
   const st = await qa(() => window.__qa.stats)
   step('playback context is running (not suspended)', running, `state=${st?.playbackState} rate=${st?.playbackRate}`)
 
-  // Before the interrupt: she really is speaking.
-  const speaking = await page.waitForFunction(() => window.__qa?.isPlaying() === true && (window.__qa?.stats?.chunksPlayed || 0) >= 3, null, { timeout: 15000 })
+  // Before the interrupt: she really is speaking, and most of the queue is in.
+  const speaking = await page.waitForFunction(n => window.__qa?.isPlaying() === true && (window.__qa?.stats?.chunksPlayed || 0) >= n, CHUNKS_BEFORE, { timeout: 30000 })
     .then(() => true).catch(() => false)
   const before = await qa(() => ({
     chunks: window.__qa.stats.chunksPlayed,
@@ -204,19 +212,19 @@ try {
   step('audio is playing before the interruption', speaking && before.playing,
     `chunksPlayed=${before.chunks} level=${Number(before.level).toFixed(3)}`)
 
+  // Now interrupt, with the queue still full.
+  if (!control)
+    throw new Error('mock control not ready')
+  control.interrupt()
+
   // The interrupt lands while ~3 s of speech is still queued.
   const sawInterrupt = await page.waitForFunction(() => (window.__qa?.stats?.interruptions || 0) > 0, null, { timeout: 6000 })
     .then(() => true).catch(() => false)
   step('interrupted event reached the client', sawInterrupt,
     sawInterrupt ? `interruptions=${(await qa(() => window.__qa.stats.interruptions))}` : 'never counted — the client does not handle `interrupted`')
 
-  // Measure a fixed 400 ms after the frame went out, not after the client's own
-  // counter — otherwise an unhandled interrupt is only observed after the whole
-  // queue has drained, which reads as "she stopped".
-  const deadline = Date.now() + 6000
-  while (timeline.interrupted === 0 && Date.now() < deadline)
-    await page.waitForTimeout(20)
-  await page.waitForTimeout(400)
+  // 800 ms after the frame: long enough for all three tail chunks to land.
+  await page.waitForTimeout(800)
   const after = await qa(() => ({
     chunks: window.__qa.stats.chunksPlayed,
     playing: window.__qa.isPlaying(),
@@ -229,8 +237,8 @@ try {
     `isPlaying=${after.playing} level=${Number(after.level).toFixed(3)} (before: ${Number(before.level).toFixed(3)})`)
   step('the in-flight tail was discarded, not spoken', (after.dropped || 0) >= 1,
     `droppedAfterInterrupt=${after.dropped ?? 'undefined'} of ${timeline.tail} sent after the interrupt`)
-  step('no new audio started after the interruption', after.chunks === before.chunks,
-    `chunksPlayed ${before.chunks} -> ${after.chunks}`)
+  step('no further audio entered playback after the interruption', after.chunks === before.chunks,
+    `chunksPlayed ${before.chunks} -> ${after.chunks} (all ${CHUNKS_BEFORE} pre-interrupt frames were queued before the frame)`)
 
   const errors = await qa(() => window.__qa?.stats?.errors || [])
   step('no client errors', errors.length === 0, errors.join('; ') || 'none')
