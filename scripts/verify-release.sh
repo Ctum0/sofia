@@ -141,10 +141,12 @@ brand_pass=${brand_ok%%/*}; brand_all=${brand_ok##*/}
 [ -n "$brand_ok" ] && [ "$brand_pass" = "$brand_all" ] || { echo "$brand_px" | tail -14; fail 6 "brand assets are not Sofia's (${brand_ok:-no count})"; }
 note "$brand_ok brand assets"
 
-# The two gates that catch the failures this project actually has: a window
-# that cannot be clicked, and a browser that stops answering. Both run against
-# production, both parse their own count.
-for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs; do
+# The gates that catch the failures this project actually has: a window
+# that cannot be clicked, a browser that stops answering, a typed turn that
+# opens nothing, and — added 2026-11-10 — the same window on a phone, a tablet
+# and a laptop, because that gate found a real 74 px overlap at 1024x768 while
+# every other gate looked at 1440 only.
+for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs windows-responsive-gate.mjs; do
   out=$(run_gate "$g")
   # A browser that cannot reach the page is not a product failure. Seen on
   # 2026-11-10: "net::ERR_NETWORK_CHANGED" scored windows-gate 0/1 and read

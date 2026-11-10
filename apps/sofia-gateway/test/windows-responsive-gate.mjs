@@ -74,7 +74,24 @@ for (const vp of VIEWPORTS) {
     })
     step(vp.name, 'the stage exposes a window entry point', opened)
 
-    await page.waitForTimeout(600)
+    // The column narrows on a 0.45 s transition that starts with the window. On a
+    // cold page the main thread is still loading chunks, so a fixed 600 ms wait
+    // measured the PRE-narrow column (1440 wide at desktop → shoulder 1080) and
+    // then judged a window that was correctly placed beside a 605 px shoulder as
+    // "no room beside her". Settle on the real width, bounded, then measure —
+    // and keep the samples so a stale read can never hide again.
+    const colW = () => page.evaluate(() => {
+      const c = document.querySelector('.stage-column')
+      return c ? Math.round(c.getBoundingClientRect().width) : null
+    })
+    const samples = []
+    for (let i = 0; i < 34; i++) {
+      samples.push(await colW())
+      const n = samples.length
+      if (n >= 3 && samples[n - 1] === samples[n - 2] && samples[n - 2] === samples[n - 3])
+        break
+      await page.waitForTimeout(150)
+    }
     const m = await page.evaluate(() => {
       const col = document.querySelector('.stage-column')
       const cb = col ? col.getBoundingClientRect() : null
@@ -95,7 +112,7 @@ for (const vp of VIEWPORTS) {
     const w0 = m.wins[0]
 
     step(vp.name, 'a window renders', m.wins.length === 1, m.wins.length === 1
-      ? `${w0.x},${w0.y} ${w0.w}x${w0.h}  viewport ${m.vw}x${m.vh}  shoulder ${shoulder}  mode ${beside ? 'beside' : 'low'}`
+      ? `${w0.x},${w0.y} ${w0.w}x${w0.h}  viewport ${m.vw}x${m.vh}  shoulder ${shoulder}  colW ${samples.join('→')}  mode ${beside ? 'beside' : 'low'}`
       : `rendered ${m.wins.length}`)
 
     if (w0) {
