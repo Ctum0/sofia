@@ -169,6 +169,7 @@ done
 # gate runs inside the gateway container against the very code that is serving,
 # and it is the one that caught a context rebuilt per call — the reason she said
 # she could not see a page she had opened herself.
+app_container=$(docker ps --format "{{.Names}}" | grep zp31 | head -1)
 if [ -n "$app_container" ] && [ -f apps/sofia-gateway/test/tools-gate.mjs ]; then
   docker cp apps/sofia-gateway/test/tools-gate.mjs "$app_container:/tmp/tools-gate.mjs" >/dev/null 2>&1
   tools_out=$(docker exec "$app_container" node /tmp/tools-gate.mjs 2>&1)
