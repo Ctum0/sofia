@@ -41,6 +41,22 @@ export const LIVE_TOOLS = [
         },
       },
       {
+        name: 'control_window',
+        description: 'Arrange what is already on screen. Use it when he asks to resize, move, maximise, close, or line up the windows, or when a new window would cover the old one. action is one of: resize, move, maximize, minimize, close, focus, tile, close_all. target picks the window: "last" (default), "first", or a window id.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            action: { type: 'STRING', enum: ['resize', 'move', 'maximize', 'minimize', 'close', 'focus', 'tile', 'close_all'] },
+            target: { type: 'STRING', description: 'last, first, or a window id' },
+            x: { type: 'NUMBER', description: 'left edge in pixels, for move' },
+            y: { type: 'NUMBER', description: 'top edge in pixels, for move' },
+            width: { type: 'NUMBER', description: 'width in pixels, for resize' },
+            height: { type: 'NUMBER', description: 'height in pixels, for resize' },
+          },
+          required: ['action'],
+        },
+      },
+      {
         name: 'ask_hermes',
         description: 'Hand a real task to Hermes, the operator machine: it has the VPS, a shell, files, memory, web research, skills and scheduled jobs. Use it for anything that has to actually be done or looked up rather than answered from the conversation — check a service or server, run a command, read or write a file, search the web, research a topic, remember or recall a fact. Give it one complete, self-contained instruction, because it does not see this conversation.',
         parameters: {
@@ -181,7 +197,22 @@ export async function executeToolCall(call, ctx = {}) {
 
   let text
   try {
-    if (name === 'show_panel') {
+    if (name === 'control_window') {
+      const action = String(args.action || '').toLowerCase()
+      if (!action) throw new Error('no action was given')
+      if (typeof ctx.onPanel !== 'function') throw new Error('this session cannot arrange windows')
+      ctx.onPanel({
+        kind: 'control',
+        action,
+        target: String(args.target || 'last'),
+        x: Number.isFinite(Number(args.x)) ? Number(args.x) : undefined,
+        y: Number.isFinite(Number(args.y)) ? Number(args.y) : undefined,
+        width: Number.isFinite(Number(args.width)) ? Number(args.width) : undefined,
+        height: Number.isFinite(Number(args.height)) ? Number(args.height) : undefined,
+      })
+      text = `Done — ${action} applied to the ${String(args.target || 'last')} window.`
+    }
+    else if (name === 'show_panel') {
       const url = String(args.url || '').trim()
       const asked = String(args.kind || 'image').toLowerCase()
       const kind = asked === 'live' ? 'live' : asked === 'web' ? 'web' : 'image'

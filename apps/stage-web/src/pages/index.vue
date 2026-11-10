@@ -3,6 +3,7 @@
 import Header from '@proj-airi/stage-layouts/components/Layouts/Header.vue'
 import InteractiveArea from '@proj-airi/stage-layouts/components/Layouts/InteractiveArea.vue'
 import MobileInteractiveArea from '@proj-airi/stage-layouts/components/Layouts/MobileInteractiveArea.vue'
+import SofiaVoiceDock from '@proj-airi/stage-layouts/components/Widgets/SofiaVoiceDock.vue'
 import SofiaWindows from '@proj-airi/stage-layouts/components/Widgets/SofiaWindows.vue'
 
 import { BackgroundProvider } from '@proj-airi/stage-layouts/components/Backgrounds'
@@ -85,7 +86,90 @@ function focusWindow(id: string) {
 function moveWindow(payload: { id: string, x: number, y: number }) {
   windows.value = windows.value.map(w => (w.id === payload.id ? { ...w, x: payload.x, y: payload.y } : w))
 }
+// She can arrange her own windows: the tool sends { kind: 'control', action }
+// and this applies it to the real window list.
+function windowFor(target: string) {
+  if (!windows.value.length)
+    return null
+  if (target === 'first')
+    return windows.value[0]
+  if (target === 'last')
+    return windows.value[windows.value.length - 1]
+  return windows.value.find(w => w.id === target) || windows.value[windows.value.length - 1]
+}
+
+function clampWindow(win: { x: number, y: number, w: number, h: number }) {
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const w = Math.max(260, Math.min(win.w, vw - 32))
+  const h = Math.max(60, Math.min(win.h, vh - 48))
+  const x = Math.max(0, Math.min(win.x, vw - w))
+  const y = Math.max(0, Math.min(win.y, vh - h))
+  return { x, y, w, h }
+}
+
+function applyControl(payload: { action: string, target?: string, x?: number, y?: number, width?: number, height?: number }) {
+  const action = String(payload.action || '').toLowerCase()
+  if (action === 'close_all') {
+    windows.value = []
+    return
+  }
+  if (action === 'tile') {
+    // Right half, stacked: every window keeps its width, the heights divide.
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const n = windows.value.length || 1
+    const w = Math.max(320, Math.round(vw * 0.45))
+    const h = Math.max(180, Math.floor((vh - 140 - (n - 1) * 12) / n))
+    const x = vw - w - 32
+    windows.value = windows.value.map((win, index) => ({
+      ...win,
+      ...clampWindow({ x, y: 96 + index * (h + 12), w, h }),
+    }))
+    return
+  }
+  const target = windowFor(String(payload.target || 'last'))
+  if (!target)
+    return
+  if (action === 'close') {
+    windows.value = windows.value.filter(w => w.id !== target.id)
+    return
+  }
+  if (action === 'focus') {
+    focusWindow(target.id)
+    return
+  }
+  const next = { ...target }
+  if (action === 'resize') {
+    if (payload.width)
+      next.w = payload.width
+    if (payload.height)
+      next.h = payload.height
+  }
+  else if (action === 'move') {
+    if (payload.x !== undefined)
+      next.x = payload.x
+    if (payload.y !== undefined)
+      next.y = payload.y
+  }
+  else if (action === 'maximize') {
+    next.w = Math.round(window.innerWidth * 0.5)
+    next.h = window.innerHeight - 150
+    next.x = window.innerWidth - next.w - 32
+    next.y = 96
+  }
+  else if (action === 'minimize') {
+    next.h = 62
+  }
+  Object.assign(next, clampWindow(next))
+  windows.value = windows.value.map(w => (w.id === target.id ? { ...next, z: ++nextZ } : w))
+}
+
 function showPanel(payload: { kind?: 'image' | 'web' | 'live', url: string, title?: string, sid?: string } | null) {
+  if ((payload as { kind?: string })?.kind === 'control') {
+    applyControl(payload as unknown as { action: string })
+    return
+  }
   if (!payload?.url) { windows.value = []; return }
   const kind = payload.kind === 'live' ? 'live' : payload.kind === 'web' ? 'web' : 'image'
   const existing = windows.value.find(w => w.url === payload.url)
@@ -294,6 +378,12 @@ const router = useRouter()
              every width: the dock only exists on desktop, so a phone can only
              receive a window through the gate hook — and a dropped event is
              worse than a small window (rule: no fabricated capability). -->
+        <!-- The Talk button belongs to the stage, not to the chat: it was inside
+             the chat column, so opening a window removed it and killed the Live
+             session with it. -->
+        <div class="sofia-dock-layer">
+          <SofiaVoiceDock />
+        </div>
         <SofiaWindows
           :windows="windows"
           @close="closeWindow"
@@ -323,6 +413,14 @@ meta:
 </route>
 
 <style scoped>
+.sofia-dock-layer {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1rem;
+  z-index: 46;
+}
+.sofia-dock-layer :deep(.sofia-voice) { width: auto; padding: 0; }
+
 .sofia-chat-toggle {
   position: fixed;
   right: 0;

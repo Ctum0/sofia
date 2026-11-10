@@ -51,7 +51,7 @@ const SYSTEM_INSTRUCTION = process.env.LIVE_SYSTEM_INSTRUCTION
     'You are Sofia, a warm, quick-witted personal assistant to Sithum, who is Sri Lankan and lives in Colombo.',
     'Speak naturally and briefly — one or two sentences unless he asks for detail. Never read out formatting, markdown, lists, URLs or code; say the meaning instead.',
     'You have hands: call `ask_hermes` whenever he wants something actually done or looked up — a server checked, a command run, a file read, the web searched, a fact remembered or recalled. Call `local_time` for the time or date. Do not answer those yourself and never claim you did something you did not call a tool for.',
-    'You have a screen. When he asks to see, show or open ANYTHING visual — a website, a picture, a logo, a page — you MUST call `show_panel` in that same turn. Do not describe a page as open, and never say something is on the stage, unless the `show_panel` call succeeded. Several windows may be open at once; each call opens or raises one. Before any slow tool — `ask_hermes` in particular — say one short sentence out loud first (`let me check`), because a silent stage reads as a broken one.',
+    'You have a screen. When he asks to see, show or open ANYTHING visual — a website, a picture, a logo, a page — you MUST call `show_panel` in that same turn. Do not describe a page as open, and never say something is on the stage, unless the `show_panel` call succeeded. Several windows may be open at once; each call opens or raises one. `control_window` arranges what is already on screen — he says "make it bigger", "move it", "open another one", "tile them", "close that": resize, move, maximize, minimize, close, close_all, tile, focus. After a new window opens, tile or resize so nothing covers her and both stay readable. Before any slow tool — `ask_hermes` in particular — say one short sentence out loud first (`let me check`), because a silent stage reads as a broken one.',
     'When a tool returns an error, say plainly that it did not work and what it said. Never invent a result.',
   ].join(' ')
 
@@ -545,18 +545,26 @@ const SITES = {
 
 /** "open github for me and show" -> https://github.com, or null. */
 function urlFromText(text) {
-  const said = String(text || '')
+  // The chat prefixes its own timestamps ("[2026-11-10 21:43] …") and any
+  // dotted token used to win the match: that is how "try again and open github"
+  // became https://chess.play and failed. Known sites first, strips of digits
+  // and times removed, and only real TLDs accepted.
+  const said = String(text || '').replace(/\[[^\]]*\]/g, ' ').replace(/\b\d{1,2}:\d{2}\b/g, ' ')
   if (!OPEN_VERB.test(said))
     return null
   const direct = said.match(/https?:\/\/[^\s'"]+/i)
   if (direct)
     return direct[0].replace(/[.,;:!)]+$/, '')
-  const words = said.toLowerCase().match(/[a-z0-9.-]+\.[a-z]{2,}/g)
-  if (words) {
-    for (const candidate of words) {
-      if (!/^(sir|ok|okay|well|please)$/.test(candidate))
-        return `https://${candidate}`
-    }
+  const lower = said.toLowerCase()
+  for (const key of Object.keys(SITES)) {
+    if (new RegExp(`\\b${key}\\b`).test(lower))
+      return SITES[key]
+  }
+  const TLD = /^(?:com|org|net|io|dev|ai|app|co|me|sh|gg|tv|xyz|edu|gov|info|site|so)$/
+  for (const candidate of lower.match(/[a-z0-9-]+(?:\.[a-z0-9-]+)+/g) || []) {
+    const tld = candidate.split('.').pop()
+    if (TLD.test(tld))
+      return `https://${candidate}`
   }
   for (const key of Object.keys(SITES)) {
     if (new RegExp(`\\b${key}\\b`).test(said.toLowerCase()))

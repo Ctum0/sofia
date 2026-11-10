@@ -32,6 +32,8 @@ const state = () => page.evaluate(() => {
       img: (() => { const i = w.querySelector('img'); return i ? i.naturalWidth : 0 })() }
   })
   const chat = document.querySelector('[data-testid=chat-empty-state]')
+  const col = document.querySelector('.stage-column')
+  const cr = col ? col.getBoundingClientRect() : null
   const splash = document.getElementById('boot-splash')
   const splashVisible = !!splash && splash.getBoundingClientRect().height > 0 && getComputedStyle(splash).display !== 'none'
   return {
@@ -39,6 +41,8 @@ const state = () => page.evaluate(() => {
     count: wins.length, wins,
     chatVisible: !!chat, splashVisible,
     insideChatColumn: layer ? !!layer.closest('.stage-column') : null,
+    vw: innerWidth, vh: innerHeight,
+    col: cr ? { x: Math.round(cr.x), w: Math.round(cr.width), right: Math.round(cr.right) } : null,
   }
 })
 
@@ -101,6 +105,19 @@ try {
     two.wins.find(w => w.kind === 'web')?.title || 'none')
   step('windows are NOT inside the chat column', two.insideChatColumn === false, `layer position ${two.layerFixed}`)
   step('the chat yields while windows are open', two.chatVisible === false)
+  // `18273e680` moved the windows into her right shoulder so they never cover
+  // her. This assertion existed then and the live-window rewrite (`28994c745`)
+  // dropped it, so the gate went on printing a green count while the property it
+  // was written for went unread (16/16 at `b4af81cf1` → 15/15 afterwards, and the
+  // missing one was this). Property, not value: anything that starts at or right
+  // of 75 % of the stage column is off her centre.
+  const shoulder = two.col ? two.col.x + two.col.w * 0.75 : null
+  step('what she opens stays in the right shoulder, never over her centre',
+    !!shoulder && two.wins.length > 0 && two.wins.every(w => w.x >= shoulder),
+    `column ${two.col?.x}..${two.col?.right} shoulder≥${Math.round(shoulder ?? 0)}, windows ${JSON.stringify(two.wins.map(w => w.x))}`)
+  step('no window spills past the viewport edge',
+    two.wins.length > 0 && two.wins.every(w => w.x >= 0 && w.y >= 0 && w.x + w.w <= two.vw && w.y + w.h <= two.vh),
+    JSON.stringify(two.wins.map(w => `${w.x}+${w.w}/${two.vw} , ${w.y}+${w.h}/${two.vh}`)))
 
   // (a) Wait until nothing overlay-shaped intercepts the viewport. `#boot-splash`
   // is the static HTML splash; `section.startup-screen` is the Vue one and is the
@@ -160,14 +177,37 @@ try {
   step('a window can be dragged', !!after && (after.x !== first.x || after.y !== first.y),
     `${first.x},${first.y} → ${after?.x},${after?.y}`)
 
-  // close one
-  await page.click('[data-testid=sofia-window] [data-testid=sofia-window-close]')
+  // Pushed hard at the top-left the window must stop at 0 instead of leaving the
+  // screen where it cannot be grabbed back. This clamp came with the plain-mouse
+  // drag rewrite and the live-window rewrite dropped the assertion, not the code.
+  await page.mouse.move((after?.x ?? first.x) + 120, (after?.y ?? first.y) + 8)
+  await page.mouse.down()
+  await page.mouse.move(-500, -500, { steps: 8 })
+  await page.mouse.up()
+  await page.waitForTimeout(350)
+  const clamped = (await state()).wins.find(w => w.id === first.id)
+  step('a window dragged at the edge stops instead of leaving the screen',
+    !!clamped && clamped.x >= 0 && clamped.y >= 0 && clamped.x + clamped.w <= two.vw && clamped.y + clamped.h <= two.vh,
+    `${after?.x},${after?.y} → ${clamped?.x},${clamped?.y} (w ${clamped?.w}, vw ${two.vw})`)
+
+  // close one. The selector is scoped to a specific window: a bare
+  // `[data-testid=sofia-window] [data-testid=sofia-window-close]` matches every
+  // window's button, and once two windows overlap (which the edge-clamp drag
+  // makes them do) Playwright either waits 30 s for the one element it is
+  // allowed to act on or waits for a button that is covered — the gate then
+  // reports a product failure that is really its own selector.
+  const closeBtn = id => `[data-testid=sofia-window][data-window-id="${id}"] [data-testid=sofia-window-close]`
+  await page.click(closeBtn((await state()).wins.find(w => w.active === 'true')?.id ?? first.id))
   await page.waitForTimeout(400)
   // A close that misses is a harness problem until it misses twice: the click
-  // can land while the layer is re-rendering. Retry once, then assert.
+  // can land while the layer is re-rendering. Retry once, then assert — and
+  // re-read the window's position first, because the drag above moved it and a
+  // click at its old coordinates lands on nothing.
   let left = (await state()).count
   if (left !== 1) {
-    await page.mouse.click(first.x + Math.round(first.w / 2), first.y + 16)
+    const now = (await state()).wins.find(w => w.id === first.id)
+    const cur = now ?? first
+    await page.mouse.click(cur.x + Math.round(cur.w / 2), cur.y + 16)
     await page.waitForTimeout(400)
     const closeAgain = await page.$('[data-testid=sofia-window-close]')
     if (closeAgain)
@@ -177,9 +217,11 @@ try {
   }
   step('closing one leaves the other', left === 1, `${left} left`)
 
-  // close the rest
+  // close the rest, newest first, scoped by id for the same reason as above
   while ((await state()).count > 0) {
-    await page.click('[data-testid=sofia-window] [data-testid=sofia-window-close]')
+    const left2 = await state()
+    const top = left2.wins.find(w => w.active === 'true') ?? left2.wins[left2.wins.length - 1]
+    await page.click(closeBtn(top.id))
     await page.waitForTimeout(250)
   }
   const closed = await state()

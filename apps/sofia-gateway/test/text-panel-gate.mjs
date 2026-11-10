@@ -69,6 +69,18 @@ try {
   const insideChat = await page.evaluate(() => !!document.querySelector('[data-testid=sofia-window]')?.closest('.stage-column, [data-testid=chat-empty-state], textarea'))
   insideChat ? fail('the window is not inside the chat') : ok('the window is not inside the chat')
 
+  // 5b. the Talk button is still there with a window open
+  const dock = await page.evaluate(() => {
+    const el = document.querySelector('[data-testid=sofia-voice-dock]')
+    if (!el)
+      return null
+    const r = el.getBoundingClientRect()
+    return { visible: r.width > 0 && r.height > 0, x: Math.round(r.x), y: Math.round(r.y) }
+  })
+  dock?.visible
+    ? ok('the Talk button survives a window', `${dock.x},${dock.y}`)
+    : fail('the Talk button survives a window', JSON.stringify(dock))
+
   // 6. the chat can be put away and brought back. A window takes the space by
   // design, so close it first — the toggle is about the chat, not about windows.
   await page.evaluate(() => window.__sofiaPanel(null))

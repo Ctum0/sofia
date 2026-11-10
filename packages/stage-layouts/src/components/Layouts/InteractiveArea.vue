@@ -16,7 +16,6 @@ import ChatPanelHeader from '../Widgets/chat-panel-header.vue'
 import ChatActionButtons from '../Widgets/ChatActionButtons.vue'
 import ChatArea from '../Widgets/ChatArea.vue'
 import ChatContainer from '../Widgets/ChatContainer.vue'
-import SofiaVoiceDock from '../Widgets/SofiaVoiceDock.vue'
 
 import { useChatToolCallRerun } from '../../composables/useChatToolCallRerun'
 import { useStageChatComposerStore } from '../../stores/chat-composer'
@@ -98,7 +97,6 @@ async function handleRetryMessage(index: number) {
       composer the way the old `absolute bottom--8 right-0` toolbar did.
     -->
     <div class="sofia-bottom-stack" flex="col" items-center gap-2 w-full shrink-0 pt-2 pb-3>
-      <SofiaVoiceDock />
       <ChatActionButtons />
     </div>
     <!-- Teleports to `body` and pins itself to the top edge, so it adds no height here. -->

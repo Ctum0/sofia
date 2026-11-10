@@ -83,6 +83,9 @@ async function newPage(url) {
   const page = await ctx.newPage()
   page.setDefaultTimeout(20000)
   await page.goto(safe, { waitUntil: 'domcontentloaded', timeout: 25000 })
+  // domcontentloaded is early: his screenshot showed GitHub's header with a
+  // blank body because the picture was taken before the paint settled.
+  await page.waitForLoadState('networkidle', { timeout: 12000 }).catch(() => {})
   await page.waitForTimeout(1200)
   const sid = `p${Date.now().toString(36)}${pages.size}`
   pages.set(sid, { page, ctx, used: Date.now() })
