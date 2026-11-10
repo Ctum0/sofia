@@ -19,7 +19,14 @@ import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 
 const BASE = process.env.BASE || 'http://127.0.0.1:8787'
-const WAV = process.env.WAV || '/qa/mic-hello.wav'
+// The fake mic LOOPS this file, so the gap between one repetition and the next
+// is its trailing silence — and the model only ends a turn when that gap is
+// longer than `silenceDurationMs`. mic-hello.wav's tail is 853 ms, so from the
+// moment live.mjs moved to 1100 ms this gate failed with "peak 0, no reply"
+// while the product was healthy: the fixture had no end-of-turn left to give.
+// mic-one-line.wav is 1.85 s of speech + 20.0 s of digital silence.
+const WAV = process.env.WAV || '/qa/mic-one-line.wav'
+const THRESHOLD_MS = Number(process.env.LIVE_SILENCE_MS || 1100)
 const passwordFile = process.env.SOFIA_PASSWORD_FILE || '/home/ctum/secrets/sofia-password'
 const PASSWORD = process.env.SOFIA_PASSWORD || (() => {
   try { return readFileSync(passwordFile, 'utf8').trim() }
@@ -30,6 +37,76 @@ const results = []
 function step(name, ok, detail = '') {
   results.push({ name, ok })
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`)
+}
+
+// A fixture is a claim about the product, so it is measured before it is used.
+// Node builtins only: RIFF/WAVE 16-bit PCM -> total length and the trailing
+// silence the looping fake mic turns into the gap between two turns.
+function wavShape(path) {
+  const buf = readFileSync(path)
+  if (buf.toString('ascii', 0, 4) !== 'RIFF' || buf.toString('ascii', 8, 12) !== 'WAVE')
+    throw new Error(`${path} is not a RIFF/WAVE file`)
+  let off = 12
+  let fmt = null
+  let data = null
+  while (off + 8 <= buf.length) {
+    const id = buf.toString('ascii', off, off + 4)
+    const size = buf.readUInt32LE(off + 4)
+    const body = off + 8
+    if (id === 'fmt ')
+      fmt = { channels: buf.readUInt16LE(body + 2), rate: buf.readUInt32LE(body + 4), bits: buf.readUInt16LE(body + 14) }
+    if (id === 'data')
+      data = { start: body, size: Math.min(size, buf.length - body) }
+    off = body + size + (size % 2)
+  }
+  if (!fmt || !data)
+    throw new Error(`${path} has no fmt/data chunk`)
+  if (fmt.bits !== 16)
+    throw new Error(`${path} is ${fmt.bits}-bit; this audit reads 16-bit PCM only`)
+  const frame = 2 * fmt.channels
+  const frames = Math.floor(data.size / frame)
+  let lastLoud = -1
+  for (let i = frames - 1; i >= 0; i--) {
+    let peak = 0
+    for (let c = 0; c < fmt.channels; c++)
+      peak = Math.max(peak, Math.abs(buf.readInt16LE(data.start + i * frame + c * 2)))
+    if (peak > 300) { lastLoud = i; break }
+  }
+  return {
+    totalMs: Math.round((frames / fmt.rate) * 1000),
+    trailingMs: Math.round(((frames - 1 - lastLoud) / fmt.rate) * 1000),
+    rate: fmt.rate,
+  }
+}
+
+let shape = null
+try { shape = wavShape(WAV) }
+catch (err) {
+  step('fixture is readable', false, err.message)
+}
+if (shape) {
+  // +300 ms of margin: the model needs the silence to *exceed* the window, and
+  // a fixture tuned to the edge fails intermittently for reasons of its own.
+  const ok = shape.trailingMs >= THRESHOLD_MS + 300
+  step('fixture can end a turn (tail longer than the window)', ok,
+    `${WAV} ${shape.totalMs} ms total, ${shape.trailingMs} ms tail vs ${THRESHOLD_MS} ms window`)
+  if (!ok) {
+    console.log('\n  The fixture cannot produce an end-of-turn, so every later assertion would')
+    console.log('  measure the file instead of the product. Pad it:')
+    console.log(`    ffmpeg -y -i ${WAV} -f lavfi -t 3 -i anullsrc=r=${shape.rate}:cl=mono \\`)
+    console.log('      -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1[out]" -map "[out]" \\')
+    console.log(`      -ar ${shape.rate} -ac 1 ${WAV.replace(/\.wav$/, '-pad.wav')}`)
+  }
+} else {
+  console.log('\n  Cannot read the fixture; refusing to run the gate against a file it cannot audit.')
+}
+const fixtureUsable = !!shape && shape.trailingMs >= THRESHOLD_MS + 300
+if (!fixtureUsable) {
+  // Refuse rather than run: the failure that follows would be blamed on the
+  // product (it reads as "peak 0, no reply"), which is how two runs were spent.
+  const failed = results.filter(r => !r.ok).length
+  console.log(`\n${results.length - failed}/${results.length} checks passed`)
+  process.exit(1)
 }
 
 const browser = await chromium.launch({
@@ -75,6 +152,22 @@ try {
   }
   step('signed in to the stage', true, page.url())
 
+  // peak and chunksPlayed are live values on the client; a session that is
+  // replaced mid-gate resets both to 0, so sampling them into maxima means a
+  // reconnect cannot erase what did happen. (Measured: two runs reported
+  // "0 chunks, peak 0" after a session had in fact spoken, and the gate read
+  // that as a lip-sync defect.)
+  await page.evaluate(() => {
+    window.__peakMax = 0
+    window.__chunksMax = 0
+    setInterval(() => {
+      const p = window.__sofiaVoice?.peak || 0
+      const c = window.__sofiaVoice?.stats?.chunksPlayed || 0
+      if (p > window.__peakMax) window.__peakMax = p
+      if (c > window.__chunksMax) window.__chunksMax = c
+    }, 100)
+  })
+
   const dock = page.getByTestId('sofia-voice-dock')
   await dock.waitFor({ state: 'visible', timeout: 60000 })
   step('Talk dock renders on the stage', true, await dock.getAttribute('data-status'))
@@ -110,18 +203,17 @@ try {
   // chunksPlayed lives on the client's stats object (the dock mirrors the whole
   // stats blob); reading a top-level field made this assertion time out while
   // 14 chunks had in fact played.
-  const playedChunks = () => page.evaluate(() => window.__sofiaVoice?.stats?.chunksPlayed ?? window.__sofiaVoice?.chunksPlayed ?? 0)
-  const played = await page.waitForFunction(() => ((window.__sofiaVoice?.stats?.chunksPlayed ?? window.__sofiaVoice?.chunksPlayed) || 0) > 0, null, { timeout: 60000 }).catch(() => null)
-    .then(() => true).catch(() => false)
-  const chunks = await playedChunks()
+  // The old form ended in `.catch(() => null).then(() => true)`, so `played` was
+  // ALWAYS true: the gate printed "0 chunks" and PASSed. Assert the measurement.
+  const chunks = await page.evaluate(() => window.__chunksMax || 0)
   const playing = await stats()
-  step('reply audio played on the stage', played && playing?.playbackState === 'running',
-    `${chunks} chunks, playback=${playing?.playbackState}`)
+  step('reply audio played on the stage', chunks > 0 && playing?.playbackState === 'running',
+    `${chunks} chunks (live ${playing?.chunksPlayed ?? 0}), playback=${playing?.playbackState}`)
 
   // Lip sync: the mouth comes from the envelope of the PCM that is playing.
-  const mouthMoved = await page.waitForFunction(() => (window.__sofiaVoice?.peak || 0) > 10, null, { timeout: 30000 })
+  const mouthMoved = await page.waitForFunction(() => (window.__peakMax || 0) > 10, null, { timeout: 30000 })
     .then(() => true).catch(() => false)
-  const peak = await page.evaluate(() => window.__sofiaVoice?.peak || 0)
+  const peak = await page.evaluate(() => window.__peakMax || 0)
   step('mouth moved with the reply (peak 0-100)', mouthMoved, `peak ${peak}`)
 
   // A capture that produces no frames must say so, not sit in 'live'.
@@ -141,6 +233,8 @@ try {
     frames: after?.frames,
     framesSent: after?.framesSent,
     chunksPlayed: after?.chunksPlayed,
+    chunksMax: chunks,
+    peakMax: peak,
     captureState: after?.captureState,
     playbackState: after?.playbackState,
     micWarning: after?.micWarning,

@@ -94,11 +94,19 @@ run_gate() {
     "$PW" node "$1" 2>&1
 }
 voice=$(run_gate voice-gate.mjs)
-# Parse the count, do not grep for a substring: "11/12" contains "12" and a
-# loose pattern let a partially failing gate through once.
-voice_ok=$(echo "$voice" | grep -oE '[0-9]+/12' | tail -1)
-[ "$voice_ok" = "12/12" ] || { echo "$voice" | grep -E '^FAIL' | head -5; fail 5 "voice gate ${voice_ok:-unknown}"; }
-note "$voice_ok"
+# Assert the property, never the count: a gate that grows a check must not read
+# as a failure, and a gate whose total is hardcoded once let "11/12" through
+# (that regex matched "12"). Pass = every check passed, zero FAIL lines, and a
+# total large enough that the file is the real gate.
+voice_ratio=$(echo "$voice" | grep -oE '[0-9]+/[0-9]+ checks passed' | tail -1 | awk '{print $1}')
+voice_num=${voice_ratio%%/*}
+voice_den=${voice_ratio##*/}
+voice_fail=$(echo "$voice" | grep -cE '^FAIL' || true)
+if [ -z "$voice_ratio" ] || [ "$voice_num" != "$voice_den" ] || [ "${voice_den:-0}" -lt 12 ] || [ "$voice_fail" != "0" ]; then
+  echo "$voice" | grep -E '^FAIL|checks passed' | head -6
+  fail 5 "voice gate ${voice_ratio:-unknown} (${voice_fail} FAIL lines)"
+fi
+note "$voice_ratio"
 
 echo "== 5. brand =="
 brand=$(run_gate dark-check.mjs)
