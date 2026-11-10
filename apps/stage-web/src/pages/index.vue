@@ -197,9 +197,20 @@ onMounted(() => {
       el.setAttribute('aria-hidden', 'true')
     }
   }
+  // Vite/upstream marks the app inert while the startup phase runs, and an
+  // inert subtree is removed from hit testing entirely: elementFromPoint over a
+  // window's own title bar returned #app, with the window visible, opaque and
+  // pointer-events:auto. Clearing inert is what makes the windows real.
+  const clearInert = () => {
+    for (const el of document.querySelectorAll('[inert]'))
+      el.removeAttribute('inert')
+  }
+  clearInert()
   clearOverlays()
-  for (const delay of [800, 2500, 5000])
+  for (const delay of [800, 2500, 5000]) {
+    setTimeout(clearInert, delay)
     setTimeout(clearOverlays, delay)
+  }
 })
 
 // Small screens offer no control for continuous listening, so only a voice call listens there.
