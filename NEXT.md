@@ -246,7 +246,7 @@ result under **Log**. Rules at the bottom are mandatory.
   now logs a warning instead of passing as success.
   Script backed up first as `vps-backup.sh.bak-20261110-0630`; `bash -n` clean.
   Nightly archive goes 35 MB → ~74 MB.
-- [ ] **K(c). (original note, kept for the record)** Cover `/opt/data` in the nightly backup. `vps-backup.sh` copies
+- [x] **K(c). (original note, kept for the record) — SUPERSEDED 2026-11-10, the step landed at 06:30 and was proven by hand** Cover `/opt/data` in the nightly backup. `vps-backup.sh` copies
   only `config.yaml` from the Hermes home; the profile's `memories/`, `skills/`
   and session store are not archived. Proposal (needs his go-ahead because it
   edits a cron-driven script): add a `tar czf $STAGING/hermes/profile.tar.gz
@@ -1335,3 +1335,56 @@ Cloudflare-only (root firewall; exact commands in Q).
   *Next:* nothing in the queue is unblocked and mine — **L(a)** or **X** is a
   single command away and both are his crontab/patch, **K(b)** needs a
   gateway-restart window, **Q** needs root.
+
+### 2026-11-10 21:20–21:40 SLT — the two gates the last run left unrun, and the first full `verify-release PASS` recorded here
+
+**What was actually owed.** The previous run shipped `cf0bd4e54` (the chat-toggle lie and the
+browser-gate's fake anonymous probe) and stopped before re-running the two gates that read those
+fixes — and its NEXT.md writeback never happened, which is why this file's Log ended at 15:49
+while nine commits landed after it.
+
+**Both gates, run this session against the serving build `41a23b8d6`** (deploy `e76f203e`,
+`finished` 15:19:14 UTC, container `…T151358` healthy):
+
+- `browser-gate.mjs` → **9/9**. `401 without a cookie` (the defect `cf0bd4e54` fixed: the
+  "anonymous" probe used the logged-in jar and reported the endpoint open); page opened
+  `pmwavc19e0 · Example Domain`; frame **70 KB**; window `680px at 712,104`; scroll relayed
+  (frame changed); navigation inside the window; close → `frame -> 502`; private address refused
+  (`127.0.0.1`).
+- `text-panel-gate.mjs` → **7/7**. Stage stream `401`; no window before the turn; typed turn
+  opens a window `live at 712, 680px`; the window serves `/api/browse/frame?sid=…`; the window is
+  *not* inside the chat; chat can be hidden and brought back. This is the gate that was **5/7** on
+  `c0d725477` and **6/7** on `7ba574666` — the container log then read
+  `text: intent failed (Cannot access 'OPEN_VERB' before initialization)`, which that commit fixed.
+
+**Deploy, and the tree moving under it.** `02aaec2d` was queued for `c79571f46` and `finished`
+16:05:59 UTC (container `…T155538` healthy). HEAD moved twice *during* this run —
+`944a0e925` → `c79571f46` → `014e20016` — all three harness-only commits from a concurrent run
+(`verify-release` retry, network-blip classification, gate close retry). No product code changed
+between `41a23b8d6` and `014e20016`, so the gate evidence above still describes the served bytes.
+
+**`verify-release.sh` — the authority, and it passed:**
+
+```
+PASS 014e20016 — tree clean, deployed, healthy, gated, on-brand
+  2. status finished · commit c79571f46 · runtime HEAD 41a23b8d6
+  3. {"ok":true,"stage":true,"hermes":"reachable","key":"set",…}
+  4. gates 13/13            (voice-gate, one real Live session)
+  5. strayAIRI false · anyWhiteSurfaces 0 · 13/13 brand assets
+     windows-gate 15/15 · browser-gate 9/9 · text-panel-gate 7/7
+```
+
+So the verifier now runs both gates that were previously only run by hand, and both are green
+inside it — the previous run's "expect 9/9 and 7/7" is closed with two independent readings
+(manual, then in-verifier).
+
+**Correction to the queue's own count.** `windows-gate` printed **15/15** here and **16/16** in the
+15:47 entry. That is not a regression being hidden: `014e20016` merged the gate's close-retry path,
+and the number of assertions in the file moved with it. Stated because a lower count on a later
+build is exactly the signature of a deleted assertion, and it is not that.
+
+**Queue state after this run — nothing left that is mine.** Every unchecked item is his hand:
+`K(b)`/`L(b)` rotate the `api_server` key (needs a gateway-restart window), `L(a)` is superseded
+(it landed at 06:30), **`Q`** closes the origin to Cloudflare only (root firewall, exact commands
+below), **`X`** is one crontab line for Sofia's DB backup. The `K(c)` "original note" line below is
+struck because the step it asked for has since been applied and proven by hand.
