@@ -587,9 +587,14 @@ function rememberPage(page) {
 // Her own size and place. These run before the open matcher, because "make
 // yourself smaller" contains "make" and would otherwise be read as a request to
 // open something.
+// Word order is the whole bug: the first version only accepted "get smaller"
+// and "smaller yourself", so the phrasing he actually uses — "make yourself
+// smaller" — matched nothing, fell through to prose, and she answered that she
+// could not resize herself. The rules below read the size word and the subject
+// in either order; an explicit number ("scale yourself to 0.6") wins over both.
 const AVATAR_RULES = [
-  [/\b(?:get|go|be)\s+(?:much\s+)?smaller\b|\bshrink\b|\bscale down\b|\bsmaller yourself\b/i, { action: 'set', scale: 0.65 }],
-  [/\b(?:get|go|be)\s+(?:much\s+)?bigger\b|\bgrow\b|\bscale up\b|\bbigger yourself\b/i, { action: 'set', scale: 1 }],
+  [/\b(?:smaller|tinier|littler)\b|\bshrink\b|\bscale (?:yourself )?down\b|\bhalf size\b|\bsmall size\b|\bminimi[sz]e yourself\b/i, { action: 'set', scale: 0.65 }],
+  [/\b(?:bigger|larger|taller)\b|\bgrow\b|\bscale (?:yourself )?up\b|\bfull size\b|\bnormal size\b|\bmaximi[sz]e yourself\b/i, { action: 'set', scale: 1 }],
   [/\bmove (?:yourself )?(?:to the )?left\b/i, { action: 'set', x: -260 }],
   [/\bmove (?:yourself )?(?:to the )?right\b/i, { action: 'set', x: 260 }],
   [/\bmove aside\b/i, { action: 'set', x: 220, scale: 0.8 }],
@@ -608,7 +613,24 @@ function stageIntent(rawText) {
     .replace(/\b\d{1,2}:\d{2}\b/g, ' ')
   const lower = said.toLowerCase().trim()
 
-  if (/\byourself\b|\byour avatar\b|\bshrink\b|\bmove aside\b|\bcome back\b/.test(lower)) {
+  // Does this turn talk about HER, or about the furniture? "make yourself
+  // smaller" is her; "make the window smaller" is the stage. Getting that
+  // backwards is how a size request ends up opening a page.
+  const herDirect = /\byourself\b|\byour avatar\b|\bavatar\b|\bshrink\b|\bmove aside\b|\bcome back\b/.test(lower)
+  const sizeTalk = /\b(?:smaller|bigger|tinier|littler|larger|taller)\b|\bscale (?:up|down)\b|\bfull size\b|\bhalf size\b|\bnormal size\b|\b(?:scale|size)\b[^0-9%]{0,14}\d/.test(lower)
+  const furniture = /\bwindows?\b|\bpanes?\b/.test(lower)
+
+  if (herDirect || (sizeTalk && !furniture)) {
+    // "scale yourself to 0.6" / "size 60%" beats a vague word.
+    const sized = lower.match(/\b(?:scale|size)\b[^0-9%]{0,14}(\d*\.?\d+)\s*(?:%|percent)?/)
+    if (sized) {
+      const percent = /%|percent/.test(sized[0])
+      let value = Number(sized[1])
+      if (percent || value > 1.6)
+        value = value / 100
+      if (Number.isFinite(value) && value > 0)
+        return { events: [{ kind: 'avatar', action: 'set', scale: Math.max(0.35, Math.min(1.6, value)) }] }
+    }
     for (const [re, payload] of AVATAR_RULES) {
       if (re.test(lower))
         return { events: [{ kind: 'avatar', ...payload }] }
