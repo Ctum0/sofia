@@ -93,13 +93,24 @@ try {
     return { w: Math.round(r.width), h: Math.round(r.height) }
   })
 
+  // Her size survives a reload, so the baseline must be a known size: a gate
+  // that measured whatever the last session left behind called a working
+  // command broken (541px -> 541px) because she was already at 0.65.
+  await page.evaluate(() => window.__sofiaPanel({ kind: 'avatar', action: 'reset' }))
+  await page.waitForTimeout(800)
   const big = await avatarBox()
   await say('make yourself smaller')
   const small = await avatarBox()
   const ratio = big && small && big.h > 0 ? small.h / big.h : 1
-  ratio < 0.8
+  ratio < 0.9 && ratio > 0.5
     ? ok('a typed turn shrinks her on screen', `${big?.h}px -> ${small?.h}px (${ratio.toFixed(2)})`)
     : fail('a typed turn shrinks her on screen', `${big?.h}px -> ${small?.h}px (${ratio.toFixed(2)})`)
+  // Twice must be smaller than once, or the repeat is a silent no-op.
+  await say('make yourself smaller')
+  const smaller = await avatarBox()
+  small && smaller && small.h > 0 && smaller.h < small.h
+    ? ok('and saying it twice goes further', `${small?.h}px -> ${smaller?.h}px`)
+    : fail('and saying it twice goes further', `${small?.h}px -> ${smaller?.h}px`)
   await say('come back to your usual place')
   const restored = await avatarBox()
   const backRatio = big && restored && big.h > 0 ? restored.h / big.h : 1

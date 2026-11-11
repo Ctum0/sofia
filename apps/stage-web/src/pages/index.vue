@@ -89,14 +89,19 @@ const avatarVars = computed(() => ({
   '--sofia-avatar-y': `${avatarY.value}px`,
 }))
 
-function applyAvatar(payload: { action?: string, scale?: number, x?: number, y?: number }) {
+function applyAvatar(payload: { action?: string, scale?: number, step?: number, x?: number, y?: number }) {
   if (String(payload.action || 'set').toLowerCase() === 'reset') {
     avatarScale.value = 1
     avatarX.value = 0
     avatarY.value = 0
     return
   }
-  if (Number.isFinite(payload.scale))
+  // A size word is a step, not a fixed size: saying "make yourself smaller"
+  // twice has to leave her smaller than saying it once. A fixed 0.65 made the
+  // second ask a no-op, so a command that worked read as a broken one.
+  if (Number.isFinite(payload.step))
+    avatarScale.value = Math.max(0.35, Math.min(1.6, avatarScale.value + Number(payload.step)))
+  else if (Number.isFinite(payload.scale))
     avatarScale.value = Math.max(0.35, Math.min(1.6, Number(payload.scale)))
   if (Number.isFinite(payload.x))
     avatarX.value = Math.max(-600, Math.min(600, Number(payload.x)))

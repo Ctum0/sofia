@@ -593,8 +593,13 @@ function rememberPage(page) {
 // could not resize herself. The rules below read the size word and the subject
 // in either order; an explicit number ("scale yourself to 0.6") wins over both.
 const AVATAR_RULES = [
-  [/\b(?:smaller|tinier|littler)\b|\bshrink\b|\bscale (?:yourself )?down\b|\bhalf size\b|\bsmall size\b|\bminimi[sz]e yourself\b/i, { action: 'set', scale: 0.65 }],
-  [/\b(?:bigger|larger|taller)\b|\bgrow\b|\bscale (?:yourself )?up\b|\bfull size\b|\bnormal size\b|\bmaximi[sz]e yourself\b/i, { action: 'set', scale: 1 }],
+  // A size word is a step, not a fixed number: "make yourself smaller" twice
+  // has to leave her smaller than once. The fixed 0.65 made the second ask a
+  // no-op, and a command that does nothing on the second try reads as broken.
+  [/\b(?:smaller|tinier|littler)\b|\bshrink\b|\bscale (?:yourself )?down\b|\bminimi[sz]e yourself\b/i, { action: 'set', step: -0.2 }],
+  [/\bhalf size\b|\bsmall size\b/i, { action: 'set', scale: 0.5 }],
+  [/\b(?:bigger|larger|taller)\b|\bgrow\b|\bscale (?:yourself )?up\b|\bmaximi[sz]e yourself\b/i, { action: 'set', step: 0.2 }],
+  [/\bfull size\b|\bnormal size\b/i, { action: 'set', scale: 1 }],
   [/\bmove (?:yourself )?(?:to the )?left\b/i, { action: 'set', x: -260 }],
   [/\bmove (?:yourself )?(?:to the )?right\b/i, { action: 'set', x: 260 }],
   [/\bmove aside\b/i, { action: 'set', x: 220, scale: 0.8 }],
