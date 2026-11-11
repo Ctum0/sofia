@@ -587,26 +587,18 @@ async function maybeOpenFromText(body) {
   const text = typeof lastUser?.content === 'string'
     ? lastUser.content
     : Array.isArray(lastUser?.content) ? lastUser.content.map(p => p?.text || '').join(' ') : ''
-  const target = urlFromText(text)
-  console.log(`[sofia-gateway] text: turn "${String(text).slice(0, 60)}" -> ${target || 'no intent'}`)
-  if (!target)
+  const intent = stageIntent(text)
+  const what = intent.browse
+    ? `browse ${intent.browse.action}`
+    : intent.events.length ? intent.events.map(e => `${e.kind}:${e.action || e.url || ''}`).join(', ') : 'no intent'
+  console.log(`[sofia-gateway] text: turn "${String(text).slice(0, 60)}" -> ${what}`)
+  if (!intent.browse && !intent.events.length)
     return
-  const base = process.env.BROWSER_URL || 'http://sofia-browser:8790'
   try {
-    const up = await fetch(`${base}/open`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ url: target }),
-      signal: AbortSignal.timeout(45000),
-    })
-    const page = await up.json()
-    if (!up.ok)
-      throw new Error(page.error || `status ${up.status}`)
-    console.log(`[sofia-gateway] text: opened ${page.url}`)
-    broadcastToStage({ kind: 'live', sid: page.sid, url: page.url || target, title: page.title || '' })
+    await runStageIntent(intent)
   }
   catch (error) {
-    console.log(`[sofia-gateway] text: could not open ${target} (${String(error.message || error).slice(0, 90)})`)
+    console.log(`[sofia-gateway] text: intent failed (${String(error && error.message || error).slice(0, 100)})`)
   }
 }
 
@@ -955,7 +947,13 @@ wss.on('connection', (ws) => {
     base: HERMES_BASE,
     key: hermesKey(),
     lastPage: null,
-    onPanel: (panel) => send({ type: 'panel', ...panel }),
+    onPanel: (panel) => {
+      // A page she opened by voice has to be visible to a typed "click ..." a
+      // minute later, so the remembered page is updated on both paths.
+      if (panel?.kind === 'live')
+        rememberPage(panel)
+      send({ type: 'panel', ...panel })
+    },
     onProgress: (p) => send({ type: 'tool', name: currentCall, state: 'running', ...p }),
   }
 

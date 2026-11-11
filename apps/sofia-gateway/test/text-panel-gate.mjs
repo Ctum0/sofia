@@ -69,6 +69,40 @@ try {
   const insideChat = await page.evaluate(() => !!document.querySelector('[data-testid=sofia-window]')?.closest('.stage-column, [data-testid=chat-empty-state], textarea'))
   insideChat ? fail('the window is not inside the chat') : ok('the window is not inside the chat')
 
+  // 5a. typing does everything voice can do. The text lane is Hermes with no
+  // function calling, so every one of these is a gateway-side intent; if one
+  // breaks, the capability silently exists only when he speaks.
+  const say = async (text) => {
+    await page.evaluate(async t => {
+      await fetch('/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'hermes', stream: false, messages: [{ role: 'user', content: t }] }),
+      })
+    }, text)
+    await page.waitForTimeout(1500)
+  }
+
+  await say('make yourself smaller')
+  const scale = await page.evaluate(() => getComputedStyle(document.querySelector('.stage-column') || document.body).getPropertyValue('--sofia-avatar-scale').trim())
+  scale === '0.65' ? ok('a typed turn shrinks her', `scale ${scale}`) : fail('a typed turn shrinks her', `scale "${scale}"`)
+  await say('come back to your usual place')
+
+  await say('click sign in')
+  await page.waitForTimeout(2500)
+  const clickedUrl = await page.evaluate(() => {
+    const el = document.querySelector('[data-testid=sofia-window][data-kind=live]')
+    return el ? (el.getAttribute('data-url') || el.textContent || '').slice(0, 80) : ''
+  })
+  /login|sign/i.test(clickedUrl) ? ok('a typed turn clicks inside the page', clickedUrl) : fail('a typed turn clicks inside the page', `saw "${clickedUrl}"`)
+
+  await say('close everything')
+  const left = await page.evaluate(() => document.querySelectorAll('[data-testid=sofia-window]').length)
+  left === 0 ? ok('a typed turn closes every window', '0 left') : fail('a typed turn closes every window', `${left} left`)
+
+  await say('open github and show me')
+  await page.waitForFunction(() => document.querySelectorAll('[data-testid=sofia-window]').length > 0, { timeout: 60000 }).catch(() => {})
+
   // 5b. the Talk button is still there with a window open
   const dock = await page.evaluate(() => {
     const el = document.querySelector('[data-testid=sofia-voice-dock]')

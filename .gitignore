@@ -159,3 +159,6 @@ apps/*/src/renderer/public/sherpaw/
 
 # Vieval caches and report artifacts
 .vieval
+
+# The gateway writes its proactive clock here; it is state, not source.
+data/

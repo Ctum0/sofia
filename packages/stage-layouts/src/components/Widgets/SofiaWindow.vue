@@ -143,6 +143,7 @@ function openExternal() {
     data-testid="sofia-window"
     :data-window-id="win.id"
     :data-kind="win.kind"
+    :data-url="win.url || ''"
     :data-active="active ? 'true' : 'false'"
     class="sofia-window"
     :class="{ 'sofia-window--active': active, 'sofia-window--dragging': dragging }"
