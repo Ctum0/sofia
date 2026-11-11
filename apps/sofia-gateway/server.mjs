@@ -575,6 +575,139 @@ function urlFromText(text) {
   return null
 }
 
+// The last page this gateway put on screen. A typed turn has no browser state
+// of its own, so "click the search box" has to attach to something — this is it.
+let stageLastPage = null
+
+function rememberPage(page) {
+  if (page?.sid)
+    stageLastPage = { sid: page.sid, url: page.url || stageLastPage?.url || '', title: page.title || '' }
+}
+
+// Her own size and place. These run before the open matcher, because "make
+// yourself smaller" contains "make" and would otherwise be read as a request to
+// open something.
+const AVATAR_RULES = [
+  [/\b(?:get|go|be)\s+(?:much\s+)?smaller\b|\bshrink\b|\bscale down\b|\bsmaller yourself\b/i, { action: 'set', scale: 0.65 }],
+  [/\b(?:get|go|be)\s+(?:much\s+)?bigger\b|\bgrow\b|\bscale up\b|\bbigger yourself\b/i, { action: 'set', scale: 1 }],
+  [/\bmove (?:yourself )?(?:to the )?left\b/i, { action: 'set', x: -260 }],
+  [/\bmove (?:yourself )?(?:to the )?right\b/i, { action: 'set', x: 260 }],
+  [/\bmove aside\b/i, { action: 'set', x: 220, scale: 0.8 }],
+  [/\b(?:come back|reset yourself|back to normal|usual place)\b/i, { action: 'reset' }],
+]
+
+/**
+ * What a typed turn asks the stage to do. Deliberately deterministic: the text
+ * lane is Hermes, which has no function calling here, so every capability the
+ * voice lane gets from a tool has to be recognised here or it does not exist
+ * while typing.
+ */
+function stageIntent(rawText) {
+  const said = String(rawText || '')
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\b\d{1,2}:\d{2}\b/g, ' ')
+  const lower = said.toLowerCase().trim()
+
+  if (/\byourself\b|\byour avatar\b|\bshrink\b|\bmove aside\b|\bcome back\b/.test(lower)) {
+    for (const [re, payload] of AVATAR_RULES) {
+      if (re.test(lower))
+        return { events: [{ kind: 'avatar', ...payload }] }
+    }
+  }
+
+  if (/\bclose (?:all|everything|all of them)\b|\bclose the windows\b/.test(lower))
+    return { events: [{ kind: 'control', action: 'close_all' }] }
+  if (/\bclose (?:it|that|this|the window)\b/.test(lower))
+    return { events: [{ kind: 'control', action: 'close', target: 'last' }] }
+  if (/\b(?:tile|line (?:them|the windows) up|arrange (?:them|the windows))\b/.test(lower))
+    return { events: [{ kind: 'control', action: 'tile' }] }
+  if (/\bmaximi[sz]e\b/.test(lower))
+    return { events: [{ kind: 'control', action: 'maximize', target: 'last' }] }
+  if (/\bminimi[sz]e\b/.test(lower))
+    return { events: [{ kind: 'control', action: 'minimize', target: 'last' }] }
+
+  const url = urlFromText(said)
+  if (url)
+    return { events: [{ kind: 'open', url }] }
+
+  if (/\b(?:search|look up|google)\b/i.test(lower)) {
+    const q = said.replace(/^.*?\b(?:search(?: for)?|look up|google)\b/i, '').replace(/^\s*(?:for|about)\s+/i, '').trim()
+    if (q)
+      return { events: [{ kind: 'open', url: `https://duckduckgo.com/?q=${encodeURIComponent(q.replace(/[?.!]+$/, ''))}` }] }
+  }
+
+  const click = said.match(/\b(?:click|tap|press) (?:on )?(?:the )?(.+?)(?: link| button)?$/i)
+  if (click && !/^enter$/i.test(click[1].trim()))
+    return { events: [], browse: { action: 'clickText', text: click[1].trim() } }
+  if (/\bpress (?:the )?enter\b|\bhit enter\b/i.test(lower))
+    return { events: [], browse: { action: 'press', text: 'Enter' } }
+  const type = said.match(/\btype (?:in )?(?:["“])(.+?)["”]/i) || said.match(/\btype (?:in )?(.{2,80})$/i)
+  if (type)
+    return { events: [], browse: { action: 'fill', text: type[1].trim(), selector: 'input:not([type=hidden]), textarea' } }
+  if (/\bscroll (?:down|further)\b/i.test(lower))
+    return { events: [], browse: { action: 'scroll', text: 'down' } }
+  if (/\bscroll (?:up|back)\b/i.test(lower))
+    return { events: [], browse: { action: 'scroll', text: 'up' } }
+  if (/\bgo back\b|\bback to the (?:last|previous) page\b/i.test(lower))
+    return { events: [], browse: { action: 'back' } }
+  if (/\breload\b|\brefresh the page\b/i.test(lower))
+    return { events: [], browse: { action: 'reload' } }
+
+  return { events: [] }
+}
+
+async function runStageIntent(intent) {
+  const base = process.env.BROWSER_URL || 'http://sofia-browser:8790'
+  if (intent.browse) {
+    const target = stageLastPage?.sid
+    if (!target) {
+      console.log(`[sofia-gateway] text: ${intent.browse.action} needs a page and none is open`)
+      return
+    }
+    const res = await fetch(`${base}/act`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        sid: target,
+        action: intent.browse.action,
+        text: intent.browse.text,
+        selector: intent.browse.selector,
+        key: intent.browse.text,
+        x: 640,
+        y: 400,
+      }),
+      signal: AbortSignal.timeout(45000),
+    })
+    const body = await res.json()
+    if (!res.ok)
+      throw new Error(body.error || `status ${res.status}`)
+    rememberPage(body)
+    console.log(`[sofia-gateway] text: ${intent.browse.action} -> ${body.url || body.title || 'done'}`)
+    broadcastToStage({ kind: 'live', sid: body.sid || target, url: body.url || stageLastPage?.url || '', title: body.title || '' })
+    return
+  }
+
+  for (const event of intent.events) {
+    if (event.kind === 'open') {
+      const up = await fetch(`${base}/open`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url: event.url }),
+        signal: AbortSignal.timeout(45000),
+      })
+      const page = await up.json()
+      if (!up.ok)
+        throw new Error(page.error || `status ${up.status}`)
+      rememberPage({ ...page, url: page.url || event.url })
+      console.log(`[sofia-gateway] text: opened ${page.url || event.url}`)
+      broadcastToStage({ kind: 'live', sid: page.sid, url: page.url || event.url, title: page.title || '' })
+      continue
+    }
+    broadcastToStage(event)
+    console.log(`[sofia-gateway] text: ${event.kind} ${event.action}`)
+  }
+}
+
 async function maybeOpenFromText(body) {
   let payload
   try { payload = JSON.parse(body.toString('utf8')) }

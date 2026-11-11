@@ -94,7 +94,10 @@ try {
     const el = document.querySelector('[data-testid=sofia-window][data-kind=live]')
     return el ? (el.getAttribute('data-url') || el.textContent || '').slice(0, 80) : ''
   })
-  /login|sign/i.test(clickedUrl) ? ok('a typed turn clicks inside the page', clickedUrl) : fail('a typed turn clicks inside the page', `saw "${clickedUrl}"`)
+  const clicked = String(clickedUrl).toLowerCase()
+  clicked.includes('login') || clicked.includes('sign')
+    ? ok('a typed turn clicks inside the page', clickedUrl)
+    : fail('a typed turn clicks inside the page', `saw "${clickedUrl}"`)
 
   await say('close everything')
   const left = await page.evaluate(() => document.querySelectorAll('[data-testid=sofia-window]').length)
