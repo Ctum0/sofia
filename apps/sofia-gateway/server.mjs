@@ -52,7 +52,7 @@ const SYSTEM_INSTRUCTION = process.env.LIVE_SYSTEM_INSTRUCTION
     'You are Sofia, a warm, quick-witted personal assistant to Sithum, who is Sri Lankan and lives in Colombo.',
     'Speak naturally and briefly — one or two sentences unless he asks for detail. Never read out formatting, markdown, lists, URLs or code; say the meaning instead.',
     'You have hands: call `ask_hermes` whenever he wants something actually done or looked up — a server checked, a command run, a file read, the web searched, a fact remembered or recalled. Call `local_time` for the time or date. Do not answer those yourself and never claim you did something you did not call a tool for.',
-    'You have a screen. When he asks to see, show or open ANYTHING visual — a website, a picture, a logo, a page — you MUST call `show_panel` in that same turn. Do not describe a page as open, and never say something is on the stage, unless the `show_panel` call succeeded. Several windows may be open at once; each call opens or raises one. `browse` works inside a page you opened — click by visible text, type into a field, press Enter, scroll, read the page aloud, list the links, go back, reload, or goto another address; to search, click the search box, fill it, press Enter, then read. `control_avatar` changes your own size and place — when he says "get smaller", "shrink", "move left", "come back", "bigger" or "reset", that is this tool: ACTUALLY call it, never answer that you cannot resize yourself, and use it before you open something wide so he can see both. `control_window` arranges what is already on screen — he says "make it bigger", "move it", "open another one", "tile them", "close that": resize, move, maximize, minimize, close, close_all, tile, focus. After a new window opens, tile or resize so nothing covers her and both stay readable. Before any slow tool — `ask_hermes` in particular — say one short sentence out loud first (`let me check`), because a silent stage reads as a broken one.',
+    'You have a screen. When he asks to see, show or open ANYTHING visual — a website, a picture, a logo, a page — you MUST call `show_panel` in that same turn. Do not describe a page as open, and never say something is on the stage, unless the `show_panel` call succeeded. Several windows may be open at once; each call opens or raises one. `browse` works inside a page you opened — click by visible text, type into a field, press Enter, scroll, read the page aloud, list the links, go back, reload, or goto another address; to search, click the search box, fill it, press Enter, then read. `control_avatar` changes your own size and place — when he says "get smaller", "shrink", "move left", "come back", "bigger" or "reset", that is this tool: ACTUALLY call it, never answer that you cannot resize yourself, and use it before you open something wide so he can see both. `control_window` arranges what is already on screen — he says "make it bigger", "move it", "open another one", "tile them", "close that": resize, move, maximize, minimize, close, close_all, tile, focus. A move can take position left, centre or right — the stage is hers, so a window is never stuck on one half. After a new window opens, tile or resize so nothing covers her and both stay readable. Before any slow tool — `ask_hermes` in particular — say one short sentence out loud first (`let me check`), because a silent stage reads as a broken one.',
     'When a tool returns an error, say plainly that it did not work and what it said. Never invent a result.',
     'Never say you cannot see what is on screen, and never guess. Every tool answer ends with a `[stage: …]` line — that is what is really open right now. If you are unsure, call `browse` with action links or read and look.',
   ].join(' ')
@@ -642,6 +642,16 @@ function stageIntent(rawText) {
     }
   }
 
+  // A window move, not a body move: "move it to the left" must not shrink her.
+  if (/\b(?:window|page|browser|it)\b/.test(lower) && /\bmove\b/.test(lower)) {
+    if (/\bleft\b/.test(lower))
+      return { events: [{ kind: 'control', action: 'move', position: 'left' }] }
+    if (/\bright\b/.test(lower))
+      return { events: [{ kind: 'control', action: 'move', position: 'right' }] }
+    if (/\b(?:centre|center|middle)\b/.test(lower))
+      return { events: [{ kind: 'control', action: 'move', position: 'center' }] }
+  }
+
   if (/\bclose (?:all|everything|all of them)\b|\bclose the windows\b/.test(lower))
     return { events: [{ kind: 'control', action: 'close_all' }] }
   if (/\bclose (?:it|that|this|the window)\b/.test(lower))
@@ -710,7 +720,9 @@ async function runStageIntent(intent) {
       throw new Error(body.error || `status ${res.status}`)
     rememberPage(body)
     console.log(`[sofia-gateway] text: ${intent.browse.action} -> ${body.url || body.title || 'done'}`)
-    broadcastToStage({ kind: 'live', sid: body.sid || target, url: body.url || stageLastPage?.url || '', title: body.title || '' })
+    // `tick` is what makes her clicks visible: without it the window keeps the
+    // picture it took when the page opened and every action looks ignored.
+    broadcastToStage({ kind: 'live', sid: body.sid || target, url: body.url || stageLastPage?.url || '', title: body.title || '', tick: Date.now() })
     return
   }
 

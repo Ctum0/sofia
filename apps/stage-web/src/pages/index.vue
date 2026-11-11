@@ -189,6 +189,15 @@ function applyControl(payload: { action: string, target?: string, x?: number, y?
       next.h = payload.height
   }
   else if (action === 'move') {
+    // 'left' and 'right' exist because the stage is hers: a window that can only
+    // ever sit on the right half is not arrangement, it is a fixed panel.
+    const spot = String((payload as { position?: string }).position || '').toLowerCase()
+    if (spot === 'left')
+      next.x = 24
+    else if (spot === 'center')
+      next.x = Math.round((window.innerWidth - next.w) / 2)
+    else if (spot === 'right')
+      next.x = window.innerWidth - next.w - 24
     if (payload.x !== undefined)
       next.x = payload.x
     if (payload.y !== undefined)
@@ -230,7 +239,7 @@ function showPanel(payload: { kind?: 'image' | 'web' | 'live', url: string, titl
   const bySid = payload.sid ? windows.value.find(w => w.sid && w.sid === payload.sid) : null
   if (bySid) {
     windows.value = windows.value.map(w => w.id === bySid.id
-      ? { ...w, url: payload.url || w.url, title: payload.title || w.title }
+      ? { ...w, url: payload.url || w.url, title: payload.title || w.title, tick: (payload as { tick?: number }).tick || w.tick }
       : w)
     focusWindow(bySid.id)
     return
@@ -272,6 +281,7 @@ function showPanel(payload: { kind?: 'image' | 'web' | 'live', url: string, titl
     url: payload.url,
     sid: payload.sid || '',
     title: payload.title || '',
+    tick: (payload as { tick?: number }).tick || 0,
     x,
     y,
     w,

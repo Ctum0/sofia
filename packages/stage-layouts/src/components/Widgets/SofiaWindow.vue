@@ -2,7 +2,7 @@
 /* eslint-disable style/max-statements-per-line -- compact one-liners read better here than six-line guard clauses */
 // One floating window. Not a chat bubble, not a column: a thing she opened on
 // the stage, which he can move, stack, and close.
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 export interface SofiaWindowState {
   id: string
@@ -15,6 +15,7 @@ export interface SofiaWindowState {
   w: number
   h: number
   z: number
+  tick?: number
 }
 
 const props = defineProps<{ win: SofiaWindowState, active: boolean }>()
@@ -42,6 +43,15 @@ const frameTick = ref(0)
 const frameData = ref('')
 const busy = ref(false)
 const frameSrc = computed(() => frameData.value || `/api/browse/frame?sid=${encodeURIComponent(props.win.sid || '')}&t=${frameTick.value}`)
+
+// The page changed under her: take a new picture. Without this the window shows
+// the frame from when it opened and every click she makes looks ignored.
+watch(() => props.win.tick, (next) => {
+  if (!next || !props.win.sid)
+    return
+  frameData.value = ''
+  frameTick.value = next
+})
 
 async function act(action: string, extra: Record<string, unknown> = {}) {
   if (!props.win.sid || busy.value)

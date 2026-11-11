@@ -78,6 +78,7 @@ export const LIVE_TOOLS = [
             action: { type: 'STRING', enum: ['resize', 'move', 'maximize', 'minimize', 'close', 'focus', 'tile', 'close_all'] },
             target: { type: 'STRING', description: 'last, first, or a window id' },
             x: { type: 'NUMBER', description: 'left edge in pixels, for move' },
+            position: { type: 'STRING', description: 'for move: left, centre or right — put the window on that side of the stage' },
             y: { type: 'NUMBER', description: 'top edge in pixels, for move' },
             width: { type: 'NUMBER', description: 'width in pixels, for resize' },
             height: { type: 'NUMBER', description: 'height in pixels, for resize' },
@@ -281,8 +282,11 @@ export async function executeToolCall(call, ctx = {}) {
           const body = await res.json()
           if (!res.ok) throw new Error(body.error || `status ${res.status}`)
           if (action === 'close') ctx.lastPage = null
-          if (typeof ctx.onPanel === 'function' && body.sid)
-            ctx.onPanel({ kind: 'live', sid: body.sid, url: body.url, title: body.title || '' })
+          // A tick per action: the window keeps the picture it took when the
+          // page opened, so her clicks were invisible without this. And a closed
+          // page must not be broadcast back onto the stage.
+          if (action !== 'close' && typeof ctx.onPanel === 'function' && body.sid)
+            ctx.onPanel({ kind: 'live', sid: body.sid, url: body.url, title: body.title || '', tick: Date.now() })
           if (action === 'read')
             text = `The page says: ${String(body.text || '').slice(0, 1500)}`
           else if (action === 'links')
@@ -315,6 +319,7 @@ export async function executeToolCall(call, ctx = {}) {
         y: Number.isFinite(Number(args.y)) ? Number(args.y) : undefined,
         width: Number.isFinite(Number(args.width)) ? Number(args.width) : undefined,
         height: Number.isFinite(Number(args.height)) ? Number(args.height) : undefined,
+        position: args.position ? String(args.position) : undefined,
       })
       text = `Done — ${action} applied to the ${String(args.target || 'last')} window.`
     }
