@@ -142,8 +142,46 @@ async function act({ sid, action, x, y, text, key }) {
     case 'clickText': {
       // Click the thing by what it says, not by where it is: coordinates go
       // stale the moment the page scrolls or a cookie banner appears.
-      const locator = page.getByText(String(text || ''), { exact: false }).first()
-      await locator.click({ timeout: 15000 })
+      //
+      // `.first()` on getByText is wrong on real sites: GitHub's "Sign in" first
+      // match is a visually-hidden <span> inside the link, so the click waits
+      // 15 s for an element that can never become visible and the action fails
+      // while a perfectly good link sits beside it. Prefer a real control by
+      // role, then any *visible* element whose text matches, then its clickable
+      // ancestor.
+      const wanted = String(text || '').trim()
+      const roles = ['link', 'button', 'tab', 'menuitem']
+      let clicked = false
+      for (const role of roles) {
+        const candidate = page.getByRole(role, { name: wanted, exact: false })
+        const count = await candidate.count().catch(() => 0)
+        for (let i = 0; i < count; i++) {
+          const el = candidate.nth(i)
+          if (await el.isVisible().catch(() => false)) {
+            await el.click({ timeout: 8000 })
+            clicked = true
+            break
+          }
+        }
+        if (clicked)
+          break
+      }
+      if (!clicked) {
+        const matches = page.getByText(wanted, { exact: false })
+        const count = await matches.count().catch(() => 0)
+        for (let i = 0; i < count; i++) {
+          const el = matches.nth(i)
+          if (!(await el.isVisible().catch(() => false)))
+            continue
+          const target = el.locator('xpath=ancestor-or-self::a | ancestor-or-self::button | ancestor-or-self::*[@role="button"][1]').first()
+          const useIt = (await target.count().catch(() => 0)) > 0 ? target : el
+          await useIt.click({ timeout: 8000 })
+          clicked = true
+          break
+        }
+      }
+      if (!clicked)
+        throw new Error(`nothing visible on the page says "${wanted}"`)
       break
     }
     case 'clickSelector':
