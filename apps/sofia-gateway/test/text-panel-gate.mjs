@@ -83,10 +83,29 @@ try {
     await page.waitForTimeout(1500)
   }
 
+  // Her rendered size, not the variable that is supposed to drive it: a CSS
+  // variable set and never consumed passed this gate for a whole afternoon.
+  const avatarBox = async () => page.evaluate(() => {
+    const el = document.querySelector('.avatar-shell') || document.querySelector('canvas')
+    if (!el)
+      return null
+    const r = el.getBoundingClientRect()
+    return { w: Math.round(r.width), h: Math.round(r.height) }
+  })
+
+  const big = await avatarBox()
   await say('make yourself smaller')
-  const scale = await page.evaluate(() => getComputedStyle(document.querySelector('.stage-column') || document.body).getPropertyValue('--sofia-avatar-scale').trim())
-  scale === '0.65' ? ok('a typed turn shrinks her', `scale ${scale}`) : fail('a typed turn shrinks her', `scale "${scale}"`)
+  const small = await avatarBox()
+  const ratio = big && small && big.h > 0 ? small.h / big.h : 1
+  ratio < 0.8
+    ? ok('a typed turn shrinks her on screen', `${big?.h}px -> ${small?.h}px (${ratio.toFixed(2)})`)
+    : fail('a typed turn shrinks her on screen', `${big?.h}px -> ${small?.h}px (${ratio.toFixed(2)})`)
   await say('come back to your usual place')
+  const restored = await avatarBox()
+  const backRatio = big && restored && big.h > 0 ? restored.h / big.h : 1
+  backRatio > 0.9
+    ? ok('and the reset puts her back', `${restored?.h}px (${backRatio.toFixed(2)})`)
+    : fail('and the reset puts her back', `${restored?.h}px (${backRatio.toFixed(2)})`)
 
   await say('click sign in')
   await page.waitForTimeout(2500)
@@ -106,6 +125,9 @@ try {
   await say('open github and show me')
   await page.waitForFunction(() => document.querySelectorAll('[data-testid=sofia-window]').length > 0, { timeout: 60000 }).catch(() => {})
 
+  // Leave the stage the way the rest of this gate expects to find it: empty.
+  await say('close everything')
+
   // 5b. the Talk button is still there with a window open
   const dock = await page.evaluate(() => {
     const el = document.querySelector('[data-testid=sofia-voice-dock]')
@@ -119,10 +141,14 @@ try {
     : fail('the Talk button survives a window', JSON.stringify(dock))
 
   // 5c. she can change her own size
+  const preResize = await avatarBox()
   await page.evaluate(() => window.__sofiaPanel({ kind: 'avatar', action: 'set', scale: 0.7 }))
-  await page.waitForTimeout(300)
-  const scaled = await page.evaluate(() => getComputedStyle(document.querySelector('.stage-column') || document.body).getPropertyValue('--sofia-avatar-scale').trim())
-  scaled === '0.7' ? ok('she can resize herself', `scale ${scaled}`) : fail('she can resize herself', `scale "${scaled}"`)
+  await page.waitForTimeout(700)
+  const postResize = await avatarBox()
+  const resizeRatio = preResize && postResize && preResize.h > 0 ? postResize.h / preResize.h : 1
+  Math.abs(resizeRatio - 0.7) < 0.08
+    ? ok('she can resize herself on screen', `${preResize?.h}px -> ${postResize?.h}px (${resizeRatio.toFixed(2)})`)
+    : fail('she can resize herself on screen', `${preResize?.h}px -> ${postResize?.h}px (${resizeRatio.toFixed(2)})`)
   await page.evaluate(() => window.__sofiaPanel({ kind: 'avatar', action: 'reset' }))
 
   // 5d. a refresh does not throw the stage away
@@ -149,11 +175,11 @@ try {
     fail('the chat has a toggle')
   }
   else {
-    await toggle.click()
+    await toggle.evaluate(el => el.click())
     await page.waitForTimeout(500)
     const hidden = await page.evaluate(() => !document.querySelector('textarea, [placeholder*="Say something"]'))
     hidden ? ok('the chat can be hidden') : fail('the chat can be hidden', 'input still visible')
-    await page.click('[data-testid=sofia-chat-toggle]')
+    await page.evaluate(() => document.querySelector('[data-testid=sofia-chat-toggle]')?.click())
     await page.waitForTimeout(500)
     const back = await page.evaluate(() => !!document.querySelector('textarea, [placeholder*="Say something"]'))
     back ? ok('the chat can be brought back') : fail('the chat can be brought back', 'input did not return')

@@ -104,6 +104,15 @@ function applyAvatar(payload: { action?: string, scale?: number, x?: number, y?:
     avatarY.value = Math.max(-400, Math.min(400, Number(payload.y)))
 }
 
+// Her size and place were being written into CSS variables that nothing read,
+// so "make yourself smaller" logged as applied and changed nothing on screen.
+// The shell below consumes them; getBoundingClientRect moves with a transform,
+// which is exactly what the gate asserts.
+const avatarTransform = computed(() => ({
+  transform: `translate3d(${avatarX.value}px, ${avatarY.value}px, 0) scale(${avatarScale.value})`,
+  transformOrigin: '50% 100%',
+}))
+
 let nextZ = 41
 function closeWindow(id: string) {
   windows.value = windows.value.filter(w => w.id !== id)
@@ -565,15 +574,17 @@ const router = useRouter()
           >
             <ViewControlSlider />
           </div>
-          <WidgetStage
-            v-model:state="modelRenderState"
-            :class="['h-full w-full']"
-            :cursor-position="cursorPosition"
-            :enable-orbit-controls="!isMobile"
-            :paused="paused"
-            @error="markModelFailed"
-            @select-avatar-model="router.push('/settings/models')"
-          />
+          <div :class="['avatar-shell h-full w-full']" :style="avatarTransform">
+            <WidgetStage
+              v-model:state="modelRenderState"
+              :class="['h-full w-full']"
+              :cursor-position="cursorPosition"
+              :enable-orbit-controls="!isMobile"
+              :paused="paused"
+              @error="markModelFailed"
+              @select-avatar-model="router.push('/settings/models')"
+            />
+          </div>
         </div>
         <!-- A fixed width keeps the chat panel narrow on wide screens. A percentage minimum overrode the maximum there. -->
         <InteractiveArea
@@ -665,6 +676,9 @@ meta:
    choice — so the control says why instead of offering an action it cannot take. */
 .sofia-chat-toggle:disabled { opacity: 0.4; cursor: default; }
 
+.avatar-shell {
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
 .stage-column {
   transition: max-width 0.45s cubic-bezier(0.16, 1, 0.3, 1), flex-basis 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   max-width: 100%;
