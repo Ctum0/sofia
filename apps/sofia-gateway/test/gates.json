@@ -94,6 +94,11 @@
       "auto": false,
       "why": "opens a real Live session; the model has a per-key concurrent-session slot, so two runs inside a minute collide",
       "catches": "the voice lane losing the ability to move her body or drive the page while every typed gate stays green"
+    },
+    "frame-gate.mjs": {
+      "auto": true,
+      "checks": 6,
+      "why": "the window must redraw after her click, and a window must be placeable on either half"
     }
   }
 }

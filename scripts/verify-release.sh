@@ -146,7 +146,7 @@ note "$brand_ok brand assets"
 # opens nothing, and — added 2026-11-10 — the same window on a phone, a tablet
 # and a laptop, because that gate found a real 74 px overlap at 1024x768 while
 # every other gate looked at 1440 only.
-for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs windows-responsive-gate.mjs; do
+for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs frame-gate.mjs windows-responsive-gate.mjs; do
   out=$(run_gate "$g")
   # A browser that cannot reach the page is not a product failure. Seen on
   # 2026-11-10: "net::ERR_NETWORK_CHANGED" scored windows-gate 0/1 and read
