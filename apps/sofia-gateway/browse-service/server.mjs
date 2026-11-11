@@ -180,8 +180,17 @@ async function act({ sid, action, x, y, text, key }) {
           break
         }
       }
-      if (!clicked)
-        throw new Error(`nothing visible on the page says "${wanted}"`)
+      if (!clicked) {
+        // Never a bare "not found": the caller cannot retry without knowing
+        // what is actually clickable here, and a blind retry is how she ends up
+        // narrating a click that never happened.
+        const offers = await page.evaluate(() => [...document.querySelectorAll('a[href], button, [role=button], [role=tab], input[type=submit]')]
+          .filter(el => el.getClientRects().length > 0)
+          .map(el => (el.textContent || el.value || el.getAttribute('aria-label') || '').trim())
+          .filter(t => t && t.length < 60)).catch(() => [])
+        const unique = [...new Set(offers)].slice(0, 12)
+        throw new Error(`nothing visible on the page says "${wanted}". The page offers: ${unique.join(' | ') || 'no clickable controls'}`)
+      }
       break
     }
     case 'clickSelector':

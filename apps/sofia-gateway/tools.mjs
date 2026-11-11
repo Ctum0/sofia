@@ -280,13 +280,14 @@ export async function executeToolCall(call, ctx = {}) {
             signal: AbortSignal.timeout(45000),
           })
           const body = await res.json()
-          if (!res.ok) throw new Error(body.error || `status ${res.status}`)
-          if (action === 'close') ctx.lastPage = null
           // A tick per action: the window keeps the picture it took when the
-          // page opened, so her clicks were invisible without this. And a closed
-          // page must not be broadcast back onto the stage.
+          // page opened, so her clicks were invisible without this. It goes out
+          // before the error check — a click that missed still has to show him
+          // what is really on the page. A closed page is never broadcast back.
           if (action !== 'close' && typeof ctx.onPanel === 'function' && body.sid)
             ctx.onPanel({ kind: 'live', sid: body.sid, url: body.url, title: body.title || '', tick: Date.now() })
+          if (!res.ok) throw new Error(body.error || `status ${res.status}`)
+          if (action === 'close') ctx.lastPage = null
           if (action === 'read')
             text = `The page says: ${String(body.text || '').slice(0, 1500)}`
           else if (action === 'links')

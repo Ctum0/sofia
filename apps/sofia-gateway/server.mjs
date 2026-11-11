@@ -716,13 +716,15 @@ async function runStageIntent(intent) {
       signal: AbortSignal.timeout(45000),
     })
     const body = await res.json()
+    // `tick` is what makes her clicks visible: without it the window keeps the
+    // picture it took when the page opened and every action looks ignored. It
+    // fires whether the action worked or not — a failed click must still show
+    // him the real page, never a picture from a minute ago.
+    broadcastToStage({ kind: 'live', sid: body.sid || target, url: body.url || stageLastPage?.url || '', title: body.title || '', tick: Date.now() })
     if (!res.ok)
       throw new Error(body.error || `status ${res.status}`)
     rememberPage(body)
     console.log(`[sofia-gateway] text: ${intent.browse.action} -> ${body.url || body.title || 'done'}`)
-    // `tick` is what makes her clicks visible: without it the window keeps the
-    // picture it took when the page opened and every action looks ignored.
-    broadcastToStage({ kind: 'live', sid: body.sid || target, url: body.url || stageLastPage?.url || '', title: body.title || '', tick: Date.now() })
     return
   }
 
