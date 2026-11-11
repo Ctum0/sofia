@@ -3,7 +3,8 @@
 This file gives the core rules for all work in the `moeru-ai/airi` monorepo.
 
 **This fork (Sofia) adds rules the upstream guide does not have.** Read
-`docs/engineering/ENGINEERING_RULES.md`, then `WORKFLOW.md`, then
+`docs/HANDOFF.md` first — it is the current verified state, what is left, and the
+next five commits. Then `docs/engineering/ENGINEERING_RULES.md`, `WORKFLOW.md`,
 `SELF_AUDIT_CHECKLIST.md` before any deploy, rebrand, or voice change. The rules
 are derived from the incident register in the same directory; `bash
 scripts/verify-release.sh` is the only thing allowed to call a change "live".
