@@ -1058,6 +1058,38 @@ self.addEventListener('activate', (event) => {
     return
   }
 
+  // --- her hands on the stage ------------------------------------------------
+  // Every other way a window moves starts from words: a typed turn is read by
+  // stageIntent, a voice turn by the live tool loop. The agent that builds this
+  // app talks to the gateway over its own API and has neither, so "move the
+  // window to the left" arrived as prose and the window sat still. One route,
+  // the exact event the other two lanes already broadcast, so there is still
+  // only one way a window moves.
+  if (url.pathname === '/api/stage/control' && req.method === 'POST') {
+    const body = await readRequestBody(req).catch(() => null)
+    let asked = {}
+    try { asked = JSON.parse(body || '{}') || {} } catch {}
+    const action = String(asked.action || '').toLowerCase()
+    const allowed = ['move', 'resize', 'maximize', 'minimize', 'close', 'close_all', 'tile', 'focus']
+    if (!allowed.includes(action)) {
+      sendJson(res, 400, { error: `action must be one of ${allowed.join(', ')}` })
+      return
+    }
+    const event = { kind: 'control', action }
+    for (const key of ['target', 'position']) {
+      if (asked[key] !== undefined)
+        event[key] = String(asked[key]).toLowerCase()
+    }
+    for (const key of ['x', 'y', 'width', 'height']) {
+      if (Number.isFinite(Number(asked[key])))
+        event[key] = Number(asked[key])
+    }
+    broadcastToStage(event)
+    console.log(`[sofia-gateway] stage: control ${action}${event.position ? ` ${event.position}` : ''}${event.target ? ` ${event.target}` : ''} -> ${stageClients.size} tab(s)`)
+    sendJson(res, 200, { ok: true, event, tabs: stageClients.size })
+    return
+  }
+
   if (url.pathname === '/api/live/info') {
     sendJson(res, 200, { transport: 'gateway-proxy', model: DEFAULT_MODEL, voice: DEFAULT_VOICE, ws: '/api/live/stream' })
     return
