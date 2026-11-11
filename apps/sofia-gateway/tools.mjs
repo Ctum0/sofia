@@ -346,8 +346,37 @@ export async function executeToolCall(call, ctx = {}) {
         text = `The page is open beside you — ${opened.title || 'it'} — and I can click or scroll it for you.`
       }
       else {
-        ctx.onPanel({ kind, url, title: String(args.title || '').slice(0, 80) })
-        text = kind === 'image' ? 'The picture is on the screen beside you.' : 'The page card is on the screen beside you.'
+        // A website shown as an <img> is a broken picture: the model sometimes
+        // answers "open this page" with kind:"image" and the window renders an
+        // empty box, which reads as "she ignored me". Decide from the URL, not
+        // from the model's label: only real image files and site assets are
+        // images, everything else is a live page.
+        const imageUrl = /(\.(png|jpe?g|gif|webp|avif|svg|bmp|ico))(\?|#|$)/i.test(url) || /^\/(?!\/)/.test(url)
+        const kind2 = kind === 'web' ? 'web' : imageUrl ? 'image' : 'live'
+        if (kind2 === 'live') {
+          let opened
+          try {
+            const res = await fetch(`${base}/open`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ url }),
+              signal: AbortSignal.timeout(45000),
+            })
+            opened = await res.json()
+            if (!res.ok)
+              throw new Error(opened.error || `status ${res.status}`)
+          }
+          catch (error) {
+            throw new Error(`the browser could not open that page (${String(error.message || error).slice(0, 100)})`)
+          }
+          ctx.lastPage = { sid: opened.sid, url: opened.url || url }
+          ctx.onPanel({ kind: 'live', sid: opened.sid, url: opened.url || url, title: String(opened.title || args.title || '').slice(0, 80) })
+          text = `The page is open beside you — ${opened.title || 'it'} — and I can click or scroll it for you.`
+        }
+        else {
+        ctx.onPanel({ kind: kind2, url, title: String(args.title || '').slice(0, 80) })
+        text = kind2 === 'image' ? 'The picture is on the screen beside you.' : 'The page card is on the screen beside you.'
+        }
       }
     }
     else if (name === 'local_time') text = timeText()
