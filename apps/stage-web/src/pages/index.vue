@@ -218,6 +218,18 @@ function showPanel(payload: { kind?: 'image' | 'web' | 'live', url: string, titl
   }
   if (!payload?.url) { windows.value = []; return }
   const kind = payload.kind === 'live' ? 'live' : payload.kind === 'web' ? 'web' : 'image'
+  // A live window is identified by its page session, not its address. Matching
+  // on URL meant "click Sign in" opened a *second* window for /login while the
+  // first still showed github.com — the title bar lied, and the gate read the
+  // old address. Same sid updates in place; same URL still just raises.
+  const bySid = payload.sid ? windows.value.find(w => w.sid && w.sid === payload.sid) : null
+  if (bySid) {
+    windows.value = windows.value.map(w => w.id === bySid.id
+      ? { ...w, url: payload.url || w.url, title: payload.title || w.title }
+      : w)
+    focusWindow(bySid.id)
+    return
+  }
   const existing = windows.value.find(w => w.url === payload.url)
   if (existing) { focusWindow(existing.id); return }
   const n = windows.value.length

@@ -125,8 +125,10 @@ try {
   await say('open github and show me')
   await page.waitForFunction(() => document.querySelectorAll('[data-testid=sofia-window]').length > 0, { timeout: 60000 }).catch(() => {})
 
-  // Leave the stage the way the rest of this gate expects to find it: empty.
-  await say('close everything')
+  // Leave one window up: the refresh check later in this gate needs something
+  // to survive, and an empty stage would pass it for the wrong reason.
+  await say('open github and show me')
+  await page.waitForFunction(() => document.querySelectorAll('[data-testid=sofia-window]').length > 0, { timeout: 60000 }).catch(() => {})
 
   // 5b. the Talk button is still there with a window open
   const dock = await page.evaluate(() => {
