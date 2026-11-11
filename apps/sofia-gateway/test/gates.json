@@ -89,6 +89,11 @@
     "proactive-gate.mjs": {
       "auto": false,
       "why": "needs a real signed-in stage and the gateway clock; run by hand until it can be made deterministic"
+    },
+    "voice-hands-gate.mjs": {
+      "auto": false,
+      "why": "opens a real Live session; the model has a per-key concurrent-session slot, so two runs inside a minute collide",
+      "catches": "the voice lane losing the ability to move her body or drive the page while every typed gate stays green"
     }
   }
 }
