@@ -173,6 +173,19 @@ for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs frame-gate.mjs wi
   note "$g $count"
 done
 
+# A credential must never be recoverable from the image Coolify built. This runs
+# on the host because `docker history` needs docker access the QA container does
+# not have; it is the gate for the build-time-ARG leak that shipped a live
+# Gemini key into every layer.
+secrets_out=$(node apps/sofia-gateway/test/secrets-gate.mjs 2>&1)
+secrets_count=$(echo "$secrets_out" | grep -oE '[0-9]+/[0-9]+' | tail -1)
+secrets_got=${secrets_count%%/*}; secrets_want=${secrets_count##*/}
+if [ -z "$secrets_count" ] || [ "$secrets_got" != "$secrets_want" ]; then
+  echo "$secrets_out" | grep -E '^FAIL' | head -4
+  fail 8 "secrets-gate.mjs ${secrets_count:-did not report a count}"
+fi
+note "secrets-gate.mjs $secrets_count"
+
 # The tool layer cannot be reached from the QA browser: it is server-side. These
 # gates run inside the gateway container against the very code that is serving.
 # `tools-gate` is the one that caught a context rebuilt per call — the reason she

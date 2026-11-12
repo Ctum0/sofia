@@ -86,6 +86,11 @@
       "catches": "a tool context rebuilt per call, so browse cannot see the page she opened",
       "runs": "inside the gateway container (docker cp + docker exec)"
     },
+    "secrets-gate.mjs": {
+      "auto": true,
+      "catches": "a credential baked into an image layer by a build-time variable, which is how a live Gemini key came to be readable with `docker history`",
+      "runs": "on the VPS host, because `docker history` needs docker access the QA container does not have"
+    },
     "hands-gate.mjs": {
       "auto": true,
       "catches": "a lane that narrates work it did not do: an unbound name in show_panel, a direction word sent where pixels belong, clickSelector lowercased into an unknown action, a typed fill whose words became the selector, a failed click that left yesterday's pixels, and a position the stage cannot place",
