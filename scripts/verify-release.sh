@@ -103,13 +103,30 @@ note "$(echo "$hz" | cut -c1-160)"
 
 echo "== 4. gates =="
 PW=mcr.microsoft.com/playwright:v1.64.1-jammy
+# The gate that runs must be the gate in the tree. It used to run from a copy in
+# /home/ctum/qa that nothing synced, so a committed change to a gate ran the
+# previous version and every green result was about yesterday's code — three
+# separate runs this session were spent on that. The tree is mounted read-only
+# over a `current/` subdirectory of the same volume that carries node_modules,
+# so bare `import 'playwright'` still resolves upward into /qa/node_modules,
+# and a gate file that exists in the tree but not in the container is a hard
+# failure rather than "did not report a count".
+TREE_GATES="$(pwd)/apps/sofia-gateway/test"
 run_gate() {
-  docker run --rm --network host -v /home/ctum/qa:/qa -v /home/ctum/secrets:/home/ctum/secrets:ro \
-    -w /qa -e BASE=https://sofia.ctum.org \
+  docker run --rm --network host \
+    -v /home/ctum/qa:/qa \
+    -v "$TREE_GATES:/qa/current:ro" \
+    -v /home/ctum/secrets:/home/ctum/secrets:ro \
+    -w /qa \
+    -e BASE=https://sofia.ctum.org \
     -e SOFIA_PASSWORD="$(cat /home/ctum/secrets/sofia-password 2>/dev/null)" \
     -e PASSWORD="$(cat /home/ctum/secrets/sofia-password 2>/dev/null)" \
-    "$PW" node "$1" 2>&1
+    "$PW" node "current/$1" 2>&1
 }
+# A gate the tree has and the runner cannot see is a harness bug; say so plainly.
+for g in voice-gate.mjs windows-gate.mjs browser-gate.mjs text-panel-gate.mjs frame-gate.mjs windows-responsive-gate.mjs brand-assets-gate.mjs dark-check-gate.mjs; do
+  [ -f "apps/sofia-gateway/test/$g" ] || fail 5 "the tree has no $g — the release cannot run what it does not have"
+done
 voice=$(run_gate voice-gate.mjs)
 # One retry, said out loud. The Live slot is shared: when another gate or his
 # own tab holds a session the first turn comes back with 0 audio chunks and
@@ -131,9 +148,11 @@ voice_pass=${voice_ok%%/*}; voice_all=${voice_ok##*/}
 note "$voice_ok"
 
 echo "== 5. brand =="
-brand=$(run_gate dark-check.mjs)
-echo "$brand" | grep -q '"strayAIRI": false' || { echo "$brand" | tail -10; fail 6 "upstream brand visible in the DOM"; }
-note "strayAIRI false · $(echo "$brand" | grep -oE '"anyWhiteSurfaces": [0-9]+')"
+brand=$(run_gate dark-check-gate.mjs)
+echo "$brand" | grep -qE '"strayAIRI": *false' || { echo "$brand" | tail -10; fail 6 "upstream brand visible in the DOM"; }
+whites=$(echo "$brand" | grep -oE '"anyWhiteSurfaces": *[0-9]+' | grep -oE '[0-9]+$' | tail -1)
+[ "${whites:-x}" = "0" ] || { echo "$brand" | tail -10; fail 6 "white surfaces on the stage: ${whites:-unknown}"; }
+note "strayAIRI false · anyWhiteSurfaces ${whites}"
 
 brand_px=$(run_gate brand-assets-gate.mjs)
 brand_ok=$(echo "$brand_px" | grep -oE '[0-9]+/[0-9]+' | tail -1)

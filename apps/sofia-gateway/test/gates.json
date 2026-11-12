@@ -114,6 +114,11 @@
       "auto": false,
       "why": "deliberate manual: it restarts the shared sofia-browser (which would kill the pages behind any window the user has open) and waits ~4 minutes for the idle window, so it cannot ride in a release run. Run by hand after changing the browser's lifecycle code.",
       "catches": "an unused page pinning ~500% CPU forever: one GitHub tab left Chromium's software-GPU helper spinning indefinitely, and freezing the page did not stop it"
+    },
+    "dark-check-gate.mjs": {
+      "auto": true,
+      "catches": "the upstream brand or a white surface reaching the stage: the check the verifier treats as the authority on branding, which lived only on the host and could not be reproduced from the repo",
+      "why": "runs inside the verifier: it signs in through the API and reads the computed colours of the rendered page"
     }
   }
 }
