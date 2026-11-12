@@ -222,23 +222,73 @@ check('G12 no module uses a name it never declares', () => {
 
 // G13 — a stage event with no tab goes to every tab. `close everything` typed in
 // one tab cleared another tab's windows, and no single-tab gate can see it: the
-// bug is the *audience* of the event, not its content. Every call site must name
-// the tab it is for, because a broadcast that forgets is indistinguishable from
-// one that meant "everyone".
+// bug is the *audience* of the event, not its content.
+//
+// The first version of this check used `[^)]*` to capture a call's arguments,
+// which stops at the first `)` — inside a multi-line object literal it never
+// reached the closing `, tab)` and reported "all scoped" for calls that had no
+// tab at all. It is a balanced-paren scan now, because the thing being checked
+// is a function call and regexes do not count brackets.
+function callArgs(source, name) {
+  const calls = []
+  let at = source.indexOf(`${name}(`)
+  while (at !== -1) {
+    // Skip the definition.
+    const before = source.slice(Math.max(0, at - 20), at)
+    let depth = 0
+    let i = at + name.length
+    let start = -1
+    for (; i < source.length; i++) {
+      const ch = source[i]
+      if (ch === '(') {
+        depth += 1
+        if (depth === 1)
+          start = i + 1
+      }
+      else if (ch === ')') {
+        depth -= 1
+        if (depth === 0)
+          break
+      }
+    }
+    const args = start === -1 ? '' : source.slice(start, i)
+    if (!/function\s*$/.test(before))
+      calls.push(args)
+    at = source.indexOf(`${name}(`, i)
+  }
+  return calls
+}
+
 check('G13 every stage broadcast names its tab', () => {
   const server = read('apps/sofia-gateway/server.mjs')
-  const calls = [...server.matchAll(/broadcastToStage\(([^)]*)/g)].map(m => m[1].trim())
-  // The definition itself has the `function` keyword before the name, so it does
-  // not match; what matches are call sites.
-  const untagged = calls.filter(args => {
-    if (!args)
-      return true
-    // A call with one argument is global; a call whose second argument is present
-    // and non-empty names a tab.
-    const parts = args.split(/,(?![^()]*\))/)
-    return parts.length < 2 || parts.slice(1).join(',').trim() === ''
-  })
-  assert(untagged.length === 0, `broadcastToStage called without a tab: ${untagged.join(' | ').slice(0, 200)}`)
+  const calls = callArgs(server, 'broadcastToStage')
+  assert(calls.length > 0, 'no broadcastToStage call sites found — did the name change?')
+  // The tab is the second top-level argument. Split on commas at depth 0 so an
+  // object literal's commas do not count as separators.
+  const topLevel = (args) => {
+    const parts = []
+    let depth = 0
+    let current = ''
+    for (const ch of args) {
+      if ('([{'.includes(ch))
+        depth += 1
+      if (')]}'.includes(ch))
+        depth -= 1
+      if (ch === ',' && depth === 0) {
+        parts.push(current)
+        current = ''
+        continue
+      }
+      current += ch
+    }
+    parts.push(current)
+    return parts.map(part => part.trim()).filter(Boolean)
+  }
+  const untagged = calls
+    .map(topLevel)
+    .filter(parts => parts.length < 2)
+    .map(parts => parts[0]?.slice(0, 50))
+  assert(untagged.length === 0, `broadcastToStage called without a tab: ${untagged.join(' | ')}`)
   return `${calls.length} broadcast(s), all scoped`
 })
 

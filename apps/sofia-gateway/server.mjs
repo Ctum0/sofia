@@ -688,7 +688,7 @@ export async function intentFromText(body, { tab = '' } = {}) {
       return { body }
     try {
       const result = await runBrowse(intent.browse, { sid: target })
-      broadcastToStage({ kind: 'live', sid: result.body.sid || target, url: result.body.url || stageLastPage?.url || '', title: result.body.title || '', tick: Date.now() })
+      broadcastToStage({ kind: 'live', sid: result.body.sid || target, url: result.body.url || stageLastPage?.url || '', title: result.body.title || '', tick: Date.now() }, tab)
       if (!result.ok)
         throw new Error(result.body.error || `status ${result.status}`)
       rememberPage(result.body)
