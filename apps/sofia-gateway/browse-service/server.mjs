@@ -58,10 +58,12 @@ const pages = new Map()
 // BROWSER_IDLE_MS closes the browser.
 //
 // A live window heartbeats and is therefore never suspended; only abandoned
-// pages are. So this window can be short — it only governs how long a page
-// nobody is looking at keeps its process — as long as it is longer than the gap
-// between a window's beats.
-const SUSPEND_MS = Number(process.env.SUSPEND_MS || 120000)
+// pages are. The window is deliberately generous: shortening it to 2 minutes was
+// tried and bought nothing (suspending a page does not stop the GPU helper —
+// only closing the browser does) while it made a page vanish in the middle of a
+// three-minute gate run. The CPU is reclaimed by `close-all`, not by carving
+// pages out from under whoever is using them.
+const SUSPEND_MS = Number(process.env.SUSPEND_MS || 600000)
 const FORGET_MS = Number(process.env.FORGET_MS || 3600000)
 // Once nothing is live at all, keep the browser warm briefly so a burst of
 // windows does not pay a cold start each, then close it: even an empty browser
