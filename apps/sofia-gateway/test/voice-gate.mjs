@@ -129,6 +129,8 @@ page.on('console', (m) => {
   }
 })
 const stats = () => page.evaluate(() => window.__sofiaVoice?.stats || null)
+// Declared here so `finally` can stop it even when the gate throws early.
+let sampler
 
 try {
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded', timeout: 60000 })
@@ -152,21 +154,30 @@ try {
   }
   step('signed in to the stage', true, page.url())
 
-  // peak and chunksPlayed are live values on the client; a session that is
-  // replaced mid-gate resets both to 0, so sampling them into maxima means a
-  // reconnect cannot erase what did happen. (Measured: two runs reported
-  // "0 chunks, peak 0" after a session had in fact spoken, and the gate read
-  // that as a lip-sync defect.)
-  await page.evaluate(() => {
-    window.__peakMax = 0
-    window.__chunksMax = 0
-    setInterval(() => {
-      const p = window.__sofiaVoice?.peak || 0
-      const c = window.__sofiaVoice?.stats?.chunksPlayed || 0
-      if (p > window.__peakMax) window.__peakMax = p
-      if (c > window.__chunksMax) window.__chunksMax = c
-    }, 100)
-  })
+  // peak and chunksPlayed are live values on the client, and they reset to 0
+  // when a session is replaced. They also vanish when the DOCUMENT is replaced:
+  // the stage performs one more main-frame navigation about 200 ms after the
+  // password form is submitted, so a sampler installed with page.evaluate died
+  // with that document and the maxima stayed 0 while the client reported 13
+  // chunks played — the gate failed for a harness reason and read as "reply
+  // audio never played".
+  //
+  // So the maxima are tracked HERE, in the gate process, by polling. No page
+  // navigation can reach them, and an init script is not the answer: it would
+  // reset the maxima on every navigation, moving the same defect rather than
+  // fixing it.
+  const maxima = { chunks: 0, peak: 0 }
+  let samplerError = ''
+  sampler = setInterval(() => {
+    page.evaluate(() => ({
+      chunks: window.__sofiaVoice?.stats?.chunksPlayed || 0,
+      peak: window.__sofiaVoice?.peak || 0,
+    })).then((sample) => {
+      if (sample.chunks > maxima.chunks) maxima.chunks = sample.chunks
+      if (sample.peak > maxima.peak) maxima.peak = sample.peak
+    }).catch((error) => { samplerError = String(error?.message || error).slice(0, 120) })
+  }, 200)
+  page.on('close', () => clearInterval(sampler))
 
   const dock = page.getByTestId('sofia-voice-dock')
   await dock.waitFor({ state: 'visible', timeout: 60000 })
@@ -205,21 +216,35 @@ try {
   // 14 chunks had in fact played.
   // The old form ended in `.catch(() => null).then(() => true)`, so `played` was
   // ALWAYS true: the gate printed "0 chunks" and PASSed. Assert the measurement.
-  const chunks = await page.evaluate(() => window.__chunksMax || 0)
+  // Let playback settle before reading, so the number in the log is the number
+  // that played rather than whatever the first poll caught mid-reply.
+  const settleDeadline = Date.now() + 12000
+  let previous = -1
+  while (Date.now() < settleDeadline && maxima.chunks !== previous) {
+    previous = maxima.chunks
+    await page.waitForTimeout(750)
+  }
+  const chunks = maxima.chunks
   const playing = await stats()
   step('reply audio played on the stage', chunks > 0 && playing?.playbackState === 'running',
     `${chunks} chunks (live ${playing?.chunksPlayed ?? 0}), playback=${playing?.playbackState}`)
 
   // Lip sync: the mouth comes from the envelope of the PCM that is playing.
-  const mouthMoved = await page.waitForFunction(() => (window.__peakMax || 0) > 10, null, { timeout: 30000 })
-    .then(() => true).catch(() => false)
-  const peak = await page.evaluate(() => window.__peakMax || 0)
+  // Same reason as the chunk count: measured in this process, not in a document
+  // that can be replaced under it.
+  const mouthDeadline = Date.now() + 30000
+  while (Date.now() < mouthDeadline && maxima.peak <= 10)
+    await page.waitForTimeout(250)
+  const mouthMoved = maxima.peak > 10
+  const peak = maxima.peak
   step('mouth moved with the reply (peak 0-100)', mouthMoved, `peak ${peak}`)
 
   // A capture that produces no frames must say so, not sit in 'live'.
   const after = await stats()
   step('mic is not reported silent', !after?.micWarning, after?.micWarning || 'none')
 
+  if (samplerError)
+    step('the gate could sample the stage', false, samplerError)
   const errors = await page.evaluate(() => window.__sofiaVoice?.errors || [])
   step('no live errors', errors.length === 0, errors.join('; ') || 'none')
   // The mods server channel lives at ws://localhost:6121 in the upstream dev
@@ -247,6 +272,7 @@ catch (err) {
   try { await page.screenshot({ path: '/qa/voice-stage-fail.png' }) } catch {}
 }
 finally {
+  clearInterval(sampler)
   await browser.close()
   const failed = results.filter(r => !r.ok).length
   console.log(`\n${results.length - failed}/${results.length} checks passed`)
