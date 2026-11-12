@@ -170,8 +170,22 @@ for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs frame-gate.mjs wi
   # A browser that cannot reach the page is not a product failure. Seen on
   # 2026-11-10: "net::ERR_NETWORK_CHANGED" scored windows-gate 0/1 and read
   # like a regression. Retry once, and say that it was the network.
-  if echo "$out" | grep -qE "net::|ERR_NETWORK|ECONNRESET|EAI_AGAIN"; then
+  if echo "$out" | grep -qE "net::|ERR_NETWORK|ECONNRESET|EAI_AGAIN|502|503"; then
     echo "  note: ${g} could not reach the site, retrying once in 5 s"
+    sleep 5
+    out=$(run_gate "$g")
+  fi
+  # A deploy swaps containers: the old one answers until it is stopped and the
+  # new one is not listening yet, so a gate that starts in that window sees a
+  # stage that never mounts and times out at every viewport. Observed on
+  # 2026-11-12 — five viewport timeouts that looked like a layout regression and
+  # were a twenty-second gap during a deploy. Wait for the door, then retry.
+  if echo "$out" | grep -qE "waitForSelector: Timeout|TimeoutError"; then
+    echo "  note: ${g} waited for a stage that was not there; checking the door and retrying once"
+    for _ in $(seq 1 30); do
+      curl -fsS -m 5 https://sofia.ctum.org/healthz >/dev/null 2>&1 && break
+      sleep 4
+    done
     sleep 5
     out=$(run_gate "$g")
   fi
@@ -228,12 +242,21 @@ for g in tools-gate.mjs hands-gate.mjs; do
   # gateway's own `node_modules` so `ws` resolves, exactly as `/app` does.
   docker exec "$app_container" sh -c 'mkdir -p /app/gatecheck' >/dev/null 2>&1
   docker cp "apps/sofia-gateway/test/$g" "$app_container:/app/gatecheck/$g" >/dev/null 2>&1
-  for module in intent.mjs tools.mjs server.mjs live.mjs auth.mjs proactive.mjs reasoning-filter.mjs; do
+  # Every module the gates import must travel, or a gate dies on an import the
+  # release cannot see and reports a product failure that is a packaging bug.
+  # `memory.mjs` was missing once already: hands-gate imports it, so the run
+  # would have failed with ERR_MODULE_NOT_FOUND.
+  for module in intent.mjs tools.mjs server.mjs live.mjs auth.mjs proactive.mjs reasoning-filter.mjs memory.mjs; do
     [ -f "apps/sofia-gateway/$module" ] && docker cp "apps/sofia-gateway/$module" "$app_container:/app/gatecheck/$module" >/dev/null 2>&1
   done
+  # The memory token lives in the volume the container already mounts, so it
+  # rides along; without it the memory assertions would fail for lack of a
+  # credential rather than for lack of memory.
   gate_out=$(docker exec -w /app/gatecheck "$app_container" \
     env SOFIA_NO_LISTEN=1 \
-    TOOLS_MODULE=/app/gatecheck/tools.mjs INTENT_MODULE=/app/gatecheck/intent.mjs SERVER_MODULE=/app/gatecheck/server.mjs \
+    HONCHO_TOKEN_FILE=/app/data/honcho-token \
+    TOOLS_MODULE=/app/gatecheck/tools.mjs INTENT_MODULE=/app/gatecheck/intent.mjs \
+    SERVER_MODULE=/app/gatecheck/server.mjs MEMORY_MODULE=/app/gatecheck/memory.mjs \
     node "/app/gatecheck/$g" 2>&1)
   docker exec "$app_container" sh -c 'rm -rf /app/gatecheck' >/dev/null 2>&1
   gate_count=$(echo "$gate_out" | grep -oE '[0-9]+/[0-9]+' | tail -1)
