@@ -399,8 +399,17 @@ export async function executeToolCall(call, ctx = {}) {
           }
           else if (action === 'links')
             text = `Links: ${(body.links || []).slice(0, 12).map(l => l.text).join(' · ')}`
-          else
-            text = `Done — ${action}${args.text ? ` "${String(args.text).slice(0, 40)}"` : ''}. The page is ${body.title || body.url || 'updated'}.`
+          else {
+            // Never echo what was typed into a field. Sithum types his own
+            // passwords, and this line reaches `console.log`, the browser as a
+            // tool event, and the model's context — three places a password must
+            // never be. The service says whether the field was a password field;
+            // a fill or a raw type is redacted regardless, because the field type
+            // is not knowable from here until the page reports it.
+            const secretish = body?.password === true || action === 'fill' || action === 'type'
+            const said = secretish ? '[redacted]' : String(args.text || '').slice(0, 40)
+            text = `Done — ${action}${args.text ? ` "${said}"` : ''}. The page is ${body.title || body.url || 'updated'}.`
+          }
         }
       }
     }

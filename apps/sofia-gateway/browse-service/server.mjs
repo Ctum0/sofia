@@ -367,9 +367,13 @@ async function act({ sid, action, x, y, text, key, selector }) {
       const words = String(text || '')
       await field.fill(words, { timeout: 15000 })
       const landed = await field.inputValue().catch(() => undefined)
-      if (landed !== undefined && landed !== words)
+      // Whether this was a secret field, so the caller can redact. Reported as a
+      // boolean rather than the value: the caller must never need the text to
+      // know it should not print it.
+      const isPassword = await field.evaluate(node => String(node.type || '').toLowerCase() === 'password').catch(() => false)
+      if (landed !== undefined && landed !== words && !isPassword)
         throw new Error(`typed into ${css} but it reads "${landed.slice(0, 40)}"`)
-      return { ...(await snap(sid)), landed: landed ?? null, selector: css }
+      return { ...(await snap(sid)), landed: isPassword ? null : (landed ?? null), password: isPassword, selector: css }
     }
     case 'value': {
       // The only way to read an input's value: `read` returns innerText, which

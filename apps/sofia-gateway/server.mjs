@@ -265,13 +265,10 @@ const SEED_SCRIPT = `<script>
               .split('Your name is ' + LEGACY[0]).join('Your name is Sofia');
             touched = true;
           }
-          // The fork's stock card is AIRI's: "an experimental virtual AI VTuber…
-          // a 15 years old girl… talk like an English anime or Vtuber girl".
-          // That is now her voice persona too, so an untouched card makes her
-          // sound like a VTuber on the phone. Rewritten here, once, in the seed —
-          // not in base.yaml — because base.yaml is upstream i18n and the fork has
-          // to stay mergeable (G9). A card the owner edited never matches this
-          // text and is left alone.
+          // A device that already saved the old VTuber card keeps it. Rewritten
+          // once here, matched on a line only that text carries, because base.yaml
+          // is the default for NEW cards and cannot reach one already stored. A
+          // card the owner edited never matches and is left alone.
           if (typeof node.description === 'string' && node.description.indexOf(SOFIA_PERSONA_MARKER) !== -1) {
             node.description = SOFIA_OPERATOR_PERSONA;
             touched = true;

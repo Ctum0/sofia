@@ -261,6 +261,11 @@ export function browseCommand(args = {}) {
 
   if (args.text !== undefined && args.text !== '')
     out.text = String(args.text)
+  // `uncheck` and `untick` map to the same verb as `check`, so the direction has
+  // to be carried explicitly: without this the service reads its default ("on")
+  // and TICKS a box the caller asked to clear, then reports "Done — check".
+  if (action === 'check' && args.text === undefined && /^(uncheck|untick)$/.test(asked))
+    out.text = 'off'
   if (action === 'fill' && !out.selector)
     out.selector = 'input:not([type=hidden]), textarea'
   return out

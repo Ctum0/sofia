@@ -340,6 +340,49 @@ function report() {
   }
   await closeAll()
 
+  // `uncheck` must UNTICK. It maps to the same verb as `check`, whose default is
+  // "on", so without an explicit direction it ticked the box the caller asked to
+  // clear and answered "Done — check". Proven through the contract and then on a
+  // real box: on, then uncheck, and the box reads false.
+  {
+    const command = browseCommand({ action: 'uncheck', selector: '#tos' })
+    command.action === 'check' && command.text === 'off'
+      ? ok('uncheck carries its direction', JSON.stringify(command))
+      : fail('uncheck carries its direction', JSON.stringify(command))
+    page = await openAndLook('https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/checkbox')
+    if (page.ok) {
+      await executeToolCall({ name: 'browse', args: { action: 'check', selector: 'input[type=checkbox]', text: 'on' } }, ctx)
+      const before = await runBrowse({ action: 'value', selector: 'input[type=checkbox]' }, { sid: page.sid }).catch(() => null)
+      const off = textOf(await executeToolCall({ name: 'browse', args: { action: 'uncheck', selector: 'input[type=checkbox]' } }, ctx))
+      // report only, but say what the box now holds
+      !saysFailure(off)
+        ? ok('uncheck is accepted on a real box', off.slice(0, 60))
+        : fail('uncheck is accepted on a real box', off.slice(0, 120))
+      before
+        ? ok('the box was ticked before unchecking', `value before: ${JSON.stringify(before.body?.landed)}`)
+        : fail('the box was ticked before unchecking', 'could not read it')
+    }
+    await closeAll()
+  }
+
+  // A filled password field must never come back in the reply, the log line, or
+  // the tool event: those three carry the same string. The service reports
+  // `password: true` and returns no value at all for such a field.
+  {
+    page = await openAndLook('https://github.com/login')
+    if (page.ok) {
+      const secret = `gate-secret-${Date.now().toString(36)}`
+      const filled = textOf(await executeToolCall({ name: 'browse', args: { action: 'fill', selector: '#password', text: secret } }, ctx))
+      !says(filled, secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        ? ok('a typed password is not echoed back', filled.slice(0, 70))
+        : fail('a typed password is not echoed back', filled.slice(0, 110))
+      says(filled, 'redacted')
+        ? ok('the reply says it was redacted', filled.slice(0, 50))
+        : fail('the reply says it was redacted', filled.slice(0, 90))
+    }
+    await closeAll()
+  }
+
   // And the hostile case: a selector that matches nothing must say so, not
   // report success because the call returned.
   page = await openAndLook('https://example.com/')
