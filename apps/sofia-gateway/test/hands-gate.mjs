@@ -340,6 +340,21 @@ function report() {
   }
   await closeAll()
 
+  // A device that has not sent a card yet must still get a persona. An empty card
+  // used to compose the operating rules ALONE (~1.6 k chars): she was "brief, do
+  // not narrate" with no identity, and a gate that only measured length passed.
+  {
+    const { composeVoiceInstruction } = await import(process.env.SERVER_MODULE || '../server.mjs')
+    const cold = composeVoiceInstruction('')
+    const mine = composeVoiceInstruction('MY OWN CARD')
+    cold.length > 3000 && /Sithum|assistant/.test(cold) && /brief/i.test(cold)
+      ? ok('a cold device still gets her card, not the rules alone', `${cold.length} chars`)
+      : fail('a cold device still gets her card, not the rules alone', `${cold.length} chars: ${cold.slice(0, 60)}`)
+    mine.startsWith('MY OWN CARD') && /brief/i.test(mine)
+      ? ok('a sent card wins over the default, and the rules still apply', `${mine.length} chars`)
+      : fail('a sent card wins over the default', mine.slice(0, 60))
+  }
+
   // `uncheck` must UNTICK. It maps to the same verb as `check`, whose default is
   // "on", so without an explicit direction it ticked the box the caller asked to
   // clear and answered "Done — check". Proven through the contract and then on a

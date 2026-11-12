@@ -67,6 +67,10 @@ try {
           kind: e.kind || null,
           url: e.url || null,
           result: e.result || null,
+          // The persona identity arrives on `ready`; without these two it reads
+          // as 0 chars and the proof of whose words reached the session is gone.
+          instructionChars: e.instructionChars || 0,
+          instructionHead: e.instructionHead || '',
         })
         if (e.type === 'panel')
           window.dispatchEvent(new CustomEvent('sofia:panel', { detail: e }))

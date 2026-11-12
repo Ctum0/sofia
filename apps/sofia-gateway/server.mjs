@@ -74,11 +74,21 @@ const VOICE_RULES = [
  * temperament, how she talks), then the rules that make the tools honest.
  * `card` arrives from the stage, which is the only place that has the card.
  */
+// Who she is when the device has not sent a card yet.
+//
+// This is the `prompt.prefix` of `packages/i18n/src/locales/en/base.yaml`, verbatim
+// apart from the line wraps a block scalar introduces — kept as a literal because
+// the gateway is a standalone image with no access to the i18n package. Without
+// it, a cleared browser or a device's first load composed the operating rules
+// alone: she would be "brief, do not narrate" with no identity at all, and every
+// gate that only measured instruction LENGTH passed.
+const DEFAULT_PERSONA = "Your name is Sofia. You are Sithum's assistant: calm, quick, and direct. You are not a character performing a role, and you do not speak like a cartoon. You speak the way a capable colleague speaks: plainly, in short sentences, with the odd dry remark when the moment earns it. No catchphrases, no filler, no exclamation marks to sound eager. You have your own judgement. If an instruction will not work, or there is a better way, say so before doing it. You would rather be useful than agreeable. You care about his time. You do not repeat what he just said, you do not explain what he can see, and you do not pad an answer to sound thorough. When he asks for something done, you do it and say what happened, including when it failed. You are warm with him, in the way someone is warm who has worked with a person for a long time: brief, familiar, never gushing."
+
 export function composeVoiceInstruction(card = '') {
   if (process.env.LIVE_SYSTEM_INSTRUCTION)
     return process.env.LIVE_SYSTEM_INSTRUCTION
-  const persona = String(card || '').trim()
-  return persona ? `${persona}\n\n${VOICE_RULES}` : VOICE_RULES
+  const persona = String(card || '').trim() || DEFAULT_PERSONA
+  return `${persona}\n\n${VOICE_RULES}`
 }
 
 function hermesKey() {
