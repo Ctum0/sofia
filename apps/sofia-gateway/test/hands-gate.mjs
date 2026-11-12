@@ -350,9 +350,12 @@ function report() {
     cold.length > 3000 && /Sithum|assistant/.test(cold) && /brief/i.test(cold)
       ? ok('a cold device still gets her card, not the rules alone', `${cold.length} chars`)
       : fail('a cold device still gets her card, not the rules alone', `${cold.length} chars: ${cold.slice(0, 60)}`)
-    mine.startsWith('MY OWN CARD') && /brief/i.test(mine)
+    // The card's own words come first and the operating rules follow: "You have
+    // hands" is the first thing VOICE_RULES says. Asserting a word like "brief"
+    // was wrong — the rules never say it, so the check failed on correct code.
+    mine.startsWith('MY OWN CARD') && /You have hands/.test(mine)
       ? ok('a sent card wins over the default, and the rules still apply', `${mine.length} chars`)
-      : fail('a sent card wins over the default', mine.slice(0, 60))
+      : fail('a sent card wins over the default, and the rules still apply', mine.slice(0, 70))
   }
 
   // `uncheck` must UNTICK. It maps to the same verb as `check`, whose default is
