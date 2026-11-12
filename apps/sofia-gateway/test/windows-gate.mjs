@@ -41,7 +41,19 @@ const state = () => page.evaluate(() => {
       title: w.querySelector('.sofia-window__title')?.textContent?.trim(),
       img: (() => { const i = w.querySelector('img'); return i ? i.naturalWidth : 0 })() }
   })
-  const chat = document.querySelector('[data-testid=chat-empty-state]')
+  // The chat is present, not empty. `chat-empty-state` renders only while the
+  // session has no messages, and proactive delivery (a 22:00 line, or a slot
+  // collected after mount) appends one — so the empty state disappears for the
+  // rest of the run and no timeout can bring it back. That is why this gate
+  // passed standalone and failed in the verifier at different clock times: the
+  // filler is wall-clock, not contention. The panel itself is the observable
+  // "the chat is back"; text-panel-gate measures the same thing.
+  // Two different questions, kept apart: is the chat PANEL mounted, and is the
+  // empty-state placeholder showing. The first answers "did the chat come back"
+  // and survives a session that already has messages; the second only means
+  // "nothing has been said yet".
+  const chatPanel = document.querySelector('textarea, [placeholder*="Say something"]')
+  const chatEmpty = document.querySelector('[data-testid=chat-empty-state]')
   const col = document.querySelector('.stage-column')
   const cr = col ? col.getBoundingClientRect() : null
   const splash = document.getElementById('boot-splash')
@@ -49,7 +61,8 @@ const state = () => page.evaluate(() => {
   return {
     layerFixed: layer ? getComputedStyle(layer).position : null,
     count: wins.length, wins,
-    chatVisible: !!chat, splashVisible,
+    chatPanelMounted: !!chatPanel,
+    chatEmpty: !!chatEmpty, splashVisible,
     insideChatColumn: layer ? !!layer.closest('.stage-column') : null,
     vw: innerWidth, vh: innerHeight,
     col: cr ? { x: Math.round(cr.x), w: Math.round(cr.width), right: Math.round(cr.right) } : null,
@@ -95,7 +108,7 @@ try {
   await page.waitForTimeout(2500)
 
   const before = await state()
-  step('no windows at rest', before.count === 0, `chat visible: ${before.chatVisible}`)
+  step('no windows at rest', before.count === 0, `chat mounted: ${before.chatPanelMounted}`)
 
   await page.evaluate(() => window.__sofiaPanel({ kind: 'image', url: '/og.png', title: 'Sofia' }))
   await page.waitForTimeout(700)
@@ -114,7 +127,11 @@ try {
   step('the browser asks for a tab, not a blank frame', two.wins.some(w => w.kind === 'web'),
     two.wins.find(w => w.kind === 'web')?.title || 'none')
   step('windows are NOT inside the chat column', two.insideChatColumn === false, `layer position ${two.layerFixed}`)
-  step('the chat yields while windows are open', two.chatVisible === false)
+  // A window takes the chat's space by design, so the panel must be gone while
+  // one is open — measured now as "not mounted", not as "not empty", which was
+  // only true for a conversation with no messages.
+  step('the chat yields while windows are open', two.chatPanelMounted === false,
+    `panel mounted: ${two.chatPanelMounted}`)
   // `18273e680` moved the windows into her right shoulder so they never cover
   // her. This assertion existed then and the live-window rewrite (`28994c745`)
   // dropped it, so the gate went on printing a green count while the property it
@@ -271,12 +288,13 @@ try {
   // the product being quick, so the bound is generous and a genuinely missing
   // chat still fails — just later.
   await page.waitForFunction(
-    () => !document.querySelector('[data-testid=sofia-window]') && !!document.querySelector('[data-testid=chat-empty-state]'),
+    () => !document.querySelector('[data-testid=sofia-window]')
+      && !!(document.querySelector('[data-testid=chat-empty-state]') || document.querySelector('textarea, [placeholder*="Say something"]')),
     { timeout: 15000 },
   ).catch(() => {})
   const settled2 = await state()
-  step('closing all restores the chat', settled2.count === 0 && settled2.chatVisible === true,
-    `${settled2.count} window(s) left, chat visible: ${settled2.chatVisible}`)
+  step('closing all restores the chat', settled2.count === 0 && settled2.chatPanelMounted === true,
+    `${settled2.count} window(s) left, chat mounted: ${settled2.chatPanelMounted}`)
 } catch (error) {
   step('gate ran without throwing', false, String(error).slice(0, 200))
 } finally {
