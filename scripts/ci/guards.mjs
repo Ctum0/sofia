@@ -262,10 +262,14 @@ check('G14 no locale ships the legacy persona', () => {
   // "user edit" that is stranded forever and synced as one — so the migration
   // markers must still recognise every legacy locale, and must not match the new
   // text (or it would rewrite her persona on every load).
-  const server = read('apps/sofia-gateway/server.mjs')
-  const markerAt = server.indexOf('const LEGACY_PERSONA_MARKERS =')
-  assert(markerAt !== -1, 'LEGACY_PERSONA_MARKERS is gone — the card migration has no matcher')
-  const markerLine = server.slice(markerAt, server.indexOf('\n', markerAt))
+  // The matcher lives where the locale-correct built-in text is (`airi-card.ts`,
+  // next to `migratePreIruCard`), not in the gateway: the seed cannot interpolate
+  // module-scope constants into the browser script, and an English persona written
+  // over a Japanese card is not a migration.
+  const cards = read('packages/stage-ui/src/stores/modules/airi-card.ts')
+  const markerAt = cards.indexOf('const legacyPersonaDescription =')
+  assert(markerAt !== -1, 'legacyPersonaDescription is gone — the card migration has no matcher')
+  const markerLine = cards.slice(markerAt, cards.indexOf('\n', markerAt))
   assert(/VTuber/.test(markerLine) && /15/.test(markerLine),
     'the migration marker no longer names VTuber or an age — it cannot recognise the old cards')
   return `${locales.length} locales, migration marker present`

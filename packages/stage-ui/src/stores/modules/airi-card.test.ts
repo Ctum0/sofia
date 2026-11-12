@@ -1131,6 +1131,39 @@ describe('airi-card store', () => {
 
       expect(cardStore.cards.get('default')).toMatchObject({ name: 'Luna', description: cardStore.builtInCard.description })
     })
+
+    // The default persona changed, and this is the case that change made
+    // reachable: a stored description that no longer equals any locale's built-in
+    // is classified as a USER EDIT by `splitCard`, so it is stranded forever and
+    // synced to the server as though the owner wrote it. A card still carrying the
+    // old VTuber wording must be given THIS device's built-in text.
+    it('gives a card still carrying the old VTuber persona the current text', async () => {
+      const cardStore = useAiriCardStore()
+      storeDefaultCard(cardStore, { name: 'Sofia', description: preIruDescription })
+
+      await cardStore.initialize()
+
+      expect(cardStore.cards.get('default')).toMatchObject({ description: cardStore.builtInCard.description })
+      // The assertion that matters: after the migration the card reads as
+      // unedited, so nothing is uploaded and a later default change still lands.
+      expect(splitCard(cardStore.cards.get('default')!, [cardStore.builtInCard])).toEqual({})
+    })
+
+    // And the same wording in another language: the migration must recognise it,
+    // because a device whose card was created in Japanese never matches an
+    // English phrase.
+    it.each([
+      ['ja', 'あなたは実験的なバーチャル AI VTuber です。あなたは15歳の女の子として振る舞う必要があります。'],
+      ['ru', 'Ты экспериментальная виртуальная AI VTuber. Тебе 15 лет.'],
+      ['zh-Hans', '你是一个实验性的虚拟 AI VTuber。你是一名 15 岁的女孩。'],
+    ])('recognises the legacy persona in %s', async (_locale, description) => {
+      const cardStore = useAiriCardStore()
+      storeDefaultCard(cardStore, { name: 'Sofia', description })
+
+      await cardStore.initialize()
+
+      expect(cardStore.cards.get('default')?.description).toBe(cardStore.builtInCard.description)
+    })
   })
 
   describe('applySynchronizedCards', () => {

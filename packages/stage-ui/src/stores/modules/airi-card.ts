@@ -96,6 +96,19 @@ const preIruBuiltInDescriptionHashes = new Set([
   '97cbaec5ee5ad2589a16499385ca61044c6e9f69d17adf435b14d73be6299e85', // zh-Hant
 ])
 
+/**
+ * Wording that only the fork's stock persona carries, in every language: it named
+ * her a VTuber and gave her an age. A stored `default` card whose description
+ * still has these is unedited, and gets the current text.
+ *
+ * This matters because the default text changed: a stored description that no
+ * longer equals a locale's built-in is classified as a USER EDIT by `splitCard`,
+ * so without this migration it is stranded forever and synced to the server as
+ * though the owner had written it. Matched by wording rather than by hash, because
+ * the hashes depend on interpolated tokens that a reworded translation changes.
+ */
+const legacyPersonaDescription = /VTuber|experimental virtual|実験的なバーチャル|Иру|伊噜|伊嚕|อีรุ|15\s*(?:years? old|year-old|歳|años|ans|세|лет|ปี|tuổi|岁|歲)/i
+
 async function sha256Hex(text: string) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
@@ -1240,13 +1253,18 @@ export const useAiriCardStore = defineStore('airi-card', () => {
 
     const renamed = card.name === 'ReLU'
     const describedBuiltIn = builtInDescription && (card.description ?? '') === description
-    if (!renamed && !describedBuiltIn)
+    // A card still carrying the old VTuber persona is unedited too, and is given
+    // THIS DEVICE'S built-in text — which is in this device's language, and is
+    // byte-equal to what the card would have been created with, so `splitCard`
+    // keeps treating it as built-in and future default changes still reach it.
+    const describedLegacyPersona = legacyPersonaDescription.test(card.description ?? '')
+    if (!renamed && !describedBuiltIn && !describedLegacyPersona)
       return
 
     cards.value.set('default', {
       ...card,
       name: renamed ? builtInCard.value.name : card.name,
-      description: describedBuiltIn ? builtInCard.value.description : card.description,
+      description: describedBuiltIn || describedLegacyPersona ? builtInCard.value.description : card.description,
     })
   }
 
