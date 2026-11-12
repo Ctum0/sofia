@@ -425,6 +425,24 @@ function proxyToHermes(req, res, url, body) {
     else res.end()
   })
 
+  // A brain that accepts the connection and never answers used to hold this
+  // socket open forever: the user's turn simply never completed, with no error
+  // anywhere, and the page sat there. `/healthz` already guards itself this way
+  // (4 s); a real turn needs longer, and a JSON 504 is something the page can
+  // show. The timeout is cleared when the response finishes, so a long stream
+  // that is still producing is not cut mid-sentence.
+  const UPSTREAM_TIMEOUT_MS = Number(process.env.HERMES_UPSTREAM_TIMEOUT_MS || 120_000)
+  upstream.setTimeout(UPSTREAM_TIMEOUT_MS, () => {
+    upstream.destroy(new Error(`Hermes did not answer within ${Math.round(UPSTREAM_TIMEOUT_MS / 1000)} s`))
+    if (!res.headersSent) {
+      sendJson(res, 504, {
+        error: 'gateway_timeout',
+        message: 'the brain did not answer in time — say so and offer to try again',
+      })
+    }
+  })
+  res.on('close', () => upstream.destroy())
+
   if (body)
     upstream.end(body)
   else

@@ -80,6 +80,31 @@ try {
   })
   log(`session ready=${started.ready}`)
   started.ready ? ok('a real Live session opened') : fail('a real Live session opened')
+
+  // Whose words reached the session. A behavioural probe ("ask her something only
+  // the card would make her say") cannot be a gate — it waits on a model reply and
+  // flakes — so this reads the deterministic fact the bridge reports at setup:
+  // how long the instruction was, and how it begins. The rules alone are ~1.6 k
+  // chars; a card on top is longer, and the head must contain a phrase from it.
+  const readyInfo = await page.evaluate(() => {
+    const evt = (window.__vEvents || []).find(e => e.type === 'ready')
+    return evt ? { chars: evt.instructionChars || 0, head: evt.instructionHead || '' } : null
+  }).catch(() => null)
+  if (!readyInfo) {
+    fail('the session was built with her card, not the rules alone', 'no ready event carried the instruction')
+  }
+  else {
+    // The default persona now lives in base.yaml; its first line is distinctive.
+    const cardLoaded = readyInfo.chars > 2500 && /Sithum|assistant|calm, quick/i.test(readyInfo.head)
+    cardLoaded
+      ? ok('the session was built with her card, not the rules alone', `${readyInfo.chars} chars: ${readyInfo.head.slice(0, 50)}`)
+      : fail('the session was built with her card, not the rules alone', `${readyInfo.chars} chars: ${readyInfo.head.slice(0, 70)}`)
+    // And it must not be the fork's stock VTuber text.
+    const stock = /VTuber|15 years old|anime/i.test(readyInfo.head)
+    stock
+      ? fail('the instruction is not the stock VTuber card', readyInfo.head.slice(0, 70))
+      : ok('the instruction is not the stock VTuber card', 'no VTuber wording in the head')
+  }
   if (!started.ready) {
     log('\n0/1')
     await browser.close()

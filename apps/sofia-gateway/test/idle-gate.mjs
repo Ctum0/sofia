@@ -29,13 +29,28 @@ const fail = (name, detail = '') => { results.push(['FAIL', name]); console.log(
 const container = process.env.CONTAINER || 'sofia-browser'
 const pageUrl = process.env.PAGE || 'https://github.com'
 const base = 'http://sofia-browser:8790'
-// The service reaps a page after IDLE_MS (180 s default) and closes the browser
-// BROWSER_IDLE_MS (30 s) after the last page is gone. The gate waits past both.
-const waitMs = Number(process.env.IDLE_WAIT_MS || 240_000)
 
 function sh(args) {
   return execFileSync(args[0], args.slice(1), { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 })
 }
+
+// Wait past the service's OWN suspend window, read from its healthz, rather than
+// a number guessed here. The first version waited 240 s while SUSPEND_MS was
+// 600 s, so `live === 0` was unreachable and the gate reported a failure for
+// correct behaviour — the same defect as the short-window experiment, in the
+// other direction.
+const suspendMs = (() => {
+  try {
+    const app = sh(['docker', 'ps', '--format', '{{.Names}}']).split('\n').find(n => n.includes('zp31'))
+    const h = JSON.parse(sh(['docker', 'exec', app, 'node', '-e',
+      `fetch('http://sofia-browser:8790/healthz').then(r=>r.text()).then(t=>process.stdout.write(t))`]))
+    return Number(h.suspendMs || 0)
+  }
+  catch {
+    return 0
+  }
+})()
+const waitMs = Number(process.env.IDLE_WAIT_MS || Math.max(240_000, suspendMs + 60_000))
 
 function appNode(script) {
   const app = sh(['docker', 'ps', '--format', '{{.Names}}']).split('\n').find(n => n.includes('zp31'))

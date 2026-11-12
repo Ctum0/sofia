@@ -213,6 +213,14 @@ for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs frame-gate.mjs wi
   # stage that never mounts and times out at every viewport. Observed on
   # 2026-11-12 — five viewport timeouts that looked like a layout regression and
   # were a twenty-second gap during a deploy. Wait for the door, then retry.
+  # A gate's own Chromium dying is the harness, not the product — the same
+  # reasoning already written for the network retry. Seen while a gate holds a
+  # page for ~200 s with the verifier running gates back to back.
+  if echo "$out" | grep -qE "Target page, context or browser has been closed|browser has been closed|Target closed"; then
+    echo "  note: ${g} lost its own browser; retrying once"
+    sleep 5
+    out=$(run_gate "$g")
+  fi
   if echo "$out" | grep -qE "waitForSelector: Timeout|TimeoutError"; then
     echo "  note: ${g} waited for a stage that was not there; checking the door and retrying once"
     for _ in $(seq 1 30); do

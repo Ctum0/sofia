@@ -62,10 +62,23 @@ try {
   await page.waitForTimeout(2500)
 
   // 1. the stream is behind the session
-  const stranger = await (await browser.newContext()).request.post(`${BASE}/api/events`, { failOnStatusCode: false, data: {} })
-  stranger.status() === 401 || stranger.status() === 405
-    ? ok('the stage stream is behind the session', `status ${stranger.status()}`)
-    : fail('the stage stream is behind the session', `status ${stranger.status()}`)
+  //
+  // The anonymous context is closed explicitly: a discarded BrowserContext still
+  // holds a renderer until it is collected, and this gate now keeps one long-lived
+  // stage page for 200 s — the two together are what a gate Chromium dies of.
+  let strangerStatus = 0
+  {
+    const anon = await browser.newContext()
+    try {
+      strangerStatus = (await anon.request.post(`${BASE}/api/events`, { failOnStatusCode: false, data: {} })).status()
+    }
+    finally {
+      await anon.close().catch(() => {})
+    }
+  }
+  strangerStatus === 401 || strangerStatus === 405
+    ? ok('the stage stream is behind the session', `status ${strangerStatus}`)
+    : fail('the stage stream is behind the session', `status ${strangerStatus}`)
 
   // 2. nothing is on screen before the turn
   const before = await page.evaluate(() => document.querySelectorAll('[data-testid=sofia-window]').length)
@@ -221,11 +234,18 @@ try {
     const el = document.querySelector('[data-testid=sofia-window][data-kind=live]')
     return /sign|login/i.test(el?.getAttribute('data-url') || '')
   }).catch(() => false)
-  if (!signInLabel.label && !alreadyThere) {
-    fail('the page offers a sign-in control to click', `offers: ${signInLabel.offers.slice(0, 6).join(' | ') || 'none'}`)
+  // Three explicit outcomes. The first version recorded a pass only when the page
+  // was ALREADY on the sign-in page and a failure when neither held — so the
+  // normal case (a label was found) contributed nothing at all, and the gate's
+  // denominator silently depended on which branch the page took.
+  if (signInLabel.label) {
+    ok('the page offers a sign-in control to click', `"${signInLabel.label}"`)
   }
   else if (alreadyThere) {
     ok('the page offers a sign-in control to click', 'already on the sign-in page')
+  }
+  else {
+    fail('the page offers a sign-in control to click', `offers: ${signInLabel.offers.slice(0, 6).join(' | ') || 'none'}`)
   }
   await say(`click ${signInLabel.label || 'sign in'}`)
   const clickDeadline = Date.now() + 20000
@@ -258,11 +278,10 @@ try {
   const left = await page.evaluate(() => document.querySelectorAll('[data-testid=sofia-window]').length)
   left === 0 ? ok('a typed turn closes every window', '0 left') : fail('a typed turn closes every window', `${left} left`)
 
-  await say('open github and show me')
-  await page.waitForFunction(() => document.querySelectorAll('[data-testid=sofia-window]').length > 0, { timeout: 60000 }).catch(() => {})
-
-  // Leave one window up: the refresh check later in this gate needs something
-  // to survive, and an empty stage would pass it for the wrong reason.
+  // Leave one window up: the refresh check later in this gate needs something to
+  // survive, and an empty stage would pass it for the wrong reason. One turn does
+  // that — a second identical turn cannot open a second window (the stage dedups
+  // by url), so it only cost a Hermes round trip in a gate that is already long.
   await say('open github and show me')
   await page.waitForFunction(() => document.querySelectorAll('[data-testid=sofia-window]').length > 0, { timeout: 60000 }).catch(() => {})
 

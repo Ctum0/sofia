@@ -235,7 +235,17 @@ export class SofiaVoice {
         if (msg.type === 'ready') {
           this.ready = true
           clearTimeout(timer)
-          this.emit('ready', { model: msg.model, voice: msg.voice })
+          // The instruction identity travels with `ready` so a gate can prove the
+          // session was built from her card and not from the operating rules
+          // alone. Without forwarding these, the deterministic persona proof
+          // lived on the server and was asserted nowhere.
+          this.emit('ready', {
+            model: msg.model,
+            voice: msg.voice,
+            resumed: msg.resumed || false,
+            instructionChars: msg.instructionChars || 0,
+            instructionHead: msg.instructionHead || '',
+          })
           resolve()
           return
         }
