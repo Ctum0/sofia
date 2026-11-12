@@ -49,7 +49,7 @@ export const LIVE_TOOLS = [
         parameters: {
           type: 'OBJECT',
           properties: {
-            action: { type: 'STRING', enum: ['click', 'clickSelector', 'fill', 'press', 'scroll', 'read', 'links', 'back', 'forward', 'reload', 'goto', 'close'] },
+            action: { type: 'STRING', enum: ['click', 'clickSelector', 'fill', 'press', 'scroll', 'read', 'links', 'look', 'back', 'forward', 'reload', 'goto', 'close'] },
             text: { type: 'STRING', description: 'Visible text to click or type, or a URL for goto' },
             selector: { type: 'STRING', description: 'CSS selector, for clickSelector or fill' },
             key: { type: 'STRING', description: 'Key to press, or the selector to fill' },
@@ -367,6 +367,25 @@ export async function executeToolCall(call, ctx = {}) {
           if (!result.ok) throw new Error(body.error || `status ${result.status}`)
           if (action === 'read')
             text = `The page says: ${String(body.text || '').slice(0, 1500)}`
+          else if (action === 'look') {
+            // A description she can reason about: what is in the way, where the
+            // cursor is, what is clickable. This is the "am I looking at the
+            // right thing" verb, and it exists because innerText cannot see a
+            // modal, a CAPTCHA or an error banner.
+            const c = body.caption || {}
+            const bits = [`Looking at ${c.title || 'the page'} (${c.url || ''}).`]
+            if (c.dialogs?.length)
+              bits.push(`A dialog is open: ${c.dialogs.join(' / ')}`)
+            if (c.alerts?.length)
+              bits.push(`Visible message: ${c.alerts.join(' / ')}`)
+            if (c.focusedField)
+              bits.push(`The cursor is in the "${c.focusedField}" field.`)
+            if (c.buttons?.length)
+              bits.push(`Buttons on screen: ${c.buttons.join(' · ')}`)
+            if (c.scroll)
+              bits.push(`Scrolled ${c.scroll.y}px down a ${c.scroll.height}px page.`)
+            text = bits.join(' ')
+          }
           else if (action === 'links')
             text = `Links: ${(body.links || []).slice(0, 12).map(l => l.text).join(' · ')}`
           else

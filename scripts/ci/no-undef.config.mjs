@@ -36,6 +36,14 @@ export default [
         console: 'readonly',
         crypto: 'readonly',
         document: 'readonly',
+        // Browser globals used inside `page.evaluate` callbacks. The evaluator
+        // ships these functions to the page, so `scrollY` is real there even
+        // though it does not exist in Node.
+        scrollX: 'readonly',
+        scrollY: 'readonly',
+        getComputedStyle: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
         window: 'readonly',
         navigator: 'readonly',
         localStorage: 'readonly',

@@ -211,6 +211,7 @@ const ACTIONS = {
   read: 'read',
   links: 'links',
   value: 'value',
+  look: 'look',
   back: 'back',
   forward: 'forward',
   reload: 'reload',

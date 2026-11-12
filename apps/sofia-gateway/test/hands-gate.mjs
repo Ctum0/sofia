@@ -276,6 +276,31 @@ function report() {
     : fail('a chart with a mismatched label count is refused', mismatch.slice(0, 80))
 }
 
+// --- 6c-bis. she can see the state, not only the text ----------------------
+// `read` returns innerText, which cannot show a dialog, a CAPTCHA or an error
+// banner — so "the click did not work" was invisible to her. `look` returns what
+// is actually on screen: what is in the way, where the cursor is, what is
+// clickable.
+{
+  const panels = []
+  const ctx = { lastPage: null, pages: [], onPanel: p => panels.push(p) }
+  const opened = textOf(await executeToolCall({ name: 'show_panel', args: { kind: 'live', url: 'https://github.com/login' } }, ctx))
+  if (!ctx.lastPage?.sid || saysFailure(opened)) {
+    fail('look describes the page state', opened.slice(0, 120))
+  }
+  else {
+    const looked = textOf(await executeToolCall({ name: 'browse', args: { action: 'look' } }, ctx))
+    says(looked, 'Looking at') && says(looked, 'Sign in')
+      ? ok('look describes the page state', looked.slice(0, 90))
+      : fail('look describes the page state', looked.slice(0, 140))
+    // The parts that innerText cannot give: visible controls and the cursor.
+    says(looked, 'Buttons on screen') && says(looked, 'cursor is in|field')
+      ? ok('look reports what is clickable and where the cursor is', looked.slice(0, 80))
+      : fail('look reports what is clickable and where the cursor is', looked.slice(0, 140))
+    await executeToolCall({ name: 'browse', args: { action: 'close', sid: ctx.lastPage.sid } }, ctx).catch(() => {})
+  }
+}
+
 // --- 6d. memory reaches a fact told in another lane ------------------------
 // The defect this replaces: text memory lived in IndexedDB (one browser profile)
 // and voice never read it at all, so anything he said was forgotten by the next

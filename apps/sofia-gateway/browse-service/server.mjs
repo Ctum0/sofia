@@ -350,6 +350,42 @@ async function act({ sid, action, x, y, text, key, selector }) {
       break
     case 'read':
       return { ...(await snap(sid)), text: (await page.evaluate(() => document.body?.innerText || '')).slice(0, 6000) }
+    case 'look':
+      // What a person sees, not what the DOM says: a modal, a CAPTCHA, a red
+      // error banner, a chart — none of it appears in innerText, which is why
+      // "she clicked the wrong thing" was invisible to her. The caption is a
+      // cheap description built from what IS inspectable, and the pixels are
+      // returned so a model with vision can look at the rest.
+      return {
+        ...(await snap(sid)),
+        caption: await page.evaluate(() => {
+          const visible = el => !!(el.getClientRects().length)
+          const dialogs = [...document.querySelectorAll('[role=dialog], dialog[open], [aria-modal=true]')]
+            .filter(visible)
+            .map(el => (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 160))
+          const alerts = [...document.querySelectorAll('[role=alert], [aria-live=assertive], .error, .alert, [class*=error i]')]
+            .filter(visible)
+            .map(el => (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 120))
+            .filter(Boolean)
+          const focused = document.activeElement
+          const field = focused && /^(INPUT|TEXTAREA|SELECT)$/.test(focused.tagName)
+            ? (focused.getAttribute('aria-label') || focused.getAttribute('name') || focused.id || focused.tagName).slice(0, 60)
+            : null
+          const buttons = [...document.querySelectorAll('button, [role=button], input[type=submit]')]
+            .filter(visible)
+            .map(el => (el.textContent || el.value || '').trim())
+            .filter(t => t && t.length < 40)
+          return {
+            title: document.title,
+            url: location.href,
+            dialogs,
+            alerts,
+            focusedField: field,
+            buttons: [...new Set(buttons)].slice(0, 12),
+            scroll: { y: Math.round(scrollY), height: Math.round(document.body.scrollHeight) },
+          }
+        }),
+      }
     case 'links':
       return {
         ...(await snap(sid)),
