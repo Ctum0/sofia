@@ -10,9 +10,23 @@ let total = 0
 const ok = (n, d = '') => { total++; pass++; console.log(`PASS  ${n}${d ? ` — ${d}` : ''}`) }
 const fail = (n, d = '') => { total++; console.log(`FAIL  ${n}${d ? ` — ${d}` : ''}`) }
 
-const browser = await chromium.launch({ args: ['--no-sandbox'] })
-const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
-const page = await ctx.newPage()
+// Everything after the browser exists runs inside one try, and that includes the
+// launch: a throw before the block used to escape as a bare Node stack with no
+// `n/n` line, and the verifier reads that as "did not report a count" — the
+// same sentence whether the product broke or the harness did.
+let browser
+let ctx
+let page
+try {
+  browser = await chromium.launch({ args: ['--no-sandbox'] })
+  ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  page = await ctx.newPage()
+}
+catch (error) {
+  fail('the gate could start a browser', String(error?.message || error).slice(0, 160))
+  console.log(`\n${pass}/${total}`)
+  process.exit(1)
+}
 
 try {
   await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60000 })
@@ -267,7 +281,7 @@ catch (error) {
   fail('gate ran without throwing', String(error.message || error).slice(0, 160))
 }
 finally {
-  await browser.close()
+  await browser?.close().catch(() => {})
   console.log(`\n${pass}/${total}`)
   process.exit(pass === total ? 0 : 1)
 }
