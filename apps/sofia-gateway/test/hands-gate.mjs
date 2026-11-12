@@ -276,6 +276,47 @@ function report() {
     : fail('a chart with a mismatched label count is refused', mismatch.slice(0, 80))
 }
 
+// --- 6d. memory reaches a fact told in another lane ------------------------
+// The defect this replaces: text memory lived in IndexedDB (one browser profile)
+// and voice never read it at all, so anything he said was forgotten by the next
+// device. Both lanes now read and write one server-side store.
+{
+  const { memoryStatus, recall, remember } = await import(process.env.MEMORY_MODULE || '../memory.mjs')
+  const status = await memoryStatus().catch(error => ({ configured: false, reason: String(error?.message || error) }))
+  if (!status.configured) {
+    fail('memory is configured', String(status.reason || '').slice(0, 120))
+  }
+  else {
+    ok('memory is configured', `${status.base} workspace=${status.workspace}`)
+    // Write through the tool, then read it back through the tool: a store that
+    // accepts writes and cannot answer questions about them is not memory.
+    const fact = `Sofia memory gate ${Date.now().toString(36)}: his test colour is ultramarine.`
+    const wrote = textOf(await executeToolCall({ name: 'remember', args: { text: fact } }, { lastPage: null, pages: [], onPanel: () => {} }))
+    if (saysFailure(wrote)) {
+      fail('a fact can be kept', wrote.slice(0, 120))
+    }
+    else {
+      ok('a fact can be kept', wrote.slice(0, 60))
+      // Honcho derives observations asynchronously; poll rather than assume.
+      let answer = ''
+      const deadline = Date.now() + 90_000
+      while (Date.now() < deadline) {
+        answer = await recall({ query: 'what is his test colour' }).catch(() => '')
+        if (/ultramarine/i.test(answer))
+          break
+        await new Promise(res => setTimeout(res, 5000))
+      }
+      says(answer, 'ultramarine')
+        ? ok('a fact told to her is what she recalls', answer.slice(0, 80).replace(/\n/g, ' '))
+        : fail('a fact told to her is what she recalls', `recall said: ${answer.slice(0, 120)}`)
+    }
+    const empty = await recall({ query: 'the colour of a square circle' }).catch(() => '')
+    empty.length > 0
+      ? ok('recall answers, even when it knows nothing', `${empty.length} chars`)
+      : fail('recall answers, even when it knows nothing', 'empty response')
+  }
+}
+
 // --- 7. a typed read reaches the model, not just the browser ---------------
 // The first version of this fix ran the read out of band and then proxied the
 // ORIGINAL body, so Hermes answered from chat history while the page had

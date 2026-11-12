@@ -15,6 +15,7 @@
 import { request as httpRequest } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 
+import { recall, remember } from './memory.mjs'
 import { closePage, normalizePosition, openPage, runBrowse } from './intent.mjs'
 
 export const TOOL_TIMEOUT_MS = Number(process.env.HERMES_TOOL_TIMEOUT_MS || 45_000)
@@ -56,6 +57,27 @@ export const LIVE_TOOLS = [
             sid: { type: 'STRING', description: 'An exact page id, when you have one from [stage: …]' },
           },
           required: ['action'],
+        },
+      },
+      {
+        name: 'remember',
+        description: 'Keep something he told you, so it survives this conversation and every window — his preferences, a fact about his work, a decision. Use it when he says "remember that", "keep in mind", "note that", or tells you something he will expect you to know later. Not for passing details of the current page.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            text: { type: 'STRING', description: 'The fact, in one clear sentence, as he would want it recalled.' },
+          },
+          required: ['text'],
+        },
+      },
+      {
+        name: 'recall',
+        description: 'What you already know about him, from every past conversation on any device. Use it before asking him something he may have told you, and when he asks "do you remember", "what did I say about", "what do you know about me". Give a query for a pointed question; omit it for a general summary.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            query: { type: 'STRING', description: 'What you are trying to remember, in his words or yours. Omit for a general picture.' },
+          },
         },
       },
       {
@@ -351,6 +373,21 @@ export async function executeToolCall(call, ctx = {}) {
             text = `Done — ${action}${args.text ? ` "${String(args.text).slice(0, 40)}"` : ''}. The page is ${body.title || body.url || 'updated'}.`
         }
       }
+    }
+    else if (name === 'remember') {
+      const said = String(args.text || '').trim()
+      if (!said)
+        throw new Error('there was nothing to remember')
+      await remember(said)
+      text = 'I will remember that.'
+    }
+    else if (name === 'recall') {
+      const answer = await recall({ query: String(args.query || '').trim() })
+      // The model must not paraphrase a memory into a guess: an empty recall has
+      // to sound like an empty recall.
+      text = answer
+        ? `What I know: ${answer.slice(0, 2500)}`
+        : 'I do not have anything on that yet.'
     }
     else if (name === 'show_chart') {
       // A chart is rendered by a URL, not by her describing one: the window then
