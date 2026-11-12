@@ -264,9 +264,15 @@ try {
   // DOM settles a frame later: read it before that and a correct close reads as
   // a failure (measured once: `count 0, chat visible: false`). Wait for the state,
   // bounded, then assert it — a chat that never returns still fails.
+  //
+  // Four seconds was the first bound, and it failed under the verifier while
+  // passing standalone: the chat panel is remounted, and a loaded renderer takes
+  // longer than that to paint it. The wait is about the DOM settling, not about
+  // the product being quick, so the bound is generous and a genuinely missing
+  // chat still fails — just later.
   await page.waitForFunction(
     () => !document.querySelector('[data-testid=sofia-window]') && !!document.querySelector('[data-testid=chat-empty-state]'),
-    { timeout: 4000 },
+    { timeout: 15000 },
   ).catch(() => {})
   const settled2 = await state()
   step('closing all restores the chat', settled2.count === 0 && settled2.chatVisible === true,
