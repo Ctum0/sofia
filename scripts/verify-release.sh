@@ -173,23 +173,38 @@ for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs frame-gate.mjs wi
   note "$g $count"
 done
 
-# The tool layer cannot be reached from the QA browser: it is server-side. This
-# gate runs inside the gateway container against the very code that is serving,
-# and it is the one that caught a context rebuilt per call — the reason she said
-# she could not see a page she had opened herself.
+# The tool layer cannot be reached from the QA browser: it is server-side. These
+# gates run inside the gateway container against the very code that is serving.
+# `tools-gate` is the one that caught a context rebuilt per call — the reason she
+# said she could not see a page she had opened herself. `hands-gate` is the one
+# that catches a lane narrating work it never did; it needs the tool module *and*
+# the browser service, so it can only live here.
 app_container=$(docker ps --format "{{.Names}}" | grep zp31 | head -1)
-if [ -n "$app_container" ] && [ -f apps/sofia-gateway/test/tools-gate.mjs ]; then
-  docker cp apps/sofia-gateway/test/tools-gate.mjs "$app_container:/tmp/tools-gate.mjs" >/dev/null 2>&1
-  tools_out=$(docker exec "$app_container" node /tmp/tools-gate.mjs 2>&1)
-  tools_count=$(echo "$tools_out" | grep -oE '[0-9]+/[0-9]+' | tail -1)
-  tools_got=${tools_count%%/*}; tools_want=${tools_count##*/}
-  if [ -z "$tools_count" ] || [ "$tools_got" != "$tools_want" ]; then
-    echo "$tools_out" | grep -E '^FAIL' | head -6
-    fail 8 "tools-gate.mjs ${tools_count:-did not report a count}"
+for g in tools-gate.mjs hands-gate.mjs; do
+  if [ -z "$app_container" ] || [ ! -f "apps/sofia-gateway/test/$g" ]; then
+    fail 8 "$g did not run (no container or no file)"
   fi
-  note "tools-gate.mjs $tools_count"
-else
-  fail 8 "tools-gate.mjs did not run (no container)"
-fi
+  # The gate imports the modules it tests by relative path, so the tree's copies
+  # travel with it: a gate that imports /app/tools.mjs would test the deployed
+  # file and pass while the working tree was broken. They land beside the
+  # gateway's own `node_modules` so `ws` resolves, exactly as `/app` does.
+  docker exec "$app_container" sh -c 'mkdir -p /app/gatecheck' >/dev/null 2>&1
+  docker cp "apps/sofia-gateway/test/$g" "$app_container:/app/gatecheck/$g" >/dev/null 2>&1
+  for module in intent.mjs tools.mjs server.mjs live.mjs auth.mjs proactive.mjs reasoning-filter.mjs; do
+    [ -f "apps/sofia-gateway/$module" ] && docker cp "apps/sofia-gateway/$module" "$app_container:/app/gatecheck/$module" >/dev/null 2>&1
+  done
+  gate_out=$(docker exec -w /app/gatecheck "$app_container" \
+    env SOFIA_NO_LISTEN=1 \
+    TOOLS_MODULE=/app/gatecheck/tools.mjs INTENT_MODULE=/app/gatecheck/intent.mjs SERVER_MODULE=/app/gatecheck/server.mjs \
+    node "/app/gatecheck/$g" 2>&1)
+  docker exec "$app_container" sh -c 'rm -rf /app/gatecheck' >/dev/null 2>&1
+  gate_count=$(echo "$gate_out" | grep -oE '[0-9]+/[0-9]+' | tail -1)
+  gate_got=${gate_count%%/*}; gate_want=${gate_count##*/}
+  if [ -z "$gate_count" ] || [ "$gate_got" != "$gate_want" ]; then
+    echo "$gate_out" | grep -E '^FAIL' | head -8
+    fail 8 "$g ${gate_count:-did not report a count}"
+  fi
+  note "$g $gate_count"
+done
 
 echo "PASS ${head_sha:0:9} — tree clean, deployed, healthy, gated, on-brand"

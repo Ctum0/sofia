@@ -15,6 +15,8 @@
 import { request as httpRequest } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 
+import { closePage, normalizePosition, openPage, runBrowse } from './intent.mjs'
+
 export const TOOL_TIMEOUT_MS = Number(process.env.HERMES_TOOL_TIMEOUT_MS || 45_000)
 const POLL_MS = Number(process.env.HERMES_TOOL_POLL_MS || 600)
 const MAX_RESULT_CHARS = 4000
@@ -229,19 +231,15 @@ export async function executeToolCall(call, ctx = {}) {
   try {
     if (name === 'browse') {
       const action = String(args.action || '').toLowerCase()
-      const base = process.env.BROWSER_URL || 'http://sofia-browser:8790'
+      // `base` used to be declared inside this branch and read from a sibling
+      // branch of `show_panel`: a ReferenceError that the tool swallowed into
+      // "the browser could not open that page (base is not defined)". It lives
+      // at module scope now, so no branch can be the only one that declares it.
       const target = String(args.sid || ctx.lastPage?.sid || '')
       if (action === 'goto') {
         const url = String(args.text || '')
         if (!/^https?:\/\//i.test(url)) throw new Error('goto needs an absolute http(s) url')
-        const res = await fetch(`${base}/open`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ url }),
-          signal: AbortSignal.timeout(45000),
-        })
-        const page = await res.json()
-        if (!res.ok) throw new Error(page.error || `status ${res.status}`)
+        const page = await openPage(url)
         ctx.lastPage = { sid: page.sid, url: page.url }
         if (typeof ctx.onPanel === 'function')
           ctx.onPanel({ kind: 'live', sid: page.sid, url: page.url || url, title: page.title || '' })
@@ -253,41 +251,23 @@ export async function executeToolCall(call, ctx = {}) {
         // it as one made the call 400, the page stayed open, and she believed a
         // window she had closed was still there.
         if (action === 'close') {
-          const res = await fetch(`${base}/close`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ sid: target }),
-            signal: AbortSignal.timeout(15000),
-          })
-          if (!res.ok) throw new Error(`could not close that page (status ${res.status})`)
+          await closePage(target)
           if (ctx.lastPage && ctx.lastPage.sid === target) ctx.lastPage = null
           if (typeof ctx.onPanel === 'function') ctx.onPanel({ kind: 'control', action: 'close' })
           text = 'Closed that page.'
         }
         else {
-          const apiAction = action === 'click' ? 'clickText' : action === 'scroll' ? 'scroll' : action
-          const res = await fetch(`${base}/act`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              sid: target,
-              action: apiAction,
-              text: args.text !== undefined ? String(args.text) : args.selector !== undefined ? String(args.selector) : undefined,
-              key: args.key !== undefined ? String(args.key) : args.selector !== undefined ? String(args.selector) : undefined,
-              x: 640,
-              y: 400,
-            }),
-            signal: AbortSignal.timeout(45000),
-          })
-          const body = await res.json()
+          const result = await runBrowse(args, { sid: target })
+          const body = result.body
           // A tick per action: the window keeps the picture it took when the
           // page opened, so her clicks were invisible without this. It goes out
           // before the error check — a click that missed still has to show him
-          // what is really on the page. A closed page is never broadcast back.
-          if (action !== 'close' && typeof ctx.onPanel === 'function' && body.sid)
-            ctx.onPanel({ kind: 'live', sid: body.sid, url: body.url, title: body.title || '', tick: Date.now() })
-          if (!res.ok) throw new Error(body.error || `status ${res.status}`)
-          if (action === 'close') ctx.lastPage = null
+          // what is really on the page, and the service's error reply carries no
+          // `sid`, so gating the tick on `body.sid` muted exactly the failures
+          // that most needed a picture.
+          if (typeof ctx.onPanel === 'function')
+            ctx.onPanel({ kind: 'live', sid: body.sid || target, url: body.url || ctx.lastPage?.url || '', title: body.title || '', tick: Date.now() })
+          if (!result.ok) throw new Error(body.error || `status ${result.status}`)
           if (action === 'read')
             text = `The page says: ${String(body.text || '').slice(0, 1500)}`
           else if (action === 'links')
@@ -312,6 +292,16 @@ export async function executeToolCall(call, ctx = {}) {
       const action = String(args.action || '').toLowerCase()
       if (!action) throw new Error('no action was given')
       if (typeof ctx.onPanel !== 'function') throw new Error('this session cannot arrange windows')
+      // The tool description tells the model "left, centre or right" and the
+      // stage only knows "center". A British spelling silently did nothing and
+      // the reply still said "Done", so the fix is at the boundary: translate
+      // once, and say so if the word means nothing at all.
+      let position
+      if (args.position !== undefined && args.position !== '') {
+        position = normalizePosition(args.position)
+        if (!position)
+          throw new Error(`"${String(args.position)}" is not a side of the stage — use left, centre or right`)
+      }
       ctx.onPanel({
         kind: 'control',
         action,
@@ -320,9 +310,9 @@ export async function executeToolCall(call, ctx = {}) {
         y: Number.isFinite(Number(args.y)) ? Number(args.y) : undefined,
         width: Number.isFinite(Number(args.width)) ? Number(args.width) : undefined,
         height: Number.isFinite(Number(args.height)) ? Number(args.height) : undefined,
-        position: args.position ? String(args.position) : undefined,
+        position,
       })
-      text = `Done — ${action} applied to the ${String(args.target || 'last')} window.`
+      text = `Done — ${action}${position ? ` ${position}` : ''} applied to the ${String(args.target || 'last')} window.`
     }
     else if (name === 'show_panel') {
       const url = String(args.url || '').trim()
@@ -331,18 +321,21 @@ export async function executeToolCall(call, ctx = {}) {
       if (!url) throw new Error('no url was given')
       if (kind !== 'image' && !/^https?:\/\//i.test(url)) throw new Error('a web panel needs an http(s) url')
       if (typeof ctx.onPanel !== 'function') throw new Error('this session cannot open panels')
-      if (kind === 'live') {
-        const base = process.env.BROWSER_URL || 'http://sofia-browser:8790'
+      // A website shown as an <img> is a broken picture: the model sometimes
+      // answers "open this page" with kind:"image" and the window renders an
+      // empty box, which reads as "she ignored me". Decide from the URL, not
+      // from the model's label: only real image files and site assets are
+      // images, everything else is a live page.
+      //
+      // The decision used to live in an `else` branch that re-opened the page
+      // itself, and that copy read `base` from the sibling `if` — an unbound
+      // name. One decision, one open, so a third copy cannot appear.
+      const imageUrl = /(\.(png|jpe?g|gif|webp|avif|svg|bmp|ico))(\?|#|$)/i.test(url) || /^\/(?!\/)/.test(url)
+      const kind2 = kind === 'web' ? 'web' : imageUrl ? 'image' : 'live'
+      if (kind2 === 'live') {
         let opened
         try {
-          const res = await fetch(`${base}/open`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ url }),
-            signal: AbortSignal.timeout(45000),
-          })
-          opened = await res.json()
-          if (!res.ok) throw new Error(opened.error || `status ${res.status}`)
+          opened = await openPage(url)
         }
         catch (error) {
           throw new Error(`the browser could not open that page (${String(error.message || error).slice(0, 100)})`)
@@ -352,37 +345,8 @@ export async function executeToolCall(call, ctx = {}) {
         text = `The page is open beside you — ${opened.title || 'it'} — and I can click or scroll it for you.`
       }
       else {
-        // A website shown as an <img> is a broken picture: the model sometimes
-        // answers "open this page" with kind:"image" and the window renders an
-        // empty box, which reads as "she ignored me". Decide from the URL, not
-        // from the model's label: only real image files and site assets are
-        // images, everything else is a live page.
-        const imageUrl = /(\.(png|jpe?g|gif|webp|avif|svg|bmp|ico))(\?|#|$)/i.test(url) || /^\/(?!\/)/.test(url)
-        const kind2 = kind === 'web' ? 'web' : imageUrl ? 'image' : 'live'
-        if (kind2 === 'live') {
-          let opened
-          try {
-            const res = await fetch(`${base}/open`, {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ url }),
-              signal: AbortSignal.timeout(45000),
-            })
-            opened = await res.json()
-            if (!res.ok)
-              throw new Error(opened.error || `status ${res.status}`)
-          }
-          catch (error) {
-            throw new Error(`the browser could not open that page (${String(error.message || error).slice(0, 100)})`)
-          }
-          ctx.lastPage = { sid: opened.sid, url: opened.url || url }
-          ctx.onPanel({ kind: 'live', sid: opened.sid, url: opened.url || url, title: String(opened.title || args.title || '').slice(0, 80) })
-          text = `The page is open beside you — ${opened.title || 'it'} — and I can click or scroll it for you.`
-        }
-        else {
         ctx.onPanel({ kind: kind2, url, title: String(args.title || '').slice(0, 80) })
         text = kind2 === 'image' ? 'The picture is on the screen beside you.' : 'The page card is on the screen beside you.'
-        }
       }
     }
     else if (name === 'local_time') text = timeText()

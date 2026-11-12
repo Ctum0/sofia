@@ -108,19 +108,35 @@ async function snap(sid) {
   }
 }
 
-async function act({ sid, action, x, y, text, key }) {
+async function act({ sid, action, x, y, text, key, selector }) {
   const entry = pages.get(sid)
   if (!entry)
     throw new Error('no such page')
   const { page } = entry
+  // `selector`, `key` and `text` mean three different things and used to be
+  // interchangeable swords: `fill` read its locator from `key`, so a typed
+  // "type hello" asked for locator("hello") and timed out, and a caller that
+  // sent `selector` had its locator silently ignored — the text landed in the
+  // first field on the page instead of the named one. Accept the named field
+  // first, then the historical spellings, so an old caller keeps working while
+  // a new one is exact.
+  const css = String(selector ?? key ?? text ?? '')
   switch (action) {
     case 'click':
       await page.mouse.click(Number(x), Number(y))
       break
-    case 'scroll':
+    case 'scroll': {
+      // A direction word is not a pixel count. `Number("down")` is NaN, and
+      // Playwright answers a NaN wheel with "Input.dispatchMouseEvent: Invalid
+      // parameters" — a protocol error that reads like a broken browser while
+      // the page simply never scrolled.
+      const delta = Number(text)
+      if (!Number.isFinite(delta))
+        throw new Error(`scroll needs pixels, got "${String(text)}"`)
       await page.mouse.move(Number(x || VIEWPORT.width / 2), Number(y || VIEWPORT.height / 2))
-      await page.mouse.wheel(0, Number(text || 400))
+      await page.mouse.wheel(0, delta)
       break
+    }
     case 'type':
       await page.keyboard.type(String(text || ''))
       break
@@ -194,11 +210,34 @@ async function act({ sid, action, x, y, text, key }) {
       break
     }
     case 'clickSelector':
-      await page.locator(String(text || '')).first().click({ timeout: 15000 })
+      if (!css)
+        throw new Error('clickSelector needs a CSS selector')
+      await page.locator(css).first().click({ timeout: 15000 })
       break
-    case 'fill':
-      await page.locator(String(key || 'input')).first().fill(String(text || ''), { timeout: 15000 })
-      break
+    case 'fill': {
+      if (!css)
+        throw new Error('fill needs a CSS selector for the field')
+      // Report what actually landed: a fill that types into the wrong box is
+      // the failure this contract exists to prevent, and only the page can say
+      // whether the named field is the one that received the text. `landed` is
+      // returned, not just checked here, so a gate can assert on it instead of
+      // inferring success from "the call did not throw".
+      const field = page.locator(css).first()
+      const words = String(text || '')
+      await field.fill(words, { timeout: 15000 })
+      const landed = await field.inputValue().catch(() => undefined)
+      if (landed !== undefined && landed !== words)
+        throw new Error(`typed into ${css} but it reads "${landed.slice(0, 40)}"`)
+      return { ...(await snap(sid)), landed: landed ?? null, selector: css }
+    }
+    case 'value': {
+      // The only way to read an input's value: `read` returns innerText, which
+      // never contains what a form field holds.
+      if (!css)
+        throw new Error('value needs a CSS selector')
+      const landed = await page.locator(css).first().inputValue({ timeout: 8000 }).catch(() => null)
+      return { ...(await snap(sid)), landed, selector: css }
+    }
     case 'press':
       await page.keyboard.press(String(key || 'Enter'))
       break
@@ -240,6 +279,10 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(code, { 'content-type': 'application/json' })
     res.end(JSON.stringify(body))
   }
+  // The caller has to redraw the window even when the action failed, and it can
+  // only do that if the failure names the page. An error reply of `{error}`
+  // alone made every miss leave yesterday's pixels on screen.
+  let askedSid = ''
   try {
     const url = new URL(req.url, 'http://127.0.0.1')
     if (url.pathname === '/healthz') {
@@ -254,6 +297,7 @@ const server = http.createServer(async (req, res) => {
       return send(405, { error: 'POST only' })
 
     const body = await readBody(req)
+    askedSid = String(body.sid || '')
     if (url.pathname === '/open') {
       const sid = await newPage(String(body.url))
       return send(200, await snap(sid))
@@ -271,7 +315,7 @@ const server = http.createServer(async (req, res) => {
     return send(404, { error: 'no route' })
   }
   catch (error) {
-    send(400, { error: String(error.message || error) })
+    send(400, { error: String(error.message || error), sid: askedSid || undefined })
   }
 })
 

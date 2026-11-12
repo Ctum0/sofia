@@ -30,6 +30,7 @@ import { WebSocketServer } from 'ws'
 
 import { DEFAULT_MODEL, DEFAULT_VOICE, LiveBridge } from './live.mjs'
 import { LIVE_TOOLS, executeToolCall } from './tools.mjs'
+import { openPage, runBrowse, stageIntent } from './intent.mjs'
 import { SseReasoningFilter, stripReasoningFromBody } from './reasoning-filter.mjs'
 import { checkPassword, clearCookie, isAuthed, loginPage, makeSession, sessionCookie } from './auth.mjs'
 import { ack as proactiveAck, fireNow as proactiveFire, pending as proactivePending, start as startProactive, status as proactiveStatus } from './proactive.mjs'
@@ -267,7 +268,7 @@ function requestFor(target) {
 
 /** Proxy everything under /v1 to Hermes, adding the key on this side. */
 // Buffered only for chat turns: the body is small JSON, and the text path needs
-// to be read before it is forwarded (see maybeOpenFromText).
+// to be read before it is forwarded (see intentFromText).
 function readRequestBody(req, limit = 2000000) {
   return new Promise((resolve, reject) => {
     const chunks = []
@@ -527,202 +528,40 @@ function broadcastToStage(event) {
   }
 }
 
-const OPEN_VERB = /\b(?:open|show|pull up|bring up|go to|take me to)\b/i
-const SITES = {
-  github: 'https://github.com',
-  gitlab: 'https://gitlab.com',
-  youtube: 'https://youtube.com',
-  google: 'https://google.com',
-  gmail: 'https://mail.google.com',
-  reddit: 'https://reddit.com',
-  x: 'https://x.com',
-  twitter: 'https://x.com',
-  wikipedia: 'https://wikipedia.org',
-  notion: 'https://notion.so',
-  maps: 'https://maps.google.com',
-  hn: 'https://news.ycombinator.com',
-  hackernews: 'https://news.ycombinator.com',
-  stackoverflow: 'https://stackoverflow.com',
-}
-
-/** "open github for me and show" -> https://github.com, or null. */
-function urlFromText(text) {
-  // The chat prefixes its own timestamps ("[2026-11-10 21:43] …") and any
-  // dotted token used to win the match: that is how "try again and open github"
-  // became https://chess.play and failed. Known sites first, strips of digits
-  // and times removed, and only real TLDs accepted.
-  const said = String(text || '').replace(/\[[^\]]*\]/g, ' ').replace(/\b\d{1,2}:\d{2}\b/g, ' ')
-  if (!OPEN_VERB.test(said))
-    return null
-  const direct = said.match(/https?:\/\/[^\s'"]+/i)
-  if (direct)
-    return direct[0].replace(/[.,;:!)]+$/, '')
-  const lower = said.toLowerCase()
-  for (const key of Object.keys(SITES)) {
-    if (new RegExp(`\\b${key}\\b`).test(lower))
-      return SITES[key]
-  }
-  const TLD = /^(?:com|org|net|io|dev|ai|app|co|me|sh|gg|tv|xyz|edu|gov|info|site|so)$/
-  for (const candidate of lower.match(/[a-z0-9-]+(?:\.[a-z0-9-]+)+/g) || []) {
-    const tld = candidate.split('.').pop()
-    if (TLD.test(tld))
-      return `https://${candidate}`
-  }
-  for (const key of Object.keys(SITES)) {
-    if (new RegExp(`\\b${key}\\b`).test(said.toLowerCase()))
-      return SITES[key]
-  }
-  return null
-}
-
 // The last page this gateway put on screen. A typed turn has no browser state
 // of its own, so "click the search box" has to attach to something — this is it.
+// (It sat above the matcher that moved to intent.mjs; deleting that block took
+// the declaration with it, and the references below became a runtime
+// ReferenceError that `node --check` cannot see.)
 let stageLastPage = null
 
-function rememberPage(page) {
+// Exported so a gate can seed the one piece of state a typed turn depends on.
+// The product sets it from the panel a voice turn broadcasts, which the
+// `the mislabelled page is remembered` check already covers end to end.
+export function rememberPage(page) {
   if (page?.sid)
     stageLastPage = { sid: page.sid, url: page.url || stageLastPage?.url || '', title: page.title || '' }
 }
 
-// Her own size and place. These run before the open matcher, because "make
-// yourself smaller" contains "make" and would otherwise be read as a request to
-// open something.
-// Word order is the whole bug: the first version only accepted "get smaller"
-// and "smaller yourself", so the phrasing he actually uses — "make yourself
-// smaller" — matched nothing, fell through to prose, and she answered that she
-// could not resize herself. The rules below read the size word and the subject
-// in either order; an explicit number ("scale yourself to 0.6") wins over both.
-const AVATAR_RULES = [
-  // A size word is a step, not a fixed number: "make yourself smaller" twice
-  // has to leave her smaller than once. The fixed 0.65 made the second ask a
-  // no-op, and a command that does nothing on the second try reads as broken.
-  [/\b(?:smaller|tinier|littler)\b|\bshrink\b|\bscale (?:yourself )?down\b|\bminimi[sz]e yourself\b/i, { action: 'set', step: -0.2 }],
-  [/\bhalf size\b|\bsmall size\b/i, { action: 'set', scale: 0.5 }],
-  [/\b(?:bigger|larger|taller)\b|\bgrow\b|\bscale (?:yourself )?up\b|\bmaximi[sz]e yourself\b/i, { action: 'set', step: 0.2 }],
-  [/\bfull size\b|\bnormal size\b/i, { action: 'set', scale: 1 }],
-  [/\bmove (?:yourself )?(?:to the )?left\b/i, { action: 'set', x: -260 }],
-  [/\bmove (?:yourself )?(?:to the )?right\b/i, { action: 'set', x: 260 }],
-  [/\bmove aside\b/i, { action: 'set', x: 220, scale: 0.8 }],
-  [/\b(?:come back|reset yourself|back to normal|usual place)\b/i, { action: 'reset' }],
-]
-
-/**
- * What a typed turn asks the stage to do. Deliberately deterministic: the text
- * lane is Hermes, which has no function calling here, so every capability the
- * voice lane gets from a tool has to be recognised here or it does not exist
- * while typing.
- */
-function stageIntent(rawText) {
-  const said = String(rawText || '')
-    .replace(/\[[^\]]*\]/g, ' ')
-    .replace(/\b\d{1,2}:\d{2}\b/g, ' ')
-  const lower = said.toLowerCase().trim()
-
-  // Does this turn talk about HER, or about the furniture? "make yourself
-  // smaller" is her; "make the window smaller" is the stage. Getting that
-  // backwards is how a size request ends up opening a page.
-  const herDirect = /\byourself\b|\byour avatar\b|\bavatar\b|\bshrink\b|\bmove aside\b|\bcome back\b/.test(lower)
-  const sizeTalk = /\b(?:smaller|bigger|tinier|littler|larger|taller)\b|\bscale (?:up|down)\b|\bfull size\b|\bhalf size\b|\bnormal size\b|\b(?:scale|size)\b[^0-9%]{0,14}\d/.test(lower)
-  const furniture = /\bwindows?\b|\bpanes?\b/.test(lower)
-
-  if (herDirect || (sizeTalk && !furniture)) {
-    // "scale yourself to 0.6" / "size 60%" beats a vague word.
-    const sized = lower.match(/\b(?:scale|size)\b[^0-9%]{0,14}(\d*\.?\d+)\s*(?:%|percent)?/)
-    if (sized) {
-      const percent = /%|percent/.test(sized[0])
-      let value = Number(sized[1])
-      if (percent || value > 1.6)
-        value = value / 100
-      if (Number.isFinite(value) && value > 0)
-        return { events: [{ kind: 'avatar', action: 'set', scale: Math.max(0.35, Math.min(1.6, value)) }] }
-    }
-    for (const [re, payload] of AVATAR_RULES) {
-      if (re.test(lower))
-        return { events: [{ kind: 'avatar', ...payload }] }
-    }
-  }
-
-  // A window move, not a body move: "move it to the left" must not shrink her.
-  if (/\b(?:window|page|browser|it)\b/.test(lower) && /\bmove\b/.test(lower)) {
-    if (/\bleft\b/.test(lower))
-      return { events: [{ kind: 'control', action: 'move', position: 'left' }] }
-    if (/\bright\b/.test(lower))
-      return { events: [{ kind: 'control', action: 'move', position: 'right' }] }
-    if (/\b(?:centre|center|middle)\b/.test(lower))
-      return { events: [{ kind: 'control', action: 'move', position: 'center' }] }
-  }
-
-  if (/\bclose (?:all|everything|all of them)\b|\bclose the windows\b/.test(lower))
-    return { events: [{ kind: 'control', action: 'close_all' }] }
-  if (/\bclose (?:it|that|this|the window)\b/.test(lower))
-    return { events: [{ kind: 'control', action: 'close', target: 'last' }] }
-  if (/\b(?:tile|line (?:them|the windows) up|arrange (?:them|the windows))\b/.test(lower))
-    return { events: [{ kind: 'control', action: 'tile' }] }
-  if (/\bmaximi[sz]e\b/.test(lower))
-    return { events: [{ kind: 'control', action: 'maximize', target: 'last' }] }
-  if (/\bminimi[sz]e\b/.test(lower))
-    return { events: [{ kind: 'control', action: 'minimize', target: 'last' }] }
-
-  const url = urlFromText(said)
-  if (url)
-    return { events: [{ kind: 'open', url }] }
-
-  if (/\b(?:search|look up|google)\b/i.test(lower)) {
-    const q = said.replace(/^.*?\b(?:search(?: for)?|look up|google)\b/i, '').replace(/^\s*(?:for|about)\s+/i, '').trim()
-    if (q)
-      return { events: [{ kind: 'open', url: `https://duckduckgo.com/?q=${encodeURIComponent(q.replace(/[?.!]+$/, ''))}` }] }
-  }
-
-  const click = said.match(/\b(?:click|tap|press) (?:on )?(?:the )?(.+?)(?: link| button)?$/i)
-  if (click && !/^enter$/i.test(click[1].trim()))
-    return { events: [], browse: { action: 'clickText', text: click[1].trim() } }
-  if (/\bpress (?:the )?enter\b|\bhit enter\b/i.test(lower))
-    return { events: [], browse: { action: 'press', text: 'Enter' } }
-  const type = said.match(/\btype (?:in )?(?:["“])(.+?)["”]/i) || said.match(/\btype (?:in )?(.{2,80})$/i)
-  if (type)
-    return { events: [], browse: { action: 'fill', text: type[1].trim(), selector: 'input:not([type=hidden]), textarea' } }
-  if (/\bscroll (?:down|further)\b/i.test(lower))
-    return { events: [], browse: { action: 'scroll', text: 'down' } }
-  if (/\bscroll (?:up|back)\b/i.test(lower))
-    return { events: [], browse: { action: 'scroll', text: 'up' } }
-  if (/\bgo back\b|\bback to the (?:last|previous) page\b/i.test(lower))
-    return { events: [], browse: { action: 'back' } }
-  if (/\breload\b|\brefresh the page\b/i.test(lower))
-    return { events: [], browse: { action: 'reload' } }
-
-  return { events: [] }
-}
-
 async function runStageIntent(intent) {
-  const base = process.env.BROWSER_URL || 'http://sofia-browser:8790'
   if (intent.browse) {
-    const target = stageLastPage?.sid
+    const target = intent.browse.sid || stageLastPage?.sid
     if (!target) {
       console.log(`[sofia-gateway] text: ${intent.browse.action} needs a page and none is open`)
       return
     }
-    const res = await fetch(`${base}/act`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        sid: target,
-        action: intent.browse.action,
-        text: intent.browse.text,
-        selector: intent.browse.selector,
-        key: intent.browse.text,
-        x: 640,
-        y: 400,
-      }),
-      signal: AbortSignal.timeout(45000),
-    })
-    const body = await res.json()
+    // The same command builder the voice lane uses. Building the payload twice
+    // is what let a typed "type hello" send its words as the selector and a
+    // typed "scroll down" send the word where pixels belong.
+    const result = await runBrowse(intent.browse, { sid: target })
+    const body = result.body
     // `tick` is what makes her clicks visible: without it the window keeps the
     // picture it took when the page opened and every action looks ignored. It
     // fires whether the action worked or not — a failed click must still show
     // him the real page, never a picture from a minute ago.
     broadcastToStage({ kind: 'live', sid: body.sid || target, url: body.url || stageLastPage?.url || '', title: body.title || '', tick: Date.now() })
-    if (!res.ok)
-      throw new Error(body.error || `status ${res.status}`)
+    if (!result.ok)
+      throw new Error(body.error || `status ${result.status}`)
     rememberPage(body)
     console.log(`[sofia-gateway] text: ${intent.browse.action} -> ${body.url || body.title || 'done'}`)
     return
@@ -730,15 +569,7 @@ async function runStageIntent(intent) {
 
   for (const event of intent.events) {
     if (event.kind === 'open') {
-      const up = await fetch(`${base}/open`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ url: event.url }),
-        signal: AbortSignal.timeout(45000),
-      })
-      const page = await up.json()
-      if (!up.ok)
-        throw new Error(page.error || `status ${up.status}`)
+      const page = await openPage(event.url)
       rememberPage({ ...page, url: page.url || event.url })
       console.log(`[sofia-gateway] text: opened ${page.url || event.url}`)
       broadcastToStage({ kind: 'live', sid: page.sid, url: page.url || event.url, title: page.title || '' })
@@ -749,12 +580,18 @@ async function runStageIntent(intent) {
   }
 }
 
-async function maybeOpenFromText(body) {
+/**
+ * A typed turn has no tools. Everything the typed lane can do is decided here,
+ * before Hermes sees the message — including reading a page, whose whole point
+ * is that her answer comes from the page and not from the chat history. So this
+ * returns the body to forward, not just a side effect.
+ */
+export async function intentFromText(body) {
   let payload
   try { payload = JSON.parse(body.toString('utf8')) }
   catch {
     console.log(`[sofia-gateway] text: unreadable body (${body?.length ?? 'no'} bytes)`)
-    return
+    return { body }
   }
   const messages = Array.isArray(payload?.messages) ? payload.messages : []
   const lastUser = [...messages].reverse().find(m => m?.role === 'user')
@@ -767,13 +604,51 @@ async function maybeOpenFromText(body) {
     : intent.events.length ? intent.events.map(e => `${e.kind}:${e.action || e.url || ''}`).join(', ') : 'no intent'
   console.log(`[sofia-gateway] text: turn "${String(text).slice(0, 60)}" -> ${what}`)
   if (!intent.browse && !intent.events.length)
-    return
+    return { body }
+
+  // Reading is the one intent whose result has to travel with the request.
+  // Running it out of band and then proxying the original body left Hermes
+  // answering from chat history: the page was read, and nothing downstream ever
+  // saw it. The text goes into the turn as an observation the model can use.
+  if (intent.browse?.action === 'read' || intent.browse?.action === 'links') {
+    const target = stageLastPage?.sid
+    if (!target)
+      return { body }
+    try {
+      const result = await runBrowse(intent.browse, { sid: target })
+      broadcastToStage({ kind: 'live', sid: result.body.sid || target, url: result.body.url || stageLastPage?.url || '', title: result.body.title || '', tick: Date.now() })
+      if (!result.ok)
+        throw new Error(result.body.error || `status ${result.status}`)
+      rememberPage(result.body)
+      const observed = intent.browse.action === 'read'
+        ? `The page (${result.body.url || stageLastPage?.url || 'open page'}) shows:\n${String(result.body.text || '').slice(0, 4000)}`
+        : `The links on ${result.body.url || 'the page'} are:\n${(result.body.links || []).slice(0, 40).map(l => `- ${l.text} -> ${l.href}`).join('\n')}`
+      // `message === lastUser` is an identity check on the objects that came out
+      // of this same parse: nothing here clones them. A future `structuredClone`
+      // of `messages` would make every comparison false and turn this injection
+      // into a silent no-op, so keep it a map over the parsed array.
+      const rewritten = {
+        ...payload,
+        messages: messages.map(message => (message === lastUser
+          ? { ...message, content: `${text}\n\n[stage: the gateway already read the open page for you. Answer from this, and do not claim you cannot see it.]\n${observed}` }
+          : message)),
+      }
+      console.log(`[sofia-gateway] text: ${intent.browse.action} -> ${String(result.body.text || '').length} chars handed to Hermes`)
+      return { body: Buffer.from(JSON.stringify(rewritten), 'utf8') }
+    }
+    catch (error) {
+      console.log(`[sofia-gateway] text: intent failed (${String(error && error.message || error).slice(0, 100)})`)
+      return { body }
+    }
+  }
+
   try {
     await runStageIntent(intent)
   }
   catch (error) {
     console.log(`[sofia-gateway] text: intent failed (${String(error && error.message || error).slice(0, 100)})`)
   }
+  return { body }
 }
 
 const server = createServer(async (req, res) => {
@@ -935,13 +810,15 @@ self.addEventListener('activate', (event) => {
 
   if (url.pathname.startsWith('/v1/')) {
     // A typed turn has no tools: the gateway does the one thing a window needs
-    // before handing the message to Hermes.
+    // before handing the message to Hermes. It AWAITS, because a read has to
+    // rewrite the turn — running it out of band let Hermes answer from chat
+    // history while the page sat there already read.
     if (url.pathname.endsWith('/chat/completions') && req.method === 'POST') {
       console.log(`[sofia-gateway] text: chat turn ${req.method} ${url.pathname}`)
       const body = await readRequestBody(req).catch(() => null)
       if (body) {
-        maybeOpenFromText(body).catch(e => console.log(`[sofia-gateway] text: intent failed (${String(e && e.message || e).slice(0, 100)})`))
-        proxyToHermes(req, res, url, body)
+        const prepared = await intentFromText(body)
+        proxyToHermes(req, res, url, prepared.body)
         return
       }
     }
@@ -1226,6 +1103,13 @@ wss.on('connection', (ws) => {
   ws.on('error', () => bridge.close())
 })
 
+// A gate imports this module to exercise `intentFromText` with a fake chat body;
+// binding a port in the same process would fight the running gateway. The
+// switch is opt-in, so production behaviour is byte-for-byte unchanged.
+if (process.env.SOFIA_NO_LISTEN === '1') {
+  console.log('[sofia-gateway] SOFIA_NO_LISTEN=1 — not binding a port (imported by a gate)')
+}
+else {
 server.listen(PORT, HOST, () => {
   console.log(`[sofia-gateway] http://${HOST}:${PORT}  stage=${DIST}  hermes=${HERMES_BASE}`)
   console.log(`[sofia-gateway] key: ${hermesKey() ? 'loaded' : 'MISSING — /v1 will answer 503'}  trace=${TRACE}  reasoning=${KEEP_REASONING ? 'kept' : 'stripped'}`)
@@ -1234,3 +1118,4 @@ server.listen(PORT, HOST, () => {
   console.log(`[sofia-gateway] proactive: slots=${clock.slots.join(',')} (${clock.timezone}) now=${clock.now} state=${clock.statePath}`)
   startProactive()
 })
+}

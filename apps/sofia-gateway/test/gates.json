@@ -86,6 +86,11 @@
       "catches": "a tool context rebuilt per call, so browse cannot see the page she opened",
       "runs": "inside the gateway container (docker cp + docker exec)"
     },
+    "hands-gate.mjs": {
+      "auto": true,
+      "catches": "a lane that narrates work it did not do: an unbound name in show_panel, a direction word sent where pixels belong, clickSelector lowercased into an unknown action, a typed fill whose words became the selector, a failed click that left yesterday's pixels, and a position the stage cannot place",
+      "runs": "inside the gateway container (docker cp + docker exec), because it needs both the tool module and the browser service"
+    },
     "proactive-gate.mjs": {
       "auto": false,
       "why": "needs a real signed-in stage and the gateway clock; run by hand until it can be made deterministic"

@@ -2,6 +2,7 @@
 // Guards: every check here exists because I actually broke this repo this way.
 // Each one is cheap, static, and names the incident it prevents, so a red run
 // tells you what went wrong without needing the chat history.
+import { spawnSync } from 'node:child_process'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -174,6 +175,44 @@ check('G11 the upstream CI is untouched and ours is separate', () => {
   const runs = ours.filter(f => read(join('.github/workflows', f)).includes('guards.mjs'))
   assert(runs.length > 0, 'a sofia workflow exists but does not run scripts/ci/guards.mjs')
   return `${runs.join(', ')} runs the guards`
+})
+
+// G12 — deleting a block took a declaration with it. `stageLastPage` and
+// `rememberPage` lost their `let`/`function` when the site matcher moved to
+// intent.mjs, and `node --check` passed: it checks syntax, not scope. The
+// failure would have been a ReferenceError inside the Live panel handler, so
+// every voice-driven window would have thrown before it was sent.
+//
+// The check is `no-undef`, not a regex of my own: the first attempt counted
+// prose in comments and CSS inside template literals as calls, and the second
+// fought regex literals. A parser already knows the difference. It runs with a
+// throwaway flat config so it cannot be disabled by the repo's own lint rules.
+check('G12 no module uses a name it never declares', () => {
+  const config = join(root, 'scripts/ci/no-undef.config.mjs')
+  assert(has('scripts/ci/no-undef.config.mjs'), 'scripts/ci/no-undef.config.mjs is missing')
+  // The `guards` job checks out and runs this file without installing, so a
+  // missing eslint has to be a stated skip, not a red check that says nothing
+  // about the code. `node_modules/.bin/eslint` is used rather than `npx` so a
+  // stray download can never be what passes or fails the guard.
+  const eslintBin = join(root, 'node_modules/.bin/eslint')
+  if (!existsSync(eslintBin))
+    return 'eslint not installed here — scope check runs where dependencies exist (local, CI build job)'
+  const result = spawnSync(eslintBin, ['--no-config-lookup', '-c', config,
+    'apps/sofia-gateway/*.mjs', 'apps/sofia-gateway/browse-service/*.mjs', '--format', 'json'], {
+    cwd: root,
+    encoding: 'utf8',
+    shell: false,
+  })
+  if (result.error)
+    throw new Error(`could not run eslint: ${result.error.message}`)
+  let report = []
+  try { report = JSON.parse(result.stdout || '[]') }
+  catch { throw new Error(`eslint produced no JSON: ${String(result.stderr).slice(0, 200)}`) }
+  const problems = report.flatMap(file => (file.messages || [])
+    .filter(m => m.ruleId === 'no-undef')
+    .map(m => `${file.filePath.split('/').pop()}:${m.line} ${m.message}`))
+  assert(problems.length === 0, `used but never declared: ${problems.slice(0, 6).join('; ')}`)
+  return `${report.length} gateway files, no undefined names`
 })
 
 for (const line of passes)

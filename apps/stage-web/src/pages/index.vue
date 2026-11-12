@@ -76,7 +76,24 @@ const { syncBackgroundTheme } = useBackgroundThemeColor({ backgroundSurface, sel
 // it) and re-broadcasts it as a DOM event, so the stage does not have to know
 // anything about sockets. `window.__sofiaPanel` is the same entry point for the
 // gate, which cannot ask the model to call a tool on cue.
-interface SofiaWindow { id: string, kind: 'image' | 'web', url: string, title: string, x: number, y: number, w: number, h: number, z: number }
+// `sid` and `tick` are load-bearing: the sid is how a page that navigated
+// updates its own window instead of opening a second one, and the tick is what
+// makes a click visible (the window refetches its frame when it changes). They
+// were written and read while the interface said neither existed, which is why
+// `vue-tsc` reported six errors on this file and `vite build` reported none.
+interface SofiaWindow {
+  id: string
+  kind: 'image' | 'web' | 'live'
+  url: string
+  sid?: string
+  title: string
+  tick?: number
+  x: number
+  y: number
+  w: number
+  h: number
+  z: number
+}
 const windows = ref<SofiaWindow[]>([])
 
 // Her own size and place: JARVIS steps aside, he does not resize himself.
@@ -191,10 +208,12 @@ function applyControl(payload: { action: string, target?: string, x?: number, y?
   else if (action === 'move') {
     // 'left' and 'right' exist because the stage is hers: a window that can only
     // ever sit on the right half is not arrangement, it is a fixed panel.
+    // Both spellings, because the tool description says "centre" and the model
+    // reads it literally — and a window that does not move still got "Done".
     const spot = String((payload as { position?: string }).position || '').toLowerCase()
     if (spot === 'left')
       next.x = 24
-    else if (spot === 'center')
+    else if (spot === 'center' || spot === 'centre' || spot === 'middle')
       next.x = Math.round((window.innerWidth - next.w) / 2)
     else if (spot === 'right')
       next.x = window.innerWidth - next.w - 24
