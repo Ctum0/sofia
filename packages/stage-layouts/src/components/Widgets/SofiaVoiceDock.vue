@@ -2,6 +2,7 @@
 /* eslint-disable style/max-statements-per-line -- compact one-liners read better here than six-line guard clauses */
 import { errorMessageFromUnknown } from '@proj-airi/stage-shared'
 import { useSpeakingStore } from '@proj-airi/stage-ui/stores/audio'
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 
 /**
@@ -70,6 +71,20 @@ declare global {
 }
 
 const speaking = useSpeakingStore()
+
+// The character card is the single source of who she is: the text lane already
+// sends it as its system prompt, and the voice lane now sends the same text
+// before its socket opens. Before this the voice path ran on a hand-written
+// persona, so she was one person when typing and another when speaking.
+const cards = useAiriCardStore()
+function personaForVoice() {
+  try {
+    return cards.getSystemPrompt(cards.activeCardId) || ''
+  }
+  catch {
+    return ''
+  }
+}
 
 const status = ref<Status>('idle')
 const level = ref(0)
@@ -164,7 +179,7 @@ function handleEvent(event: VoiceEvent) {
 /** Built before the click so `unlock()` can run synchronously inside it. */
 const prepared = shallowRef<VoiceClient | null>(null)
 void loadClient()
-  .then(({ SofiaVoice }) => { prepared.value = new SofiaVoice({ onEvent: handleEvent }) })
+  .then(({ SofiaVoice }) => { prepared.value = new SofiaVoice({ onEvent: handleEvent, persona: personaForVoice() }) })
   .catch(() => {})
 
 function tick() {
@@ -240,7 +255,7 @@ async function start() {
     prepared.value = null
     if (!client) {
       const { SofiaVoice } = await loadClient()
-      client = new SofiaVoice({ onEvent: handleEvent })
+      client = new SofiaVoice({ onEvent: handleEvent, persona: personaForVoice() })
     }
     voice.value = client
     // Mirrored before the first tick so a human (or the gate) can read the

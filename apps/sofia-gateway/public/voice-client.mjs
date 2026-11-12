@@ -131,7 +131,10 @@ const PREFERRED_AUDIO = {
 }
 
 export class SofiaVoice {
-  constructor({ url, onEvent } = {}) {
+  constructor({ url, onEvent, persona } = {}) {
+    // Her character card, sent on open. The stage owns it; this client only
+    // carries it, because the gateway has no way to read the stage's storage.
+    this.persona = persona || ''
     this.url = url || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/live/stream`
     this.onEvent = onEvent || (() => {})
     this.ws = null
@@ -194,7 +197,15 @@ export class SofiaVoice {
       this.ws = ws
       const timer = setTimeout(() => reject(new Error('gateway live socket did not open')), 10000)
 
-      ws.onopen = () => { clearTimeout(timer); this.emit('socket-open') }
+      ws.onopen = () => {
+        clearTimeout(timer)
+        // Her character card goes first, before the gateway opens its socket to
+        // Google, so voice and text run on one personality instead of two. A
+        // client that never sends one still gets the operating rules.
+        if (this.persona)
+          ws.send(JSON.stringify({ type: 'persona', text: String(this.persona) }))
+        this.emit('socket-open')
+      }
       ws.onerror = () => { clearTimeout(timer); reject(new Error('gateway live socket error')) }
       ws.onclose = (e) => {
         clearTimeout(timer)

@@ -63,7 +63,12 @@ export class LiveBridge {
     this.emit = emit || (() => {})
     this.model = model
     this.voice = voice
-    this.systemInstruction = systemInstruction
+    // Callable on purpose: the persona arrives from the stage just before the
+    // socket opens, so reading it once at construction would freeze the rules-only
+    // instruction and give voice a different personality from text.
+    this.instructionOf = typeof systemInstruction === 'function'
+      ? systemInstruction
+      : () => systemInstruction
     this.tools = tools
     this.ws = null
     this.ready = false
@@ -139,8 +144,9 @@ export class LiveBridge {
         },
       }
     }
-    if (this.systemInstruction)
-      setup.systemInstruction = { parts: [{ text: this.systemInstruction }] }
+    const instruction = this.instructionOf()
+    if (instruction)
+      setup.systemInstruction = { parts: [{ text: instruction }] }
     if (this.tools?.length)
       setup.tools = this.tools
     return setup

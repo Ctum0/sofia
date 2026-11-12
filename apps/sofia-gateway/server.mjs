@@ -45,18 +45,35 @@ const TRACE = process.env.TRACE === '1'
 const KEEP_REASONING = process.env.KEEP_REASONING === '1'
 const BRAND_DIR = resolve(process.env.BRAND_DIR || join(PUBLIC, 'brand'))
 
-// Two registers: a companion in conversation, an operator when a task is asked
-// for. The tools are what make the second register honest — she can hand real
-// work to Hermes instead of describing what she would do.
-const SYSTEM_INSTRUCTION = process.env.LIVE_SYSTEM_INSTRUCTION
-  || [
-    'You are Sofia, a warm, quick-witted personal assistant to Sithum, who is Sri Lankan and lives in Colombo.',
-    'Speak naturally and briefly — one or two sentences unless he asks for detail. Never read out formatting, markdown, lists, URLs or code; say the meaning instead.',
-    'You have hands: call `ask_hermes` whenever he wants something actually done or looked up — a server checked, a command run, a file read, the web searched, a fact remembered or recalled. Call `local_time` for the time or date. Do not answer those yourself and never claim you did something you did not call a tool for.',
-    'You have a screen. When he asks to see, show or open ANYTHING visual — a website, a picture, a logo, a page — you MUST call `show_panel` in that same turn. Do not describe a page as open, and never say something is on the stage, unless the `show_panel` call succeeded. Several windows may be open at once; each call opens or raises one. `browse` works inside a page you opened — click by visible text, type into a field, press Enter, scroll, read the page aloud, list the links, go back, reload, or goto another address; to search, click the search box, fill it, press Enter, then read. `control_avatar` changes your own size and place — when he says "get smaller", "shrink", "move left", "come back", "bigger" or "reset", that is this tool: ACTUALLY call it, never answer that you cannot resize yourself, and use it before you open something wide so he can see both. `control_window` arranges what is already on screen — he says "make it bigger", "move it", "open another one", "tile them", "close that": resize, move, maximize, minimize, close, close_all, tile, focus. A move can take position left, centre or right — the stage is hers, so a window is never stuck on one half. After a new window opens, tile or resize so nothing covers her and both stay readable. Before any slow tool — `ask_hermes` in particular — say one short sentence out loud first (`let me check`), because a silent stage reads as a broken one.',
-    'When a tool returns an error, say plainly that it did not work and what it said. Never invent a result.',
-    'Never say you cannot see what is on screen, and never guess. Every tool answer ends with a `[stage: …]` line — that is what is really open right now. If you are unsure, call `browse` with action links or read and look.',
-  ].join(' ')
+// The voice lane's OPERATING RULES — what she can do, not who she is.
+//
+// Who she is comes from her character card, the same card the text lane sends as
+// its system prompt. Before this split the voice path had a hand-written persona
+// and the text path had the card, so she was one person when typing and a
+// slightly different one when speaking: same name, different voice, different
+// humour, no `+`-register personality. One card, both lanes.
+//
+// `LIVE_SYSTEM_INSTRUCTION` still replaces the whole thing for an experiment.
+const VOICE_RULES = [
+  'You have hands: call `ask_hermes` whenever he wants something actually done or looked up — a server checked, a command run, a file read, the web searched, a fact remembered or recalled. Call `local_time` for the time or date. Do not answer those yourself and never claim you did something you did not call a tool for.',
+  'You have a screen. When he asks to see, show or open ANYTHING visual — a website, a picture, a logo, a page — you MUST call `show_panel` in that same turn. Do not describe a page as open, and never say something is on the stage, unless the `show_panel` call succeeded. Several windows may be open at once; each call opens or raises one. `browse` works inside a page you opened — click by visible text, type into a field, press Enter, scroll, read the page aloud, list the links, go back, reload, or goto another address; to search, click the search box, fill it, press Enter, then read. `control_avatar` changes your own size and place — when he says "get smaller", "shrink", "move left", "come back", "bigger" or "reset", that is this tool: ACTUALLY call it, do not say you did.',
+  'How you sound over the voice channel: say it, do not read it. No markdown, no lists, no URLs, no code, no bullet points — speak the meaning in one or two sentences unless he asks for detail.',
+  '`control_window` arranges what is already on screen — resize, move (left, centre or right), maximise, minimise, close, focus, tile, close_all. Use it when he says "move that window", "close them", "make it bigger" or words to that effect, and give it a target: "last", "first", or a window id.',
+  'When a tool returns an error, say plainly that it did not work and what it said. Never invent a result.',
+  'Never say you cannot see what is on screen, and never guess. Every tool answer ends with a `[stage: …]` line — that is what is really open right now. If you are unsure, call `browse` with action links or read and look.',
+].join(' ')
+
+/**
+ * The instruction one Live session runs on: her card's persona first (identity,
+ * temperament, how she talks), then the rules that make the tools honest.
+ * `card` arrives from the stage, which is the only place that has the card.
+ */
+export function composeVoiceInstruction(card = '') {
+  if (process.env.LIVE_SYSTEM_INSTRUCTION)
+    return process.env.LIVE_SYSTEM_INSTRUCTION
+  const persona = String(card || '').trim()
+  return persona ? `${persona}\n\n${VOICE_RULES}` : VOICE_RULES
+}
 
 function hermesKey() {
   if (process.env.HERMES_KEY) return process.env.HERMES_KEY.trim()
@@ -1050,6 +1067,11 @@ wss.on('connection', (ws) => {
       : '\n[stage: nothing is open yet. Call show_panel with kind live to put a page on screen.]'
   }
 
+  // The stage is the only place with her character card, and it can only send it
+  // after the socket opens. So the instruction starts from the rules alone and is
+  // replaced once a `persona` message arrives — before `start()` opens the socket
+  // to Google, which is why the client sends it as its first message.
+  let voiceCard = ''
   const bridge = new LiveBridge({
     emit: (evt) => {
       if (evt.type !== 'toolCall') {
@@ -1073,7 +1095,7 @@ wss.on('connection', (ws) => {
         }
       })()
     },
-    systemInstruction: SYSTEM_INSTRUCTION,
+    systemInstruction: () => composeVoiceInstruction(voiceCard),
     tools: LIVE_TOOLS,
   }).start()
 
@@ -1082,6 +1104,13 @@ wss.on('connection', (ws) => {
     try { msg = JSON.parse(raw.toString('utf8')) }
     catch { return }
 
+    if (msg.type === 'persona' && typeof msg.text === 'string') {
+      // Her card, from the only place that has it. Sent before anything else, so
+      // the socket to Google opens with the same personality the text lane uses.
+      voiceCard = msg.text.slice(0, 20000)
+      send({ type: 'persona', ok: true, chars: voiceCard.length })
+      return
+    }
     if (msg.type === 'audio' && typeof msg.data === 'string') {
       bridge.sendAudioBase64(msg.data)
       return

@@ -40,7 +40,12 @@ check('G1 every tool is named in the live instruction', () => {
   const server = read('apps/sofia-gateway/server.mjs')
   const names = [...tools.matchAll(/name: '([a-z_]+)'/g)].map(m => m[1])
   assert(names.length > 0, 'no tool definitions found — did tools.mjs move?')
-  const instruction = server.slice(server.indexOf('const SYSTEM_INSTRUCTION'), server.indexOf('const SYSTEM_INSTRUCTION') + 20000)
+  // The instruction is composed now: her card carries who she is, and
+  // VOICE_RULES carries the tools. Both are named here so a tool cannot become
+  // invisible by moving between them.
+  const rulesAt = server.indexOf('const VOICE_RULES')
+  assert(rulesAt !== -1, 'VOICE_RULES is gone — did the voice instruction move again?')
+  const instruction = server.slice(rulesAt, rulesAt + 20000)
   const missing = names.filter(n => !instruction.includes(n))
   assert(missing.length === 0, `missing from the instruction: ${missing.join(', ')}`)
   return names.join(', ')
