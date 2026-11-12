@@ -88,6 +88,15 @@ try {
     await page.waitForTimeout(1500)
   }
 
+  // The stage restores windows from localStorage, so a previous run leaves one
+  // behind and every later "the first window" is that one, not the window this
+  // run opened. Measured: a stale example.com window made "click sign in" land
+  // on iana.org and read as a broken click. Start from a known stage.
+  await page.evaluate(() => window.__sofiaPanel?.(null)).catch(() => {})
+  await page.waitForTimeout(500)
+  const stale = await page.evaluate(() => document.querySelectorAll('[data-testid=sofia-window]').length)
+  stale === 0 ? ok('the stage starts empty') : fail('the stage starts empty', `${stale} window(s) survived the reset`)
+
   // 3. a typed turn opens a real window
   await say('open github and show me')
   await page.waitForFunction(() => document.querySelectorAll('[data-testid=sofia-window]').length > 0, { timeout: 60000 })
@@ -242,6 +251,48 @@ try {
     ? ok('she can resize herself on screen', `${preResize?.h}px -> ${postResize?.h}px (${resizeRatio.toFixed(2)})`)
     : fail('she can resize herself on screen', `${preResize?.h}px -> ${postResize?.h}px (${resizeRatio.toFixed(2)})`)
   await page.evaluate(() => window.__sofiaPanel({ kind: 'avatar', action: 'reset' }))
+
+  // 5c-bis. a window nobody clicks is still alive after the page-reap window.
+  //
+  // This is the heartbeat's only reason to exist: a live window that is merely
+  // being looked at sends no traffic, so without the 45 s ping the browser
+  // reaps its page at IDLE_MS (180 s) and the next click does nothing. The
+  // browser default here is 180 s, so this waits past it and then proves the
+  // window still works. Slow on purpose — it is the only test of the thing that
+  // makes "come back to the tab" not silently dead.
+  if (process.env.SKIP_IDLE_WINDOW !== '1') {
+    const idleMs = Number(process.env.IDLE_WINDOW_MS || 200000)
+    const win = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid=sofia-window][data-kind=live]')
+      const img = el?.querySelector('img')
+      return el ? { id: el.getAttribute('data-window-id'), sid: String(img?.getAttribute('src') || '').match(/sid=([^&]+)/)?.[1] || '' } : null
+    })
+    if (!win?.sid) {
+      fail('an untouched window still works after the reap window', 'no live window to watch')
+    }
+    else {
+      // Look at it for the whole window: the window is on screen and visible in
+      // this page, which is exactly the condition the heartbeat covers.
+      await page.waitForTimeout(idleMs)
+      const alive = await page.evaluate(async (sid) => {
+        const img = document.querySelector('[data-testid=sofia-window][data-kind=live] img')
+        if (!img)
+          return { ok: false, why: 'window disappeared' }
+        // `read` proves the page exists AND still works: a reaped page answers
+        // "no such page", which is the failure this assertion is about.
+        const read = await fetch('/api/browse/act', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sid, action: 'read' }),
+        }).catch(() => null)
+        const body = read ? await read.json().catch(() => ({})) : {}
+        return { ok: !!read?.ok, status: read?.status, why: String(body.error || '').slice(0, 80) }
+      }, win.sid)
+      alive.ok
+        ? ok('an untouched window still works after the reap window', `sid ${win.sid} alive after ${Math.round(idleMs / 1000)}s`)
+        : fail('an untouched window still works after the reap window', `${alive.status}: ${alive.why}`)
+    }
+  }
 
   // 5d. a refresh does not throw the stage away
   const beforeReload = await page.evaluate(() => document.querySelectorAll('[data-testid=sofia-window]').length)
