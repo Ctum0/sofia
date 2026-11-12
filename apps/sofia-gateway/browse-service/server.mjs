@@ -34,6 +34,9 @@ async function assertPublic(url) {
 }
 
 let browser
+// Pending shutdown of an idle browser. `getBrowser` awaits it before launching,
+// because the persistent profile is a locked directory (see `reapIdle`).
+let closingDown = null
 // sid -> { page, ctx, url, title, used, sus }  (`sus` = suspended, page is gone)
 const pages = new Map()
 
@@ -120,7 +123,13 @@ function reapIdle() {
     const closing = browser
     browser = undefined
     console.log(`[sofia-browser] closing idle browser after ${Math.round((now - lastUsed) / 1000)}s with no live page`)
-    closing.close().catch(() => {})
+    // Hold the promise. The shutdown is asynchronous, and the persistent profile
+    // is a LOCKED DIRECTORY: a page opened while the old context is still closing
+    // starts a second Chromium on the same profile, which Chromium resolves by
+    // killing one of them — the symptom was `page.screenshot: Target page,
+    // context or browser has been closed` on the first turn after an idle spell.
+    // `getBrowser` waits on this before launching.
+    closingDown = closing.close().catch(() => {})
   }
 }
 setInterval(reapIdle, 5000).unref()
@@ -140,6 +149,10 @@ function browserAlive() {
 }
 
 async function getBrowser() {
+  if (closingDown) {
+    await closingDown
+    closingDown = null
+  }
   if (browserAlive())
     return browser
   // A persistent profile: cookies and logins live on disk, so a suspend or a
