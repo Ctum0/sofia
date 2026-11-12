@@ -91,14 +91,29 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: the image answers /healthz
+        # Three things were wrong at once here, and each one alone made this job
+        # red on every push — which is how an always-red check stops being read:
+        #   the image listens on 8787 (Dockerfile EXPOSE 8787) and this mapped
+        #   3005, so curl never reached a listener;
+        #   the gateway reads HERMES_BASE (server.mjs:41), not HERMES_URL;
+        #   and /healthz answers 200 with "ok":false when Hermes is unreachable,
+        #     so with a deliberately dead brain `"ok":true` was unreachable by
+        #     construction. What this image CAN prove without a brain is that the
+        #     stage was built and the server came up: assert `stage:true` and
+        #     that Hermes was reported unreachable rather than silently fine.
         run: |
-          docker run -d --name sofia-ci -p 3005:3005 \
-            -e SOFIA_PASSWORD=ci-only -e HERMES_URL=http://127.0.0.1:1 \
+          docker run -d --name sofia-ci -p 8787:8787 \
+            -e SOFIA_PASSWORD=ci-only \
+            -e HERMES_BASE=http://127.0.0.1:1/v1 \
             sofia:ci
+          ok=0
           for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:3005/healthz > /tmp/healthz.json; then break; fi
+            if curl -fsS http://127.0.0.1:8787/healthz > /tmp/healthz.json; then ok=1; break; fi
             sleep 2
           done
-          cat /tmp/healthz.json
-          grep -q '"ok":true' /tmp/healthz.json
+          docker logs sofia-ci || true
+          cat /tmp/healthz.json || true
           docker rm -f sofia-ci
+          test "$ok" = "1"
+          grep -q '"stage":true' /tmp/healthz.json
+          grep -q '"hermes":"unreachable' /tmp/healthz.json
