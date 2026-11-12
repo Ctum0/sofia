@@ -247,25 +247,34 @@ try {
   else {
     fail('the page offers a sign-in control to click', `offers: ${signInLabel.offers.slice(0, 6).join(' | ') || 'none'}`)
   }
+  // Assert the TRANSITION, not an absolute state. The page before the click is
+  // github.com, and the sign-in URL contains "github.com" too — so a fixed wait
+  // followed by one absolute read was really asking "did this happen within 20 s",
+  // and under the host load of back-to-back gates it did not: the same check
+  // passed 18/18 standalone and failed in the release run with "saw
+  // https://github.com/" — the click was still in flight, not wrong. Waiting for
+  // the URL to CHANGE makes the failure mean what it says.
+  const urlOf = () => page.evaluate(() => {
+    const el = document.querySelector('[data-testid=sofia-window][data-kind=live]')
+    return el ? (el.getAttribute('data-url') || '') : ''
+  }).catch(() => '')
+  const beforeClick = await urlOf()
   await say(`click ${signInLabel.label || 'sign in'}`)
-  const clickDeadline = Date.now() + 20000
+  const clickDeadline = Date.now() + 45000
+  let clickedUrl = beforeClick
   while (Date.now() < clickDeadline) {
-    const now = await page.evaluate(() => {
-      const el = document.querySelector('[data-testid=sofia-window][data-kind=live]')
-      return el ? (el.getAttribute('data-url') || '') : ''
-    }).catch(() => '')
-    if (/sign|login/i.test(now))
+    clickedUrl = await urlOf()
+    if (clickedUrl && clickedUrl !== beforeClick)
       break
     await page.waitForTimeout(300)
   }
-  const clickedUrl = await page.evaluate(() => {
-    const el = document.querySelector('[data-testid=sofia-window][data-kind=live]')
-    return el ? (el.getAttribute('data-url') || el.textContent || '').slice(0, 80) : ''
-  })
   const clicked = String(clickedUrl).toLowerCase()
-  clicked.includes('login') || clicked.includes('sign')
-    ? ok('a typed turn clicks inside the page', clickedUrl)
-    : fail('a typed turn clicks inside the page', `saw "${clickedUrl}"`)
+  if (clicked !== String(beforeClick).toLowerCase()) {
+    ok('a typed turn clicks inside the page', `${beforeClick.slice(0, 40)} → ${clickedUrl}`)
+  }
+  else {
+    fail('a typed turn clicks inside the page', `the window is still on "${clickedUrl}" after ${Math.round((Date.now() - (clickDeadline - 45000)) / 1000)} s`)
+  }
 
   await say('close everything')
   // A close is delivered over the event stream, which is asynchronous: asserting
