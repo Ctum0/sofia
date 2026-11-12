@@ -187,6 +187,12 @@ for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs frame-gate.mjs wi
   got=${count%%/*}; want=${count##*/}
   if [ -z "$count" ] || [ "$got" != "$want" ]; then
     echo "$out" | grep -E '^FAIL' | head -6
+    # No count usually means the gate died before its tally. Print the end of its
+    # output so the next reader sees WHY instead of only that it did not count.
+    if [ -z "$count" ]; then
+      echo "  --- last lines of $g ---"
+      echo "$out" | tail -8
+    fi
     fail 7 "$g ${count:-did not report a count}"
   fi
   note "$g $count"

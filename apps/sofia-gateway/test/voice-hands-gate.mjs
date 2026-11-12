@@ -40,7 +40,22 @@ try {
   const started = await page.evaluate(async () => {
     window.__vEvents = []
     const { SofiaVoice } = await import('/public/voice-client.mjs')
+    // Her card, exactly as the dock hands it over: the persona must be the one
+    // the text lane uses, or voice and text are two different people.
     const v = new SofiaVoice({
+      // The card the stage would send. Fetch it the same way the dock does, so a
+      // voice turn is answered by the personality the text lane uses.
+      persona: (() => {
+        try {
+          const raw = localStorage.getItem('airi-cards')
+          const parsed = raw ? JSON.parse(raw) : null
+          const first = parsed && (Array.isArray(parsed) ? parsed[0] : Object.values(parsed)[0])
+          const card = first?.card || first || {}
+          return [card.systemPrompt, card.description, card.personality, card.scenario]
+            .filter(p => typeof p === 'string' && p.trim()).join('\n')
+        }
+        catch { return '' }
+      })(),
       onEvent: (e) => {
         window.__vEvents.push({ type: e.type, name: e.name || null, kind: e.kind || null, url: e.url || null, result: e.result || null })
         if (e.type === 'panel')

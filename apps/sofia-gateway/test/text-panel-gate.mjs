@@ -28,6 +28,28 @@ catch (error) {
   process.exit(1)
 }
 
+// A `page.evaluate` still in flight when the browser closes rejects AFTER the
+// tally has been printed, and Node's default handler turns that into a non-zero
+// exit with no further output — which the verifier reads as "did not report a
+// count" for a gate that had already finished. These handlers keep the printed
+// count as the last word, exactly as hands-gate.mjs does.
+let reported = false
+function report() {
+  if (reported)
+    return
+  reported = true
+  console.log(`\n${pass}/${total}`)
+  process.exit(pass === total ? 0 : 1)
+}
+process.on('unhandledRejection', (error) => {
+  fail('the gate ran without an unhandled rejection', String(error?.message || error).slice(0, 160))
+  report()
+})
+process.on('uncaughtException', (error) => {
+  fail('the gate ran without an uncaught exception', String(error?.message || error).slice(0, 160))
+  report()
+})
+
 try {
   await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   const field = await page.$('input[type=password]')
@@ -333,6 +355,5 @@ catch (error) {
 }
 finally {
   await browser?.close().catch(() => {})
-  console.log(`\n${pass}/${total}`)
-  process.exit(pass === total ? 0 : 1)
+  report()
 }
