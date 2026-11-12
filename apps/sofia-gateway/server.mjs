@@ -64,6 +64,7 @@ const VOICE_RULES = [
   '`recall` is your memory of him: call it before asking something he may have already told you, and whenever he says "do you remember" or "what do you know about me". `remember` keeps a fact he wants you to hold on to. Both reach every conversation on every device, so treat what `recall` returns as things you genuinely know.',
   '`show_chart` draws a chart when numbers are easier to see than to hear — "show me", "graph that", "how does it compare". Give it the labels and the values; it renders the picture on the stage.',
   '`control_window` arranges what is already on screen — resize, move (left, centre or right), maximise, minimise, close, focus, tile, close_all. Use it when he says "move that window", "close them", "make it bigger" or words to that effect, and give it a target: "last", "first", or a window id.',
+  'Narrate, then act: say in one short clause what you are about to do BEFORE calling a slow tool ("pulling that up", "let me check"), then make the call. Never leave him in silence while a page loads, and never claim a result before the tool returns.',
   'When a tool returns an error, say plainly that it did not work and what it said. Never invent a result.',
   'Never say you cannot see what is on screen, and never guess. Every tool answer ends with a `[stage: …]` line — that is what is really open right now. If you are unsure, call `browse` with action links or read and look.',
 ].join(' ')
@@ -1106,7 +1107,21 @@ wss.on('connection', (ws) => {
         for (const call of evt.functionCalls) {
           currentCall = String(call.name || '')
           send({ type: 'tool', name: call.name, state: 'started', args: call.args })
-          const result = await executeToolCall(call, toolCtx)
+          // "Act while talking": the model was told to say what it is doing
+          // BEFORE the call returns (see VOICE_RULES), and a tool that takes
+          // twenty seconds otherwise leaves twenty seconds of silence. The
+          // stage is told which one is running so it can show it too.
+          const startedAt = Date.now()
+          const progress = setInterval(() => {
+            send({ type: 'tool', name: call.name, state: 'running', ms: Date.now() - startedAt })
+          }, 1500)
+          let result
+          try {
+            result = await executeToolCall(call, toolCtx)
+          }
+          finally {
+            clearInterval(progress)
+          }
           // The model must never be the only thing that knows whether the
           // stage changed: the answer now says it.
           if (typeof result?.response?.result === 'string')

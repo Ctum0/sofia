@@ -57,7 +57,17 @@ try {
         catch { return '' }
       })(),
       onEvent: (e) => {
-        window.__vEvents.push({ type: e.type, name: e.name || null, kind: e.kind || null, url: e.url || null, result: e.result || null })
+        // `state` and `dir` are what make event ORDER meaningful: a tool's
+        // started/done pair and whose transcript it is.
+        window.__vEvents.push({
+          type: e.type,
+          state: e.state || null,
+          dir: e.dir || null,
+          name: e.name || null,
+          kind: e.kind || null,
+          url: e.url || null,
+          result: e.result || null,
+        })
         if (e.type === 'panel')
           window.dispatchEvent(new CustomEvent('sofia:panel', { detail: e }))
       },
@@ -134,6 +144,48 @@ try {
   read && /example|documentation|domain/i.test(read)
     ? ok('by voice, she can read the page she opened', read.slice(0, 70))
     : fail('by voice, she can read the page she opened', String(read).slice(0, 90))
+
+  // 4. act while talking: the call is announced before it finishes.
+  //
+  // The failure this catches is silence. A tool that takes twenty seconds used
+  // to leave twenty seconds of nothing, and the only evidence of that from
+  // outside is the order of events: `started` must arrive, and the narration must
+  // be spoken before `done`. Asserting the ORDER is the part that has teeth — a
+  // session that says nothing and a session that answers late look identical if
+  // you only check that a reply exists.
+  await page.evaluate(() => { window.__vEvents.length = 0 })
+  await ask('Open https://example.com now and tell me you are doing it as you do. Do not wait for it to finish before speaking.')
+  let announced = false
+  let announcedBeforeDone = false
+  for (let i = 0; i < 30; i++) {
+    await page.waitForTimeout(1000)
+    // Labels are `type` + optional `state` for tools, and `transcript:<dir>` for
+    // speech. Both come from the same event stream, so the ORDER of the two is
+    // the only thing that can prove she spoke while working.
+    const seen = await page.evaluate(() => (window.__vEvents || []).map(e => {
+      if (e.type === 'transcript')
+        return `transcript:${e.dir || 'unknown'}`
+      return e.state ? `${e.type}:${e.state}` : e.type
+    }))
+    const startedAt = seen.findIndex(label => label === 'tool:started')
+    const doneAt = seen.findIndex(label => label === 'tool:done')
+    // Any outgoing transcript before the tool finished is speech while working.
+    const spokeEarly = seen.some((label, index) => label === 'transcript:out' && (doneAt === -1 || index < doneAt))
+    if (startedAt !== -1)
+      announced = true
+    if (startedAt !== -1 && spokeEarly)
+      announcedBeforeDone = true
+    if (doneAt !== -1 && spokeEarly)
+      break
+    if (doneAt !== -1 && i > 6)
+      break
+  }
+  announced
+    ? ok('a slow tool announces itself before it finishes', 'started seen before done')
+    : fail('a slow tool announces itself before it finishes', 'no started event')
+  announcedBeforeDone
+    ? ok('she speaks while the tool is still running', 'outgoing transcript before the tool finished')
+    : fail('she speaks while the tool is still running', 'silence until the result')
 
   await page.evaluate(() => window.__pv?.stop?.()).catch(() => {})
 }
