@@ -220,6 +220,45 @@ check('G12 no module uses a name it never declares', () => {
   return `${report.length} gateway files, no undefined names`
 })
 
+// G14 — every locale's default persona is Sofia's, not the fork's VTuber.
+//
+// `base.yaml`'s `prompt.prefix` is the personality every device gets before its
+// owner edits a card, and both lanes read it: the text lane composes it into its
+// system prompt, the voice lane sends the same card. Nine of ten locales still
+// carried AIRI's "experimental virtual AI VTuber / 15 year old girl / anime or
+// Vtuber girl" text after the English one was replaced — and those devices can
+// never migrate, because a stored card matching ANY locale variant is classified
+// as unedited built-in, so neither the seed nor the sync path rewrites it. The
+// default has to be right in every locale, at the source.
+check('G14 no locale ships the legacy persona', () => {
+  const dir = join(root, 'packages/i18n/src/locales')
+  const locales = readdirSync(dir).filter(name => has(`packages/i18n/src/locales/${name}/base.yaml`))
+  assert(locales.length > 0, 'no locales found — did the path move?')
+  // The fork's stock persona ADVERTISES itself: it names the character as a VTuber
+  // and gives her an age. Those two are the identity, and both are unambiguous in
+  // every locale. `anime` is deliberately NOT a marker: the replacement text says
+  // "you do not speak like a cartoon", so the word legitimately appears in the
+  // correct version too.
+  const markers = [/VTuber/i, /15\s*(?:years? old|year-old|歳|años|ans|세|лет|ปี|tuổi|岁|歲)/i]
+  const offenders = []
+  for (const name of locales) {
+    const text = read(`packages/i18n/src/locales/${name}/base.yaml`)
+    const prefixAt = text.indexOf('prefix: |')
+    if (prefixAt === -1)
+      continue
+    const emotionAt = text.indexOf('emotion: |', prefixAt)
+    const prefix = text.slice(prefixAt, emotionAt === -1 ? prefixAt + 4000 : emotionAt)
+    for (const marker of markers) {
+      if (marker.test(prefix)) {
+        offenders.push(`${name}: ${marker}`)
+        break
+      }
+    }
+  }
+  assert(offenders.length === 0, `legacy persona in: ${offenders.join(', ')}`)
+  return `${locales.length} locales`
+})
+
 // G13 — a stage event with no tab goes to every tab. `close everything` typed in
 // one tab cleared another tab's windows, and no single-tab gate can see it: the
 // bug is the *audience* of the event, not its content.
