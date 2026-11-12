@@ -74,6 +74,55 @@ async function act(action: string, extra: Record<string, unknown> = {}) {
   finally { busy.value = false }
 }
 
+// Typing is not clicking. Every action currently returns a fresh screenshot, and
+// a keystroke cannot wait for one: at typing speed the `busy` guard would drop
+// most of the word. Keys go through their own queue, in order, with no frame, and
+// one frame refresh when the queue drains.
+const keyQueue: string[] = []
+let flushing = false
+
+async function sendKey(key: string, kind: 'type' | 'press') {
+  await fetch('/api/browse/act', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ sid: props.win.sid, action: kind, ...(kind === 'type' ? { text: key } : { key }) }),
+  }).catch(() => {})
+}
+
+async function flushKeys() {
+  if (flushing)
+    return
+  flushing = true
+  try {
+    while (keyQueue.length) {
+      const entry = keyQueue.shift()!
+      if (entry[0] === 'p') {
+        await sendKey(entry.slice(1), 'press')
+        continue
+      }
+      // Coalesce consecutive printable characters into one call: a password is
+      // one round trip, not fifteen, and the order is preserved because the
+      // queue is FIFO and a press breaks the run.
+      let run = entry.slice(1)
+      while (keyQueue.length && keyQueue[0][0] === 't')
+        run += keyQueue.shift()!.slice(1)
+      await sendKey(run, 'type')
+    }
+  }
+  finally {
+    flushing = false
+    // One refresh after the burst, so the field shows what was typed without a
+    // screenshot per character.
+    frameData.value = ''
+    frameTick.value += 1
+  }
+}
+
+function queueKey(key: string, kind: 'type' | 'press') {
+  keyQueue.push(`${kind === 'press' ? 'p' : 't'}${key}`)
+  void flushKeys()
+}
+
 // One place that records "the user touched this window", so the idle deadline is
 // about real use rather than about which child received the event.
 function onAnyInteraction() {
@@ -88,7 +137,7 @@ function onAnyInteraction() {
 const accepting = ref(false)
 
 function onKeydown(event: KeyboardEvent) {
-  if (!props.win.sid || busy.value)
+  if (!props.win.sid)
     return
   // Let the browser handle the combinations that belong to the app shell, not to
   // the page (tab, refresh, devtools). Everything a person types into a field
@@ -97,12 +146,12 @@ function onKeydown(event: KeyboardEvent) {
     return
   if (event.key.length === 1) {
     event.preventDefault()
-    void act('type', { text: event.key })
+    queueKey(event.key, 'type')
     return
   }
   if (event.key === 'Enter' || event.key === 'Tab' || event.key === 'Backspace' || event.key === 'Escape') {
     event.preventDefault()
-    void act('press', { key: event.key })
+    queueKey(event.key, 'press')
   }
 }
 

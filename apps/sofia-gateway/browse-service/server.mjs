@@ -415,6 +415,11 @@ async function act({ sid, action, x, y, text, key, selector }) {
       const wasChecked = await el.isChecked().catch(() => null)
       if (wasChecked === null)
         throw new Error('that is not a checkbox or radio button')
+      // A radio cannot be unticked — that is what radios are. Asking for "off"
+      // has to say so rather than click and report a state the page never had.
+      const isRadio = await el.evaluate(node => node.type === 'radio').catch(() => false)
+      if (isRadio && !target)
+        throw new Error('a radio button cannot be unticked; choose another option in the same group instead')
       if (wasChecked !== target) {
         // `setChecked` waits for the element to be visible and stable, which a
         // checkbox behind a label or inside a collapsed section never is. The
