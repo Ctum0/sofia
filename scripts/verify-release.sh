@@ -113,7 +113,11 @@ PW=mcr.microsoft.com/playwright:v1.64.1-jammy
 # failure rather than "did not report a count".
 TREE_GATES="$(pwd)/apps/sofia-gateway/test"
 run_gate() {
-  docker run --rm --network host \
+  # `--shm-size`: Docker's 64 MB default `/dev/shm` is the documented cause of
+  # "Target page, context or browser has been closed" mid-run in Chromium, and
+  # this session saw that symptom three times in gates that pass standalone. A
+  # browser ate through 64 MB on a page with images.
+  docker run --rm --network host --shm-size=1g \
     -v /home/ctum/qa:/qa \
     -v "$TREE_GATES:/qa/current:ro" \
     -v /home/ctum/secrets:/home/ctum/secrets:ro \
