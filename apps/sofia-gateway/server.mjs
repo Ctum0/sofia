@@ -642,12 +642,14 @@ export async function intentFromText(body) {
     }
   }
 
-  try {
-    await runStageIntent(intent)
-  }
-  catch (error) {
-    console.log(`[sofia-gateway] text: intent failed (${String(error && error.message || error).slice(0, 100)})`)
-  }
+  // Everything else stays OUT of band, on purpose. Awaiting it made every typed
+  // turn wait for a page to open before Hermes could answer, so a slow `open`
+  // turned into "no window appeared" and a stalled browser into a stalled
+  // reply. Only `read` and `links` need to be inside the request, because only
+  // they produce text for the answer; a window appearing does not.
+  runStageIntent(intent).catch(error =>
+    console.log(`[sofia-gateway] text: intent failed (${String(error && error.message || error).slice(0, 100)})`),
+  )
   return { body }
 }
 

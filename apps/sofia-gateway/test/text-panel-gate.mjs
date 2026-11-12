@@ -35,18 +35,47 @@ try {
   const before = await page.evaluate(() => document.querySelectorAll('[data-testid=sofia-window]').length)
   before === 0 ? ok('no window before the turn') : fail('no window before the turn', `${before} open`)
 
+  // A typed turn goes through Hermes, which can take seconds. Awaiting that
+  // inside page.evaluate ties the call to one document: if the page navigates
+  // while the request is in flight Playwright reports "Target page, context or
+  // browser has been closed" and the whole gate aborts — which then reads as a
+  // broken product. So the fetch is fired and then settled by a short poll that
+  // tolerates a document swap. A turn whose request never completes is reported
+  // here as its own failing step, so a broken chat lane cannot hide behind an
+  // assertion that later finds something else to pass on.
+  const say = async (text) => {
+    await page.evaluate(t => {
+      window.__lastTurn = undefined
+      window.__lastTurn = fetch('/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'hermes', stream: false, messages: [{ role: 'user', content: t }] }),
+      }).then(() => 'ok').catch(() => 'failed')
+      return true
+    }, text).catch(() => {})
+    const deadline = Date.now() + 30000
+    let state
+    while (Date.now() < deadline) {
+      state = await page.evaluate(() => window.__lastTurn).catch(() => undefined)
+      if (state === 'ok' || state === 'failed')
+        break
+      await page.waitForTimeout(200)
+    }
+    // Three outcomes, and only two of them are verdicts:
+    //   'ok'      the request completed
+    //   'failed'  the request itself failed — a product fact, report it
+    //   undefined the flag went away with its document (the stage navigates on
+    //             its own); the turn may well have landed. That is UNKNOWN, not
+    //             a failure: the effect assertions below decide, and calling it
+    //             failed here would be the same document-lifetime bug this suite
+    //             just fixed in voice-gate, in the opposite direction.
+    if (state === 'failed')
+      fail(`the typed turn "${String(text).slice(0, 40)}" reached the gateway`, 'request failed')
+    await page.waitForTimeout(1500)
+  }
+
   // 3. a typed turn opens a real window
-  await page.evaluate(async () => {
-    await fetch('/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: 'hermes',
-        stream: false,
-        messages: [{ role: 'user', content: 'open github and show me' }],
-      }),
-    })
-  })
+  await say('open github and show me')
   await page.waitForFunction(() => document.querySelectorAll('[data-testid=sofia-window]').length > 0, { timeout: 60000 })
     .catch(() => {})
   const win = await page.evaluate(() => {
@@ -72,17 +101,6 @@ try {
   // 5a. typing does everything voice can do. The text lane is Hermes with no
   // function calling, so every one of these is a gateway-side intent; if one
   // breaks, the capability silently exists only when he speaks.
-  const say = async (text) => {
-    await page.evaluate(async t => {
-      await fetch('/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ model: 'hermes', stream: false, messages: [{ role: 'user', content: t }] }),
-      })
-    }, text)
-    await page.waitForTimeout(1500)
-  }
-
   // Her rendered size, not the variable that is supposed to drive it: a CSS
   // variable set and never consumed passed this gate for a whole afternoon.
   const avatarBox = async () => page.evaluate(() => {
@@ -118,8 +136,42 @@ try {
     ? ok('and the reset puts her back', `${restored?.h}px (${backRatio.toFixed(2)})`)
     : fail('and the reset puts her back', `${restored?.h}px (${backRatio.toFixed(2)})`)
 
-  await say('click sign in')
-  await page.waitForTimeout(2500)
+  // Same rule as the resize: wait for the effect, not for a guessed duration.
+  // A fixed 2500 ms read the old address on a loaded run and reported "the
+  // click did not land" for a turn that was still in flight.
+  // The label is discovered, never assumed: GitHub renders "Sign in" only to
+  // logged-out visitors, and a context that has accumulated cookies between runs
+  // will legitimately not offer it. A hardcoded label made this gate fail for a
+  // reason that has nothing to do with the product.
+  const signInLabel = await page.evaluate(async () => {
+    const img = document.querySelector('[data-testid=sofia-window][data-kind=live] img')
+    const sid = String(img?.getAttribute('src') || '').match(/sid=([^&]+)/)?.[1]
+    if (!sid)
+      return { label: null, offers: [] }
+    const res = await fetch('/api/browse/act', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sid, action: 'links' }),
+    })
+    const body = await res.json().catch(() => ({}))
+    const offers = (body.links || []).map(l => String(l.text || '').trim()).filter(Boolean)
+    return { label: offers.find(t => /^(sign in|log in|signin|login)$/i.test(t)) || null, offers }
+  }).catch(() => ({ label: null, offers: [] }))
+
+  if (!signInLabel.label) {
+    fail('the page offers a sign-in control to click', `offers: ${signInLabel.offers.slice(0, 6).join(' | ') || 'none'}`)
+  }
+  await say(`click ${signInLabel.label || 'sign in'}`)
+  const clickDeadline = Date.now() + 20000
+  while (Date.now() < clickDeadline) {
+    const now = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid=sofia-window][data-kind=live]')
+      return el ? (el.getAttribute('data-url') || '') : ''
+    }).catch(() => '')
+    if (/sign|login/i.test(now))
+      break
+    await page.waitForTimeout(300)
+  }
   const clickedUrl = await page.evaluate(() => {
     const el = document.querySelector('[data-testid=sofia-window][data-kind=live]')
     return el ? (el.getAttribute('data-url') || el.textContent || '').slice(0, 80) : ''
@@ -154,10 +206,23 @@ try {
     : fail('the Talk button survives a window', JSON.stringify(dock))
 
   // 5c. she can change her own size
+  //
+  // The assertion is about the rendered box, so it has to wait for the render,
+  // not for a guessed duration: the avatar shell animates its transform for
+  // 0.45 s and a busy Live2D frame loop stretches that further. A fixed 700 ms
+  // wait measured "832px -> 832px" on a loaded machine and read as a product
+  // failure. Poll until the box moves or the budget runs out.
   const preResize = await avatarBox()
   await page.evaluate(() => window.__sofiaPanel({ kind: 'avatar', action: 'set', scale: 0.7 }))
-  await page.waitForTimeout(700)
-  const postResize = await avatarBox()
+  const resizeDeadline = Date.now() + 8000
+  let postResize = preResize
+  while (Date.now() < resizeDeadline) {
+    postResize = await avatarBox()
+    if (postResize && preResize && Math.abs(postResize.h - preResize.h) > 2)
+      break
+    await page.waitForTimeout(150)
+  }
+  await page.waitForTimeout(450)
   const resizeRatio = preResize && postResize && preResize.h > 0 ? postResize.h / preResize.h : 1
   Math.abs(resizeRatio - 0.7) < 0.08
     ? ok('she can resize herself on screen', `${preResize?.h}px -> ${postResize?.h}px (${resizeRatio.toFixed(2)})`)
