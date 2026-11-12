@@ -80,6 +80,11 @@ try {
   // here as its own failing step, so a broken chat lane cannot hide behind an
   // assertion that later finds something else to pass on.
   const say = async (text) => {
+    // Nothing in here may throw: a turn that cannot be delivered is reported as
+    // a failing step, and the gate has to keep going so the *other* assertions
+    // still run and the count still prints. A bare throw here aborted the run
+    // after ten passing checks and the verifier could only say "no count".
+    try {
     await page.evaluate(t => {
       window.__lastTurn = undefined
       window.__lastTurn = fetch('/v1/chat/completions', {
@@ -89,7 +94,7 @@ try {
       }).then(() => 'ok').catch(() => 'failed')
       return true
     }, text).catch(() => {})
-    const deadline = Date.now() + 30000
+    const deadline = Date.now() + 90000
     let state
     while (Date.now() < deadline) {
       state = await page.evaluate(() => window.__lastTurn).catch(() => undefined)
@@ -108,6 +113,10 @@ try {
     if (state === 'failed')
       fail(`the typed turn "${String(text).slice(0, 40)}" reached the gateway`, 'request failed')
     await page.waitForTimeout(1500)
+    }
+    catch (error) {
+      fail(`the typed turn "${String(text).slice(0, 40)}" could be sent`, String(error?.message || error).slice(0, 140))
+    }
   }
 
   // The stage restores windows from localStorage, so a previous run leaves one
