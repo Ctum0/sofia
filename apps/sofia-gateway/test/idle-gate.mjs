@@ -19,6 +19,7 @@
 //   node idle-gate.mjs
 //   PAGE=https://github.com IDLE_WAIT_MS=200000 node idle-gate.mjs
 import { execFileSync } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
 import process from 'node:process'
 
 const results = []
@@ -57,13 +58,17 @@ function cpuPercent() {
 // previous code. So the gate restarts the service itself and asserts the loaded
 // file is the one on disk before it measures anything.
 try {
-  const runningHasDesign = sh(['docker', 'exec', container, 'sh', '-c',
-    'grep -c "with no page" /app/server.mjs || true']).trim()
-  if (runningHasDesign === '0') {
-    fail('the service is running the current module', '/app/server.mjs does not contain the idle-shutdown branch')
+  // Assert the CAPABILITY, not a comment or a log line: the previous check
+  // grepped a phrase that a later edit renamed, so it reported "stale module" for
+  // a container running the right code. What matters is that the module in the
+  // container knows about suspending and resuming.
+  const design = sh(['docker', 'exec', container, 'sh', '-c',
+    'grep -cE "SUSPEND_MS|pageFor|launchPersistentContext" /app/server.mjs || true']).trim()
+  if (design === '0') {
+    fail('the service is running the current module', '/app/server.mjs has no suspend/resume path')
   }
   else {
-    ok('the service is running the current module', 'shutdown branch present')
+    ok('the service is running the current module', `${design} suspend/resume markers`)
   }
   sh(['docker', 'restart', container])
   await new Promise(resolve => setTimeout(resolve, 6000))
@@ -107,12 +112,45 @@ let idleCpu = null
 try {
   idleHealth = health()
   idleCpu = cpuPercent()
-  idleHealth.pages === 0 && idleHealth.browser === false
-    ? ok('an unused browser shuts itself down', `pages=${idleHealth.pages} browser=${idleHealth.browser}; ${busyCpu?.toFixed(1) ?? '?'} % -> ${idleCpu.toFixed(1)} %`)
-    : fail('an unused browser shuts itself down', `pages=${idleHealth.pages} browser=${idleHealth.browser}; ${busyCpu?.toFixed(1) ?? '?'} % -> ${idleCpu.toFixed(1)} %`)
+  idleHealth.live === 0 && idleHealth.browser === false
+    ? ok('an unused browser shuts itself down', `live=${idleHealth.live} suspended=${idleHealth.suspended} browser=${idleHealth.browser}; ${busyCpu?.toFixed(1) ?? '?'} % -> ${idleCpu.toFixed(1)} %`)
+    : fail('an unused browser shuts itself down', `live=${idleHealth.live} suspended=${idleHealth.suspended} browser=${idleHealth.browser}; ${busyCpu?.toFixed(1) ?? '?'} % -> ${idleCpu.toFixed(1)} %`)
 }
 catch (error) {
   fail('an unused browser shuts itself down', String(error?.message || error).slice(0, 140))
+}
+
+// 4b. the suspend must PRESERVE the page, not kill it: same sid, same URL.
+// This is the difference between "throttled" and "silently broken", and it is the
+// whole point of remembering the URL. Written as a probe file rather than a
+// nested `node -e` string: the earlier inline version lost its quoting and
+// reported "Unexpected end of JSON input" for a resume that worked.
+const PROBE = '/tmp/sofia-resume-probe.mjs'
+try {
+  writeFileSync(PROBE, `
+const base = ${JSON.stringify(base)}
+const open = await (await fetch(base + '/open', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://example.com' }) })).json()
+const sid = open.sid
+let sawSuspend = false
+for (let i = 0; i < 90; i++) {
+  const h = await (await fetch(base + '/healthz')).json()
+  if (h.suspended >= 1) { sawSuspend = true; break }
+  await new Promise(r => setTimeout(r, 1000))
+}
+const r = await fetch(base + '/act', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sid, action: 'read' }) })
+const body = await r.json()
+process.stdout.write(JSON.stringify({ sawSuspend, status: r.status, chars: String(body.text || '').length, url: body.url || '' }))
+`)
+  const app = sh(['docker', 'ps', '--format', '{{.Names}}']).split('\n').find(n => n.includes('zp31'))
+  sh(['docker', 'cp', PROBE, `${app}:/tmp/sofia-resume-probe.mjs`])
+  const raw = sh(['docker', 'exec', app, 'node', '/tmp/sofia-resume-probe.mjs']).trim()
+  const parsed = JSON.parse(raw)
+  parsed.sawSuspend && parsed.status === 200 && parsed.chars > 50 && /example\.com/.test(parsed.url)
+    ? ok('a suspended page resumes with the same sid and url', `${parsed.chars} chars from ${parsed.url}`)
+    : fail('a suspended page resumes with the same sid and url', raw.slice(0, 160))
+}
+catch (error) {
+  fail('a suspended page resumes with the same sid and url', String(error?.message || error).slice(0, 140))
 }
 
 // 5. and it serves again afterwards: sleeping, not dying.

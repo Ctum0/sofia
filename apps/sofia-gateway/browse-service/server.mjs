@@ -34,100 +34,175 @@ async function assertPublic(url) {
 }
 
 let browser
-const pages = new Map() // sid -> { page, ctx, used }
+// sid -> { page, ctx, url, title, used, sus }  (`sus` = suspended, page is gone)
+const pages = new Map()
+
+// --- what "idle" means, and why -------------------------------------------
+//
 // A live page keeps rendering when nobody is looking: one GitHub tab measured
 // 490-595 % CPU on this host, because the page runs its own animation, timers
-// and telemetry forever. Two levers were measured, and only one works:
+// and telemetry forever. Freezing the page (`Page.setWebLifecycleState:
+// frozen`) was measured and does NOT stop it — still 585 % after a successful
+// freeze — so that approach is gone rather than left in as plausible code.
 //
-//   freezing the page (`Page.setWebLifecycleState: frozen`) stops the page's
-//     timers but leaves Chromium's software-GPU helper spinning — measured at
-//     585 % *after* a successful freeze. Rejected, and removed rather than left
-//     in as plausible-looking code.
-//   closing the page, and the browser behind it, stops everything: 0.00 %.
+// The policy is a suspend, not a kill. A page nobody has touched for
+// SUSPEND_MS is closed and its URL is remembered; the sid stays valid, and the
+// next `/frame` or `/act` on it reopens the same URL so the window the user can
+// still see comes back to life instead of showing a dead frame forever. Only a
+// page nobody has used for FORGET_MS is really dropped.
 //
-// So idle means gone. The window's `/frame` reads and every action refresh
-// `used`, so a page someone is actually looking at is never idle; only an
-// abandoned one is, which is precisely the one pinning five cores for nothing.
-const IDLE_MS = Number(process.env.IDLE_MS || 180000)
-// Once the last page is gone there is nothing to keep the browser for. A short
-// grace lets a burst of windows reuse it instead of paying a cold start each.
+// The SUSPEND_MS default is deliberately longer than the slowest gate run
+// (text-panel takes ~275 s standalone and longer under load): a throttle that
+// fires mid-gate would show up as a phantom flake in every browser gate, which
+// is the exact failure mode this whole file has been fighting.
+const SUSPEND_MS = Number(process.env.SUSPEND_MS || 600000)
+const FORGET_MS = Number(process.env.FORGET_MS || 3600000)
+// Once nothing is live at all, keep the browser warm briefly so a burst of
+// windows does not pay a cold start each, then close it: even an empty browser
+// retains helper processes.
 const BROWSER_IDLE_MS = Number(process.env.BROWSER_IDLE_MS || 30000)
+// A profile on disk is what makes a login survive a suspend. Without it every
+// resume is a fresh, logged-out browser, which would make the suspend useless
+// for the one workflow that needs it most.
+const PROFILE_DIR = process.env.PROFILE_DIR || '/profile'
 
 let lastUsed = Date.now()
+let inFlight = 0
 
-// A gate that forgets to close leaves a page behind, and four of those turn
-// every later "open" into "no room: 4 pages open" (seen 2026-11-10). Pages are
-// cheap to reopen and expensive to leak.
+/** Run something against the browser while the reaper is not allowed to close it. */
+async function withBrowser(fn) {
+  inFlight += 1
+  lastUsed = Date.now()
+  try {
+    return await fn()
+  }
+  finally {
+    inFlight -= 1
+  }
+}
+
 function reapIdle() {
   const now = Date.now()
   for (const [sid, entry] of pages) {
-    if (now - (entry.used || 0) < IDLE_MS)
-      continue
-    pages.delete(sid)
-    entry.ctx.close().catch(() => {})
-    console.log(`[sofia-browser] reaped idle page ${entry.page.url?.().slice(0, 60) || sid}`)
+    const idleFor = now - (entry.used || 0)
+    if (!entry.sus && idleFor >= SUSPEND_MS) {
+      // Suspend: the URL outlives the page, so the sid can be resumed.
+      const url = entry.page?.url?.() || entry.url
+      entry.sus = true
+      entry.url = url
+      entry.title = entry.title || ''
+      // Close the PAGE, never the context: with a persistent profile every page
+      // shares one context, so closing it would suspend every other window too.
+      const closing = entry.page
+      entry.page = undefined
+      closing?.close().catch(() => {})
+      console.log(`[sofia-browser] suspended idle page ${sid} (${String(url).slice(0, 60)})`)
+    }
+    if (idleFor >= FORGET_MS && pages.size > 0) {
+      pages.delete(sid)
+      console.log(`[sofia-browser] forgot page ${sid} after ${Math.round(idleFor / 1000)}s`)
+    }
   }
-  // The browser is kept only while it has a page. Reaping runs first, so
-  // `pages.size === 0` is reachable by construction: an earlier version closed
-  // the browser after 60 s while pages lived for 180, so the two timers
-  // contradicted each other and the browser outlived the threshold meant to
-  // stop it.
-  if (browser && pages.size === 0 && now - lastUsed >= BROWSER_IDLE_MS) {
+  const live = [...pages.values()].filter(entry => entry.page).length
+  if (browser && live === 0 && inFlight === 0 && now - lastUsed >= BROWSER_IDLE_MS) {
     const closing = browser
     browser = undefined
-    console.log(`[sofia-browser] closing idle browser after ${Math.round((now - lastUsed) / 1000)}s with no page`)
+    console.log(`[sofia-browser] closing idle browser after ${Math.round((now - lastUsed) / 1000)}s with no live page`)
     closing.close().catch(() => {})
   }
 }
 setInterval(reapIdle, 5000).unref()
 
+// `launchPersistentContext` resolves to a BrowserContext, not a Browser: it has
+// no `isConnected()`, and asking it for one made every /healthz and every
+// suspended page throw. A context is usable while its browser is, so that is
+// what the checks read.
+function browserAlive() {
+  try {
+    const impl = browser?.browser?.()
+    return !!impl && impl.isConnected()
+  }
+  catch {
+    return false
+  }
+}
+
 async function getBrowser() {
-  if (browser?.isConnected())
+  if (browserAlive())
     return browser
-  browser = await chromium.launch({
+  // A persistent profile: cookies and logins live on disk, so a suspend or a
+  // cold start does not log Sithum out of everything he signed into by hand.
+  browser = await chromium.launchPersistentContext(PROFILE_DIR, {
+    headless: true,
+    viewport: VIEWPORT,
+    locale: 'en-US',
+    deviceScaleFactor: 1,
     args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--mute-audio'],
   })
+  console.log(`[sofia-browser] launched with profile ${PROFILE_DIR}`)
   return browser
+}
+
+/** Open a URL in a fresh page of the persistent profile. */
+async function openIn(url) {
+  const ctx = await getBrowser()
+  const page = await ctx.newPage()
+  page.setDefaultTimeout(20000)
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 })
+  // domcontentloaded is early: a screenshot showed GitHub's header with a blank
+  // body because the picture was taken before the paint settled.
+  await page.waitForLoadState('networkidle', { timeout: 12000 }).catch(() => {})
+  await page.waitForTimeout(1200)
+  return page
 }
 
 async function newPage(url) {
   lastUsed = Date.now()
-  // A full slate must never turn into an error the user sees: the oldest page
-  // is the one nobody is looking at. (Four leaked pages made every "open" fail
-  // with "no room" on 2026-11-10.)
   if (pages.size >= MAX_PAGES) {
+    // Evict the idlest page, suspended ones first: they cost nothing to lose
+    // beyond their position in the list.
     let oldest = null
     for (const [sid, entry] of pages) {
-      if (!oldest || (entry.used || 0) < (oldest[1].used || 0))
-        oldest = [sid, entry]
+      const score = (entry.sus ? 0 : 1e15) + (entry.used || 0)
+      if (!oldest || score < oldest[1])
+        oldest = [sid, score]
     }
     if (oldest) {
+      const entry = pages.get(oldest[0])
       pages.delete(oldest[0])
-      await oldest[1].ctx.close().catch(() => {})
+      entry?.page?.close().catch(() => {})
       console.log(`[sofia-browser] evicted ${oldest[0]} to make room`)
     }
   }
   const safe = await assertPublic(url)
-  const b = await getBrowser()
-  const ctx = await b.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, locale: 'en-US' })
-  const page = await ctx.newPage()
-  page.setDefaultTimeout(20000)
-  await page.goto(safe, { waitUntil: 'domcontentloaded', timeout: 25000 })
-  // domcontentloaded is early: his screenshot showed GitHub's header with a
-  // blank body because the picture was taken before the paint settled.
-  await page.waitForLoadState('networkidle', { timeout: 12000 }).catch(() => {})
-  await page.waitForTimeout(1200)
+  const page = await openIn(safe)
   const sid = `p${Date.now().toString(36)}${pages.size}`
-  pages.set(sid, { page, ctx, used: Date.now() })
+  pages.set(sid, { page, url: page.url(), title: '', used: Date.now(), sus: false })
   return sid
 }
 
-async function snap(sid) {
-  lastUsed = Date.now()
+/** The page behind a sid, resuming it from its remembered URL if it is suspended. */
+async function pageFor(sid) {
   const entry = pages.get(sid)
   if (!entry)
     throw new Error('no such page')
   entry.used = Date.now()
+  lastUsed = Date.now()
+  if (entry.page)
+    return entry
+  if (!entry.url)
+    throw new Error('that page expired — open it again')
+  // Resume: same sid, same URL, same profile, so the window that is still on
+  // screen starts working again instead of showing a dead frame.
+  entry.page = await openIn(entry.url)
+  entry.sus = false
+  console.log(`[sofia-browser] resumed page ${sid} (${String(entry.url).slice(0, 60)})`)
+  return entry
+}
+
+async function snap(sid) {
+  return withBrowser(async () => {
+  const entry = await pageFor(sid)
   const buf = await entry.page.screenshot({ type: 'png' })
   return {
     sid,
@@ -136,14 +211,14 @@ async function snap(sid) {
     png: buf.toString('base64'),
     w: VIEWPORT.width,
     h: VIEWPORT.height,
+    suspended: false,
   }
+  })
 }
 
 async function act({ sid, action, x, y, text, key, selector }) {
-  lastUsed = Date.now()
-  const entry = pages.get(sid)
-  if (!entry)
-    throw new Error('no such page')
+  return withBrowser(async () => {
+  const entry = await pageFor(sid)
   const { page } = entry
   // `selector`, `key` and `text` mean three different things and used to be
   // interchangeable swords: `fill` read its locator from `key`, so a typed
@@ -288,6 +363,7 @@ async function act({ sid, action, x, y, text, key, selector }) {
   }
   await page.waitForTimeout(700)
   return snap(sid)
+  })
 }
 
 function readBody(req) {
@@ -318,7 +394,9 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://127.0.0.1')
     if (url.pathname === '/healthz') {
-      return send(200, { ok: true, pages: pages.size, browser: !!browser?.isConnected() })
+      const live = [...pages.values()].filter(entry => entry.page).length
+      const suspended = pages.size - live
+      return send(200, { ok: true, pages: pages.size, live, suspended, browser: browserAlive(), suspendMs: SUSPEND_MS })
     }
     if (req.method === 'GET' && url.pathname === '/frame') {
       const s = await snap(url.searchParams.get('sid'))
@@ -353,7 +431,10 @@ const server = http.createServer(async (req, res) => {
       const entry = pages.get(body.sid)
       if (entry) {
         pages.delete(body.sid)
-        await entry.ctx.close().catch(() => {})
+        // Close the PAGE. With a persistent profile every page shares one
+        // context, so closing the context would sign Sithum out of every other
+        // window and wipe the profile's cookies with it.
+        await entry.page?.close().catch(() => {})
       }
       return send(200, { ok: true, pages: pages.size })
     }

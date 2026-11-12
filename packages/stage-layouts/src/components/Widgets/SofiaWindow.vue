@@ -74,7 +74,15 @@ async function act(action: string, extra: Record<string, unknown> = {}) {
   finally { busy.value = false }
 }
 
+// One place that records "the user touched this window", so the idle deadline is
+// about real use rather than about which child received the event.
+function onAnyInteraction() {
+  emit('focus', props.win.id)
+  touchInteraction()
+}
+
 function onPageClick(event: MouseEvent) {
+  touchInteraction()
   const img = event.currentTarget as HTMLImageElement
   const rect = img.getBoundingClientRect()
   const x = Math.round((event.clientX - rect.left) * (PAGE.w / rect.width))
@@ -83,6 +91,7 @@ function onPageClick(event: MouseEvent) {
 }
 
 function onWheel(event: WheelEvent) {
+  touchInteraction()
   const img = event.currentTarget as HTMLImageElement
   const rect = img.getBoundingClientRect()
   const x = Math.round((event.clientX - rect.left) * (PAGE.w / rect.width))
@@ -95,16 +104,37 @@ onMounted(() => {
     frameTick.value++
 })
 
-// A live page is disposed after three minutes of no traffic, and a window that
-// is merely being looked at sends none: the stage refetches a frame only when the
-// page itself changed, so a static page is silent for minutes. Without this
-// heartbeat the browser reaps the page under a window the user can still see, and
-// their next click on it fails silently. Send it only while the window is
-// actually visible, so a closed tab or a hidden window really does go idle.
+// --- when a live window is allowed to keep its page alive ------------------
+//
+// The browser suspends a page nobody has used, and resumes it from its URL when
+// it is needed again, so a missed heartbeat costs a ~2 s wake-up, not a dead
+// window. The rule is therefore about *use*, not about being on screen:
+//
+//   visible AND the tab is in front AND something has happened on it recently
+//   -> beat, so the page stays live and a click is instant
+//
+//   on screen but untouched for INTERACTION_IDLE_MS -> stop beating: the
+//   browser suspends it and the CPU goes away. The window keeps its last frame
+//   and says so; the first click or key brings it back.
+//
+// A window left open on a foreground tab overnight is exactly the case that
+// measured 595 % CPU, so it must go quiet even though it is visible.
+const INTERACTION_IDLE_MS = 5 * 60 * 1000
 let heartbeat: ReturnType<typeof setInterval> | undefined
+let lastInteraction = Date.now()
+const sleeping = ref(false)
+
 function beat() {
   if (!props.win.sid || document.visibilityState !== 'visible')
     return
+  if (Date.now() - lastInteraction > INTERACTION_IDLE_MS) {
+    // Long enough untouched: let it suspend. The frame on screen stays.
+    if (!sleeping.value) {
+      sleeping.value = true
+      stopHeartbeat()
+    }
+    return
+  }
   void fetch('/api/browse/touch', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -122,22 +152,35 @@ function stopHeartbeat() {
     clearInterval(heartbeat)
   heartbeat = undefined
 }
+// Any real interaction counts as use, and wakes a sleeping page.
+function touchInteraction() {
+  lastInteraction = Date.now()
+  if (sleeping.value) {
+    sleeping.value = false
+    // The next frame fetch resumes the page from its URL.
+    frameData.value = ''
+    frameTick.value += 1
+  }
+  startHeartbeat()
+}
 // A tab in the background is not being looked at, so it must not keep a page
 // alive: stop on hide, resume on return, and stop for good on unmount.
 function onVisibility() {
-  if (document.visibilityState === 'visible')
+  if (document.visibilityState === 'visible') {
+    lastInteraction = Date.now()
     startHeartbeat()
-  else
+  }
+  else {
     stopHeartbeat()
+  }
 }
 // A window can mount before it knows its page: `showPanel` creates a live window
-// with `sid: ''` and the panel event patches the real one in afterwards, so the
-// mount-time guard skips exactly those windows and their page is reaped at 180 s
-// while it is still on screen. Start the beat when the sid arrives.
+// with `sid: ''` and the panel event patches the real one in afterwards, so a
+// mount-time-only guard skips exactly those windows.
 watch(() => props.win.sid, () => startHeartbeat())
 
 onMounted(() => {
-  startHeartbeat()
+  touchInteraction()
   document.addEventListener('visibilitychange', onVisibility)
 })
 onBeforeUnmount(() => {
@@ -208,7 +251,7 @@ function openExternal() {
     class="sofia-window"
     :class="{ 'sofia-window--active': active, 'sofia-window--dragging': dragging }"
     :style="{ left: `${win.x}px`, top: `${win.y}px`, width: `${win.w}px`, height: `${win.h}px`, zIndex: win.z }"
-    @mousedown="emit('focus', win.id)"
+    @mousedown="onAnyInteraction"
   >
     <header class="sofia-window__bar" @mousedown="onDown">
       <span class="sofia-window__dot" aria-hidden="true" />
@@ -244,6 +287,12 @@ function openExternal() {
         @pointerdown="onPageClick"
         @wheel.prevent="onWheel"
       >
+      <!-- Sleeping on purpose: the page was suspended to stop it burning CPU,
+           and the click that wakes it also acts on it. Saying so is the
+           difference between a deliberate sleep and a window that looks broken. -->
+      <p v-if="sleeping" class="sofia-window__asleep">
+        Asleep to save power — click to wake
+      </p>
     </div>
 
     <div v-else class="sofia-window__body sofia-window__body--web">
@@ -311,6 +360,20 @@ function openExternal() {
 }
 .sofia-window__urltab { font-size: 0.7rem; color: #8f7a72; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sofia-window__page { width: 100%; flex: 1; min-height: 0; object-fit: fill; cursor: crosshair; border-radius: 0 0 13px 13px; }
+.sofia-window__body--live { position: relative; }
+.sofia-window__asleep {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  margin: 0;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: #171012e6;
+  border: 1px solid #3a2226;
+  color: #c98b8b;
+  font-size: 0.7rem;
+  pointer-events: none;
+}
 .sofia-window__body--web { flex-direction: column; gap: 0.5rem; text-align: center; }
 .sofia-window__wtitle { color: #f5e6d3; font-size: 0.95rem; }
 .sofia-window__note { color: #8f7a72; font-size: 0.76rem; max-width: 26rem; }
