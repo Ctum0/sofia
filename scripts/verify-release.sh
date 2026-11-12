@@ -115,6 +115,21 @@ for field in hermes reasoning; do
 done
 note "$(echo "$hz" | cut -c1-160)"
 
+# Close whatever the browser service is holding, whoever is exiting.
+cleanup_browser() {
+  local app
+  app=$(docker ps --format '{{.Names}}' | grep zp31 | head -1)
+  [ -n "$app" ] || return 0
+  docker exec "$app" node -e "
+    fetch('http://sofia-browser:8790/close-all',{method:'POST'})
+      .then(r=>r.json()).then(j=>process.stdout.write(JSON.stringify(j))).catch(()=>process.stdout.write('{}'))
+  " 2>/dev/null | tail -1
+}
+# `fail` exits the script, so a trap is the only place that runs on both paths.
+# Without it a red run left its pages behind and every later gate competed with
+# them: the same gate died at a different step each time.
+trap 'cleanup_browser >/dev/null 2>&1 || true' EXIT
+
 echo "== 4. gates =="
 PW=mcr.microsoft.com/playwright:v1.64.1-jammy
 # The gate that runs must be the gate in the tree. It used to run from a copy in
@@ -290,10 +305,7 @@ done
 # LIVE page: five leaked pages held the container at ~550 % CPU well past the
 # release. Reclaim them, then confirm the browser actually went quiet, because
 # "I sent a close" is not the same as "the CPU is gone".
-cleanup_out=$(docker exec "$app_container" node -e "
-fetch('http://sofia-browser:8790/close-all',{method:'POST',headers:{'content-type':'application/json'},body:'{}'})
-  .then(r=>r.json()).then(j=>process.stdout.write(JSON.stringify(j))).catch(e=>process.stdout.write('{\"error\":\"' + e.message + '\"}'))
-" 2>&1 | tail -1)
+cleanup_out=$(cleanup_browser)
 note "browser cleanup ${cleanup_out}"
 for _ in $(seq 1 10); do
   busy=$(docker stats --no-stream --format '{{.CPUPerc}}' sofia-browser 2>/dev/null | tr -d '%')

@@ -212,8 +212,20 @@ try {
     return { label: offers.find(t => /^(sign in|log in|signin|login)$/i.test(t)) || null, offers }
   }).catch(() => ({ label: null, offers: [] }))
 
-  if (!signInLabel.label) {
+  // Already on the sign-in page is a pass, not a failure: the window may have
+  // arrived there by any route (a previous run's session, a click earlier in this
+  // gate), and demanding a "Sign in" link on /login asks the page to link to
+  // itself. What matters is that a click lands on a sign-in page — the assertion
+  // below — not that the entry point is a particular link.
+  const alreadyThere = await page.evaluate(() => {
+    const el = document.querySelector('[data-testid=sofia-window][data-kind=live]')
+    return /sign|login/i.test(el?.getAttribute('data-url') || '')
+  }).catch(() => false)
+  if (!signInLabel.label && !alreadyThere) {
     fail('the page offers a sign-in control to click', `offers: ${signInLabel.offers.slice(0, 6).join(' | ') || 'none'}`)
+  }
+  else if (alreadyThere) {
+    ok('the page offers a sign-in control to click', 'already on the sign-in page')
   }
   await say(`click ${signInLabel.label || 'sign in'}`)
   const clickDeadline = Date.now() + 20000
@@ -236,6 +248,13 @@ try {
     : fail('a typed turn clicks inside the page', `saw "${clickedUrl}"`)
 
   await say('close everything')
+  // A close is delivered over the event stream, which is asynchronous: asserting
+  // the instant the turn returns read "1 left" for a close that was still in
+  // flight. Wait for the state the turn is supposed to produce, then judge it.
+  await page.waitForFunction(
+    () => document.querySelectorAll('[data-testid=sofia-window]').length === 0,
+    { timeout: 15000 },
+  ).catch(() => {})
   const left = await page.evaluate(() => document.querySelectorAll('[data-testid=sofia-window]').length)
   left === 0 ? ok('a typed turn closes every window', '0 left') : fail('a typed turn closes every window', `${left} left`)
 

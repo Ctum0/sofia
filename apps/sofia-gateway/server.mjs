@@ -648,7 +648,7 @@ async function runStageIntent(intent, { tab = '' } = {}) {
       continue
     }
     broadcastToStage(event, tab)
-    console.log(`[sofia-gateway] text: ${event.kind} ${event.action}`)
+    console.log(`[sofia-gateway] text: ${event.kind} ${event.action} -> tab ${tab || '(all)'} (${stageClients.size} open)`)
   }
 }
 
