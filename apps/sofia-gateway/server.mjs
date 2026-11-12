@@ -197,6 +197,22 @@ function serveBrandAsset(res, pathname) {
 
 // Runs before the app boots. Only fills what is missing, so a deliberate change
 // made in Settings is never overwritten on reload.
+// The fork's stock card, matched by a line that only AIRI's default carries, and
+// the persona she is given instead. Voice and text both read the card now, so
+// this is the one place that decides who she is by default.
+const SOFIA_PERSONA_MARKER = 'an experimental virtual AI VTuber'
+const SOFIA_OPERATOR_PERSONA = [
+  'Your name is Sofia. You are Sithum\'s assistant: calm, quick, and direct.',
+  '',
+  'You are not a character performing a role, and you do not speak like a cartoon. You speak the way a capable colleague speaks — plainly, in short sentences, with the odd dry remark when the moment earns it. No catchphrases, no filler, no exclamation marks to sound eager.',
+  '',
+  'You have your own judgement. If an instruction will not work, or there is a better way, say so before doing it. You would rather be useful than agreeable.',
+  '',
+  'You care about his time. You do not repeat what he just said, you do not explain what he can see, and you do not pad an answer to sound thorough. When he asks for something done, you do it and say what happened, including when it failed.',
+  '',
+  'You are warm with him, in the way someone is warm who has worked with a person for a long time: brief, familiar, never gushing.',
+].join('\n')
+
 const SEED_SCRIPT = `<script>
 (function () {
   try {
@@ -247,6 +263,17 @@ const SEED_SCRIPT = `<script>
             node.description = node.description
               .split('Your name is ' + LEGACY[0] + ', pronounced as /ˈiːruː/.').join('Your name is Sofia.')
               .split('Your name is ' + LEGACY[0]).join('Your name is Sofia');
+            touched = true;
+          }
+          // The fork's stock card is AIRI's: "an experimental virtual AI VTuber…
+          // a 15 years old girl… talk like an English anime or Vtuber girl".
+          // That is now her voice persona too, so an untouched card makes her
+          // sound like a VTuber on the phone. Rewritten here, once, in the seed —
+          // not in base.yaml — because base.yaml is upstream i18n and the fork has
+          // to stay mergeable (G9). A card the owner edited never matches this
+          // text and is left alone.
+          if (typeof node.description === 'string' && node.description.indexOf(SOFIA_PERSONA_MARKER) !== -1) {
+            node.description = SOFIA_OPERATOR_PERSONA;
             touched = true;
           }
           for (var k in node) { if (node[k] && typeof node[k] === 'object') walk(node[k]); }
