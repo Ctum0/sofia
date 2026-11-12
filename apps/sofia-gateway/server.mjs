@@ -197,10 +197,17 @@ function serveBrandAsset(res, pathname) {
 
 // Runs before the app boots. Only fills what is missing, so a deliberate change
 // made in Settings is never overwritten on reload.
-// The fork's stock card, matched by a line that only AIRI's default carries, and
-// the persona she is given instead. Voice and text both read the card now, so
-// this is the one place that decides who she is by default.
-const SOFIA_PERSONA_MARKER = 'an experimental virtual AI VTuber'
+// The fork's stock card, matched by the words that only it carries, in every
+// language, and the persona she is given instead.
+//
+// This migration is load-bearing, and changing the built-in text made it more so.
+// A stored card is split into fields and any field equal to *a locale's* built-in
+// is treated as unedited (`splitCard`), so once the ja default stopped being
+// AIRI's text, a device's stored ja VTuber description stopped matching a variant
+// and became a USER EDIT — stranded forever and now synced to the server as one.
+// So the old wording is matched on its own identity markers, not by comparing
+// against the current default, and it is reset to the new default.
+const LEGACY_PERSONA_MARKERS = /VTuber|experimental virtual|実験的なバーチャル|AI virtual|Иру|伊噜|伊嚕|อีรุ|15\s*(?:years? old|year-old|歳|años|ans|세|лет|ปี|tuổi|岁|歲)/i
 const SOFIA_OPERATOR_PERSONA = [
   'Your name is Sofia. You are Sithum\'s assistant: calm, quick, and direct.',
   '',
@@ -269,7 +276,7 @@ const SEED_SCRIPT = `<script>
           // once here, matched on a line only that text carries, because base.yaml
           // is the default for NEW cards and cannot reach one already stored. A
           // card the owner edited never matches and is left alone.
-          if (typeof node.description === 'string' && node.description.indexOf(SOFIA_PERSONA_MARKER) !== -1) {
+          if (typeof node.description === 'string' && LEGACY_PERSONA_MARKERS.test(node.description)) {
             node.description = SOFIA_OPERATOR_PERSONA;
             touched = true;
           }

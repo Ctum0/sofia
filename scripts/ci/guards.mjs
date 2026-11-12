@@ -256,7 +256,19 @@ check('G14 no locale ships the legacy persona', () => {
     }
   }
   assert(offenders.length === 0, `legacy persona in: ${offenders.join(', ')}`)
-  return `${locales.length} locales`
+
+  // The seed's migration has to catch the SAME wording. Changing a locale's
+  // default un-filters a stored card that matched it, turning the old text into a
+  // "user edit" that is stranded forever and synced as one — so the migration
+  // markers must still recognise every legacy locale, and must not match the new
+  // text (or it would rewrite her persona on every load).
+  const server = read('apps/sofia-gateway/server.mjs')
+  const markerAt = server.indexOf('const LEGACY_PERSONA_MARKERS =')
+  assert(markerAt !== -1, 'LEGACY_PERSONA_MARKERS is gone — the card migration has no matcher')
+  const markerLine = server.slice(markerAt, server.indexOf('\n', markerAt))
+  assert(/VTuber/.test(markerLine) && /15/.test(markerLine),
+    'the migration marker no longer names VTuber or an age — it cannot recognise the old cards')
+  return `${locales.length} locales, migration marker present`
 })
 
 // G13 — a stage event with no tab goes to every tab. `close everything` typed in
