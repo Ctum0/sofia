@@ -268,4 +268,22 @@ for g in tools-gate.mjs hands-gate.mjs; do
   note "$g $gate_count"
 done
 
+# A release opens pages it does not always close, and the browser's cost is per
+# LIVE page: five leaked pages held the container at ~550 % CPU well past the
+# release. Reclaim them, then confirm the browser actually went quiet, because
+# "I sent a close" is not the same as "the CPU is gone".
+cleanup_out=$(docker exec "$app_container" node -e "
+fetch('http://sofia-browser:8790/close-all',{method:'POST',headers:{'content-type':'application/json'},body:'{}'})
+  .then(r=>r.json()).then(j=>process.stdout.write(JSON.stringify(j))).catch(e=>process.stdout.write('{\"error\":\"' + e.message + '\"}'))
+" 2>&1 | tail -1)
+note "browser cleanup ${cleanup_out}"
+for _ in $(seq 1 10); do
+  busy=$(docker stats --no-stream --format '{{.CPUPerc}}' sofia-browser 2>/dev/null | tr -d '%')
+  busy_int=${busy%%.*}
+  [ -z "$busy_int" ] && break
+  [ "$busy_int" -lt 50 ] && break
+  sleep 3
+done
+note "browser cpu after cleanup ${busy:-unknown}"
+
 echo "PASS ${head_sha:0:9} — tree clean, deployed, healthy, gated, on-brand"

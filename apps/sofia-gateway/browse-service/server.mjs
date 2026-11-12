@@ -51,11 +51,17 @@ const pages = new Map()
 // still see comes back to life instead of showing a dead frame forever. Only a
 // page nobody has used for FORGET_MS is really dropped.
 //
-// The SUSPEND_MS default is deliberately longer than the slowest gate run
-// (text-panel takes ~275 s standalone and longer under load): a throttle that
-// fires mid-gate would show up as a phantom flake in every browser gate, which
-// is the exact failure mode this whole file has been fighting.
-const SUSPEND_MS = Number(process.env.SUSPEND_MS || 600000)
+// Measured, and the measurement changed the design: with 5 pages open, 3
+// suspended and 3 live, CPU was 555-587 %. The cost is per LIVE page (each gets
+// its own renderer and keeps the software-GPU helper busy), so a partial suspend
+// buys nothing. What buys everything is reaching zero live pages, at which point
+// BROWSER_IDLE_MS closes the browser.
+//
+// A live window heartbeats and is therefore never suspended; only abandoned
+// pages are. So this window can be short — it only governs how long a page
+// nobody is looking at keeps its process — as long as it is longer than the gap
+// between a window's beats.
+const SUSPEND_MS = Number(process.env.SUSPEND_MS || 120000)
 const FORGET_MS = Number(process.env.FORGET_MS || 3600000)
 // Once nothing is live at all, keep the browser warm briefly so a burst of
 // windows does not pay a cold start each, then close it: even an empty browser
@@ -462,6 +468,24 @@ const server = http.createServer(async (req, res) => {
       entry.used = Date.now()
       lastUsed = Date.now()
       return send(200, { ok: true, sid: body.sid })
+    }
+    if (url.pathname === '/close-all') {
+      // The verifier opens pages and does not always close them, and the cost is
+      // per LIVE page: five leaked pages held this container at ~550 % CPU for the
+      // whole idle window. Whoever opened them is the one who should reclaim
+      // them, so the release calls this when it is done.
+      // Read the entries BEFORE clearing the map: clearing first made every
+      // close a no-op, so the pages survived the call that exists to remove them.
+      const entries = [...pages.values()]
+      const count = entries.length
+      pages.clear()
+      for (const entry of entries)
+        await entry.page?.close().catch(() => {})
+      const closing = browser
+      browser = undefined
+      await closing?.close().catch(() => {})
+      console.log(`[sofia-browser] closed everything (${count} page(s)) on request`)
+      return send(200, { ok: true, closed: count })
     }
     if (url.pathname === '/close') {
       const entry = pages.get(body.sid)
