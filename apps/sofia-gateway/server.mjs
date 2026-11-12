@@ -33,7 +33,7 @@ import { LIVE_TOOLS, executeToolCall } from './tools.mjs'
 import { openPage, runBrowse, stageIntent } from './intent.mjs'
 import { recordTurn } from './memory.mjs'
 import { SseReasoningFilter, stripReasoningFromBody } from './reasoning-filter.mjs'
-import { checkPassword, clearCookie, isAuthed, loginPage, makeSession, sessionCookie } from './auth.mjs'
+import { checkPassword, clearCookie, isAuthed, loginPage, makeSession, parseCookies, sessionCookie } from './auth.mjs'
 import { ack as proactiveAck, fireNow as proactiveFire, pending as proactivePending, start as startProactive, status as proactiveStatus } from './proactive.mjs'
 
 const PORT = Number(process.env.PORT || 8787)
@@ -570,9 +570,22 @@ function noteLoginFailure(key, maxFailures = LOGIN_MAX_FAILURES, lockMs = LOGIN_
 // per tab, same session cookie as everything else.
 const stageClients = new Set()
 
-function broadcastToStage(event) {
-  const line = `data: ${JSON.stringify(event)}\n\n`
+// Every event carries the tab it belongs to.
+//
+// Without that, `close everything` in one tab closed every window in every tab:
+// two people sharing the deployment were one stage, and even two gates running
+// in sequence could clear each other's windows (measured: a gate's own
+// `close everything` removed another run's window mid-assertion). A tab is a
+// stage; it announces itself with `?tab=` and an event with no `tab` is only
+// delivered to the tab that produced it.
+function broadcastToStage(event, tab = '') {
+  const tagged = { ...event, tab: tab || event.tab || '' }
+  const line = `data: ${JSON.stringify(tagged)}\n\n`
   for (const res of stageClients) {
+    // A broadcast with no tab is not for a specific tab (the typed lane cannot
+    // know it), so it goes everywhere — except when the event names one.
+    if (tagged.tab && res.tab && tagged.tab !== res.tab)
+      continue
     try { res.write(line) }
     catch { stageClients.delete(res) }
   }
@@ -593,7 +606,7 @@ export function rememberPage(page) {
     stageLastPage = { sid: page.sid, url: page.url || stageLastPage?.url || '', title: page.title || '' }
 }
 
-async function runStageIntent(intent) {
+async function runStageIntent(intent, { tab = '' } = {}) {
   if (intent.browse) {
     const target = intent.browse.sid || stageLastPage?.sid
     if (!target) {
@@ -609,7 +622,16 @@ async function runStageIntent(intent) {
     // picture it took when the page opened and every action looks ignored. It
     // fires whether the action worked or not — a failed click must still show
     // him the real page, never a picture from a minute ago.
-    broadcastToStage({ kind: 'live', sid: body.sid || target, url: body.url || stageLastPage?.url || '', title: body.title || '', tick: Date.now() })
+    // Never an empty url: the stage treats a url-less live event as an update to
+    // an existing window, and an empty address is how a tick used to arrive
+    // looking like a new blank page.
+    broadcastToStage({
+      kind: 'live',
+      sid: body.sid || target,
+      url: body.url || stageLastPage?.url || '',
+      title: body.title || '',
+      tick: Date.now(),
+    }, tab)
     if (!result.ok)
       throw new Error(body.error || `status ${result.status}`)
     rememberPage(body)
@@ -622,10 +644,10 @@ async function runStageIntent(intent) {
       const page = await openPage(event.url)
       rememberPage({ ...page, url: page.url || event.url })
       console.log(`[sofia-gateway] text: opened ${page.url || event.url}`)
-      broadcastToStage({ kind: 'live', sid: page.sid, url: page.url || event.url, title: page.title || '' })
+      broadcastToStage({ kind: 'live', sid: page.sid, url: page.url || event.url, title: page.title || '' }, tab)
       continue
     }
-    broadcastToStage(event)
+    broadcastToStage(event, tab)
     console.log(`[sofia-gateway] text: ${event.kind} ${event.action}`)
   }
 }
@@ -636,7 +658,7 @@ async function runStageIntent(intent) {
  * is that her answer comes from the page and not from the chat history. So this
  * returns the body to forward, not just a side effect.
  */
-export async function intentFromText(body) {
+export async function intentFromText(body, { tab = '' } = {}) {
   let payload
   try { payload = JSON.parse(body.toString('utf8')) }
   catch {
@@ -697,7 +719,7 @@ export async function intentFromText(body) {
   // turned into "no window appeared" and a stalled browser into a stalled
   // reply. Only `read` and `links` need to be inside the request, because only
   // they produce text for the answer; a window appearing does not.
-  runStageIntent(intent).catch(error =>
+  runStageIntent(intent, { tab }).catch(error =>
     console.log(`[sofia-gateway] text: intent failed (${String(error && error.message || error).slice(0, 100)})`),
   )
   return { body }
@@ -882,7 +904,13 @@ self.addEventListener('activate', (event) => {
             void recordTurn({ from: 'user', text: said, sessionId: 'general' }).catch(() => {})
         }
         catch {}
-        const prepared = await intentFromText(body)
+        // The tab rides on the request so a typed `close everything` is scoped to
+        // the stage that asked for it, instead of clearing every open tab.
+        // The tab travels as a cookie because the chat request is made by the
+        // provider's own fetch, which the stage does not wrap. Without it, one
+        // tab's `close everything` cleared every other tab's windows.
+        const cookies = parseCookies(req.headers.cookie || '')
+        const prepared = await intentFromText(body, { tab: String(cookies.sofia_tab || req.headers['x-sofia-tab'] || url.searchParams.get('tab') || '') })
         proxyToHermes(req, res, url, prepared.body)
         return
       }
@@ -907,6 +935,7 @@ self.addEventListener('activate', (event) => {
       connection: 'keep-alive',
       'x-accel-buffering': 'no',
     })
+    res.tab = String(url.searchParams.get('tab') || '')
     res.write(': connected\n\n')
     stageClients.add(res)
     const beat = setInterval(() => {
@@ -1026,7 +1055,9 @@ self.addEventListener('activate', (event) => {
       if (Number.isFinite(Number(asked[key])))
         event[key] = Number(asked[key])
     }
-    broadcastToStage(event)
+    // Scoped like every other stage event: an agent moving "the window" should
+    // move one stage's window, not every open tab's.
+    broadcastToStage(event, String(asked.tab || req.headers['x-sofia-tab'] || url.searchParams.get('tab') || ''))
     console.log(`[sofia-gateway] stage: control ${action}${event.position ? ` ${event.position}` : ''}${event.target ? ` ${event.target}` : ''} -> ${stageClients.size} tab(s)`)
     sendJson(res, 200, { ok: true, event, tabs: stageClients.size })
     return

@@ -77,6 +77,17 @@ const speaking = useSpeakingStore()
 // before its socket opens. Before this the voice path ran on a hand-written
 // persona, so she was one person when typing and another when speaking.
 const cards = useAiriCardStore()
+// The tab this dock belongs to, sent with the voice socket so its panel events are
+// scoped to this stage rather than to every open one.
+function tabId() {
+  try {
+    return sessionStorage.getItem('sofia-stage-tab') || ''
+  }
+  catch {
+    return ''
+  }
+}
+
 function personaForVoice() {
   try {
     return cards.getSystemPrompt(cards.activeCardId) || ''
@@ -179,7 +190,7 @@ function handleEvent(event: VoiceEvent) {
 /** Built before the click so `unlock()` can run synchronously inside it. */
 const prepared = shallowRef<VoiceClient | null>(null)
 void loadClient()
-  .then(({ SofiaVoice }) => { prepared.value = new SofiaVoice({ onEvent: handleEvent, persona: personaForVoice }) })
+  .then(({ SofiaVoice }) => { prepared.value = new SofiaVoice({ onEvent: handleEvent, persona: personaForVoice, tab: tabId() }) })
   .catch(() => {})
 
 function tick() {
@@ -258,7 +269,7 @@ async function start() {
       // A function, not a snapshot: `personaForVoice` is evaluated when the
       // socket opens, which is after the card store has hydrated. Passing the
       // value here read it before hydration and sent '' on every cold load.
-      client = new SofiaVoice({ onEvent: handleEvent, persona: personaForVoice })
+      client = new SofiaVoice({ onEvent: handleEvent, persona: personaForVoice, tab: tabId() })
     }
     voice.value = client
     // Mirrored before the first tick so a human (or the gate) can read the

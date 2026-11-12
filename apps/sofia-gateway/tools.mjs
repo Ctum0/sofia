@@ -362,8 +362,19 @@ export async function executeToolCall(call, ctx = {}) {
           // what is really on the page, and the service's error reply carries no
           // `sid`, so gating the tick on `body.sid` muted exactly the failures
           // that most needed a picture.
-          if (typeof ctx.onPanel === 'function')
-            ctx.onPanel({ kind: 'live', sid: body.sid || target, url: body.url || ctx.lastPage?.url || '', title: body.title || '', tick: Date.now() })
+          if (typeof ctx.onPanel === 'function') {
+            // The page's own address, falling back to what this sid was last
+            // known as — never an empty url, which the stage must not read as
+            // "no window here".
+            const known = (Array.isArray(ctx.pages) ? ctx.pages : []).find(page => page.sid === (body.sid || target))
+            ctx.onPanel({
+              kind: 'live',
+              sid: body.sid || target,
+              url: body.url || known?.url || ctx.lastPage?.url || '',
+              title: body.title || known?.title || '',
+              tick: Date.now(),
+            })
+          }
           if (!result.ok) throw new Error(body.error || `status ${result.status}`)
           if (action === 'read')
             text = `The page says: ${String(body.text || '').slice(0, 1500)}`

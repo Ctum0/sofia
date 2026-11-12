@@ -220,6 +220,28 @@ check('G12 no module uses a name it never declares', () => {
   return `${report.length} gateway files, no undefined names`
 })
 
+// G13 — a stage event with no tab goes to every tab. `close everything` typed in
+// one tab cleared another tab's windows, and no single-tab gate can see it: the
+// bug is the *audience* of the event, not its content. Every call site must name
+// the tab it is for, because a broadcast that forgets is indistinguishable from
+// one that meant "everyone".
+check('G13 every stage broadcast names its tab', () => {
+  const server = read('apps/sofia-gateway/server.mjs')
+  const calls = [...server.matchAll(/broadcastToStage\(([^)]*)/g)].map(m => m[1].trim())
+  // The definition itself has the `function` keyword before the name, so it does
+  // not match; what matches are call sites.
+  const untagged = calls.filter(args => {
+    if (!args)
+      return true
+    // A call with one argument is global; a call whose second argument is present
+    // and non-empty names a tab.
+    const parts = args.split(/,(?![^()]*\))/)
+    return parts.length < 2 || parts.slice(1).join(',').trim() === ''
+  })
+  assert(untagged.length === 0, `broadcastToStage called without a tab: ${untagged.join(' | ').slice(0, 200)}`)
+  return `${calls.length} broadcast(s), all scoped`
+})
+
 for (const line of passes)
   console.log(`PASS  ${line}`)
 for (const line of failures)

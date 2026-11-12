@@ -249,7 +249,18 @@ function showPanel(payload: { kind?: 'image' | 'web' | 'live', url: string, titl
     applyControl(payload as unknown as { action: string })
     return
   }
-  if (!payload?.url) { windows.value = []; return }
+  // `null` means "clear the stage" — that is the deliberate call the gate makes
+  // and the only thing that should ever empty it. A payload that is merely
+  // MISSING a url is a state update (a failed action, a tick), and treating it as
+  // "clear everything" deleted every window whenever one browse call errored:
+  // measured as a window vanishing mid-drag and "closing one leaves the other —
+  // 0 left". An event with no url and a kind is an update to a window that
+  // already exists; it carries nothing to create.
+  if (payload === null) { windows.value = []; return }
+  if (!payload || typeof payload !== 'object')
+    return
+  if (!payload.url && !payload.sid)
+    return
   const kind = payload.kind === 'live' ? 'live' : payload.kind === 'web' ? 'web' : 'image'
   // A live window is identified by its page session, not its address. Matching
   // on URL meant "click Sign in" opened a *second* window for /login while the
@@ -405,7 +416,27 @@ onMounted(() => {
   void restoreStage()
 
   try {
-    const events = new EventSource('/api/events')
+    // A tab is a stage. Without this, `close everything` in one tab closed every
+    // window in every tab — two people sharing the deployment shared one stage.
+    // The id is per-tab and survives a reload in sessionStorage.
+    let tab = ''
+    try {
+      tab = sessionStorage.getItem('sofia-stage-tab') || ''
+      if (!tab) {
+        tab = `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+        sessionStorage.setItem('sofia-stage-tab', tab)
+      }
+    }
+    catch {}
+    // Chat turns are made by the provider's own fetch, which this page does not
+    // wrap, so the tab travels as a cookie: every request from this tab carries
+    // it and the gateway can scope a typed `close everything` to this stage.
+    try {
+      if (tab)
+        document.cookie = `sofia_tab=${encodeURIComponent(tab)}; path=/; SameSite=Lax`
+    }
+    catch {}
+    const events = new EventSource(`/api/events${tab ? `?tab=${encodeURIComponent(tab)}` : ''}`)
     events.onmessage = (event) => {
       try { showPanel(JSON.parse(event.data)) }
       catch {}

@@ -131,7 +131,8 @@ const PREFERRED_AUDIO = {
 }
 
 export class SofiaVoice {
-  constructor({ url, onEvent, persona } = {}) {
+  constructor({ url, onEvent, persona, tab } = {}) {
+    this.tab = tab || ''
     // Her character card, sent on open. The stage owns it; this client only
     // carries it, because the gateway has no way to read the stage's storage.
     //
@@ -212,6 +213,8 @@ export class SofiaVoice {
           // Sent even when empty, so the gateway's wait is released immediately
           // and the ack reports 0 — an empty card is visible in the gate rather
           // than looking like a working session.
+          if (this.tab)
+            ws.send(JSON.stringify({ type: 'tab', tab: this.tab }))
           ws.send(JSON.stringify({ type: 'persona', text: card }))
           this.stats.personaChars = card.length
         }

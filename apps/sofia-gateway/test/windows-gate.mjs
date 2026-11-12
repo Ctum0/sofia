@@ -126,6 +126,22 @@ try {
     JSON.stringify(two.wins.map(w => `${w.kind}:${w.img}`)))
   step('the browser asks for a tab, not a blank frame', two.wins.some(w => w.kind === 'web'),
     two.wins.find(w => w.kind === 'web')?.title || 'none')
+  // A failed action must not clear the stage.
+  //
+  // The panel event for a tick carried `url: ''` when a browse call errored, and
+  // the stage read a missing url as "clear everything" — so one failed click
+  // deleted every window. Asserted HERE, with two windows on screen, because the
+  // same check against an empty stage passes without testing anything.
+  {
+    const beforeCount = (await state()).count
+    await page.evaluate(() => window.__sofiaPanel({ kind: 'live', sid: 'no-such-page', url: '', title: '', tick: Date.now() }))
+    await page.waitForTimeout(600)
+    const afterCount = (await state()).count
+    step('a state update with no url does not clear the stage',
+      beforeCount > 0 && afterCount === beforeCount,
+      `${beforeCount} -> ${afterCount} window(s)`)
+  }
+
   step('windows are NOT inside the chat column', two.insideChatColumn === false, `layer position ${two.layerFixed}`)
   // A window takes the chat's space by design, so the panel must be gone while
   // one is open — measured now as "not mounted", not as "not empty", which was
