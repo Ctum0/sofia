@@ -2,7 +2,7 @@
 /* eslint-disable style/max-statements-per-line -- compact one-liners read better here than six-line guard clauses */
 // One floating window. Not a chat bubble, not a column: a thing she opened on
 // the stage, which he can move, stack, and close.
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 export interface SofiaWindowState {
   id: string
@@ -93,6 +93,55 @@ function onWheel(event: WheelEvent) {
 onMounted(() => {
   if (props.win.kind === 'live')
     frameTick.value++
+})
+
+// A live page is disposed after three minutes of no traffic, and a window that
+// is merely being looked at sends none: the stage refetches a frame only when the
+// page itself changed, so a static page is silent for minutes. Without this
+// heartbeat the browser reaps the page under a window the user can still see, and
+// their next click on it fails silently. Send it only while the window is
+// actually visible, so a closed tab or a hidden window really does go idle.
+let heartbeat: ReturnType<typeof setInterval> | undefined
+function beat() {
+  if (!props.win.sid || document.visibilityState !== 'visible')
+    return
+  void fetch('/api/browse/touch', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ sid: props.win.sid }),
+  }).catch(() => {})
+}
+function startHeartbeat() {
+  if (heartbeat || props.win.kind !== 'live' || !props.win.sid)
+    return
+  beat()
+  heartbeat = setInterval(beat, 45000)
+}
+function stopHeartbeat() {
+  if (heartbeat) clearInterval(heartbeat)
+  heartbeat = undefined
+}
+// A tab in the background is not being looked at, so it must not keep a page
+// alive: stop on hide, resume on return, and stop for good on unmount.
+function onVisibility() {
+  if (document.visibilityState === 'visible')
+    startHeartbeat()
+  else
+    stopHeartbeat()
+}
+// A window can mount before it knows its page: `showPanel` creates a live window
+// with `sid: ''` and the panel event patches the real one in afterwards, so the
+// mount-time guard skips exactly those windows and their page is reaped at 180 s
+// while it is still on screen. Start the beat when the sid arrives.
+watch(() => props.win.sid, () => startHeartbeat())
+
+onMounted(() => {
+  startHeartbeat()
+  document.addEventListener('visibilitychange', onVisibility)
+})
+onBeforeUnmount(() => {
+  stopHeartbeat()
+  document.removeEventListener('visibilitychange', onVisibility)
 })
 
 const dragging = ref(false)

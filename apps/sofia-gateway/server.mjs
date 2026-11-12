@@ -869,7 +869,7 @@ self.addEventListener('activate', (event) => {
         res.end(png)
         return
       }
-      const routes = { '/api/browse/open': '/open', '/api/browse/act': '/act', '/api/browse/close': '/close' }
+      const routes = { '/api/browse/open': '/open', '/api/browse/act': '/act', '/api/browse/close': '/close', '/api/browse/touch': '/touch' }
       const target = routes[url.pathname]
       if (!target) {
         sendJson(res, 404, { error: 'no route' })

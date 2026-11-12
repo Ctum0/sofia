@@ -35,7 +35,25 @@ async function assertPublic(url) {
 
 let browser
 const pages = new Map() // sid -> { page, ctx, used }
+// A live page keeps rendering when nobody is looking: one GitHub tab measured
+// 490-595 % CPU on this host, because the page runs its own animation, timers
+// and telemetry forever. Two levers were measured, and only one works:
+//
+//   freezing the page (`Page.setWebLifecycleState: frozen`) stops the page's
+//     timers but leaves Chromium's software-GPU helper spinning — measured at
+//     585 % *after* a successful freeze. Rejected, and removed rather than left
+//     in as plausible-looking code.
+//   closing the page, and the browser behind it, stops everything: 0.00 %.
+//
+// So idle means gone. The window's `/frame` reads and every action refresh
+// `used`, so a page someone is actually looking at is never idle; only an
+// abandoned one is, which is precisely the one pinning five cores for nothing.
 const IDLE_MS = Number(process.env.IDLE_MS || 180000)
+// Once the last page is gone there is nothing to keep the browser for. A short
+// grace lets a burst of windows reuse it instead of paying a cold start each.
+const BROWSER_IDLE_MS = Number(process.env.BROWSER_IDLE_MS || 30000)
+
+let lastUsed = Date.now()
 
 // A gate that forgets to close leaves a page behind, and four of those turn
 // every later "open" into "no room: 4 pages open" (seen 2026-11-10). Pages are
@@ -47,10 +65,21 @@ function reapIdle() {
       continue
     pages.delete(sid)
     entry.ctx.close().catch(() => {})
-    console.log(`[sofia-browser] reaped idle page ${sid}`)
+    console.log(`[sofia-browser] reaped idle page ${entry.page.url?.().slice(0, 60) || sid}`)
+  }
+  // The browser is kept only while it has a page. Reaping runs first, so
+  // `pages.size === 0` is reachable by construction: an earlier version closed
+  // the browser after 60 s while pages lived for 180, so the two timers
+  // contradicted each other and the browser outlived the threshold meant to
+  // stop it.
+  if (browser && pages.size === 0 && now - lastUsed >= BROWSER_IDLE_MS) {
+    const closing = browser
+    browser = undefined
+    console.log(`[sofia-browser] closing idle browser after ${Math.round((now - lastUsed) / 1000)}s with no page`)
+    closing.close().catch(() => {})
   }
 }
-setInterval(reapIdle, 60000).unref()
+setInterval(reapIdle, 5000).unref()
 
 async function getBrowser() {
   if (browser?.isConnected())
@@ -62,6 +91,7 @@ async function getBrowser() {
 }
 
 async function newPage(url) {
+  lastUsed = Date.now()
   // A full slate must never turn into an error the user sees: the oldest page
   // is the one nobody is looking at. (Four leaked pages made every "open" fail
   // with "no room" on 2026-11-10.)
@@ -93,6 +123,7 @@ async function newPage(url) {
 }
 
 async function snap(sid) {
+  lastUsed = Date.now()
   const entry = pages.get(sid)
   if (!entry)
     throw new Error('no such page')
@@ -109,6 +140,7 @@ async function snap(sid) {
 }
 
 async function act({ sid, action, x, y, text, key, selector }) {
+  lastUsed = Date.now()
   const entry = pages.get(sid)
   if (!entry)
     throw new Error('no such page')
@@ -304,6 +336,19 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === '/act')
       return send(200, await act(body))
+    if (url.pathname === '/touch') {
+      // A window on screen is being looked at, and that is evidence of use even
+      // though it sends no other traffic: the stage refetches a frame only when
+      // the page changed, so a static page emits nothing for minutes. Without
+      // this the reaper takes a page away from a window the user can still see,
+      // and the next click on it fails silently.
+      const entry = pages.get(body.sid)
+      if (!entry)
+        return send(404, { error: 'no such page' })
+      entry.used = Date.now()
+      lastUsed = Date.now()
+      return send(200, { ok: true, sid: body.sid })
+    }
     if (url.pathname === '/close') {
       const entry = pages.get(body.sid)
       if (entry) {
