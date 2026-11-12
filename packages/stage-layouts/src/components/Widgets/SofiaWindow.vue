@@ -118,7 +118,8 @@ function startHeartbeat() {
   heartbeat = setInterval(beat, 45000)
 }
 function stopHeartbeat() {
-  if (heartbeat) clearInterval(heartbeat)
+  if (heartbeat)
+    clearInterval(heartbeat)
   heartbeat = undefined
 }
 // A tab in the background is not being looked at, so it must not keep a page
