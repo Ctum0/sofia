@@ -44,7 +44,7 @@ export const LIVE_TOOLS = [
       },
       {
         name: 'browse',
-        description: 'Do things inside a page you opened. action: click (by visible text), clickSelector, fill (selector + text), press (Enter, Tab…), scroll, read (returns the visible text so you can answer from it), links (what is clickable), back, forward, reload, goto (url), close. Use it whenever he says "search for", "click", "type", "open the second result", "what does it say".',
+        description: 'Do things inside a page on his screen. action: click (by visible text), clickSelector, fill (selector + text), press (Enter, Tab…), scroll, read (returns the visible text so you can answer from it), links (what is clickable), back, forward, reload, goto (url), close. Use it whenever he says "search for", "click", "type", "open the second result", "what does it say". Several pages can be open at once: say which one with `target` (a title fragment, a url fragment, or "last"/"first"), because "click the link" is ambiguous when two windows are up. [stage: …] lists what is open.',
         parameters: {
           type: 'OBJECT',
           properties: {
@@ -52,9 +52,24 @@ export const LIVE_TOOLS = [
             text: { type: 'STRING', description: 'Visible text to click or type, or a URL for goto' },
             selector: { type: 'STRING', description: 'CSS selector, for clickSelector or fill' },
             key: { type: 'STRING', description: 'Key to press, or the selector to fill' },
-            sid: { type: 'STRING', description: 'Which page; omit to use the last one you opened' },
+            target: { type: 'STRING', description: 'Which page: a title fragment, a url fragment, "last" (default) or "first"' },
+            sid: { type: 'STRING', description: 'An exact page id, when you have one from [stage: …]' },
           },
           required: ['action'],
+        },
+      },
+      {
+        name: 'show_chart',
+        description: 'Draw a chart on his screen when a picture explains numbers better than a sentence — a comparison, a trend, a distribution. Give the data, not an image: you describe the chart and the gateway renders it. Use it when he says "show me", "graph that", "chart it", "how does it compare".',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            type: { type: 'STRING', enum: ['bar', 'line', 'pie', 'doughnut', 'radar'], description: 'Chart shape.' },
+            title: { type: 'STRING', description: 'A short human title shown above the chart.' },
+            labels: { type: 'ARRAY', items: { type: 'STRING' }, description: 'One label per data point, in order.' },
+            values: { type: 'ARRAY', items: { type: 'NUMBER' }, description: 'One number per label, same order.' },
+          },
+          required: ['type', 'labels', 'values'],
         },
       },
       {
@@ -222,6 +237,66 @@ function sleep(ms) {
  * Run one function call from the Live model.
  * Returns `{ id, name, response }` — the exact shape `toolResponse` expects.
  */
+/**
+ * Which page a call is about.
+ *
+ * One remembered `lastPage` was fine until several windows were open, and then
+ * "click the link" was a coin toss between them — the failure the roadmap calls
+ * out. The context now keeps every page it opened, and a call can name one by a
+ * title fragment, a url fragment, an exact sid, "first" or "last". A window the
+ * user opened by hand (a panel the stage restored) is in the list too, because
+ * the stage reports what it has.
+ */
+function resolveTarget(ctx, args = {}) {
+  const asked = String(args.sid || args.target || '').trim()
+  const pages = Array.isArray(ctx.pages) ? ctx.pages : []
+  if (!asked)
+    return String(ctx.lastPage?.sid || pages[pages.length - 1]?.sid || '')
+  const lower = asked.toLowerCase()
+  if (lower === 'last')
+    return String(pages[pages.length - 1]?.sid || ctx.lastPage?.sid || '')
+  if (lower === 'first')
+    return String(pages[0]?.sid || ctx.lastPage?.sid || '')
+  // An exact id wins over a search, so a sid echoed back from [stage: …] always
+  // resolves even if it also looks like a word.
+  const exact = pages.find(page => page.sid === asked)
+  if (exact)
+    return exact.sid
+  if (ctx.lastPage?.sid === asked)
+    return asked
+  const named = pages.find(page => String(page.title || '').toLowerCase().includes(lower))
+    || pages.find(page => String(page.url || '').toLowerCase().includes(lower))
+  if (named)
+    return named.sid
+  // Nothing matched: say what IS open rather than silently acting on the wrong
+  // page, which is how "she clicked the wrong window" would look from outside.
+  const open = pages.map(page => page.title || page.url || page.sid).filter(Boolean).slice(0, 8)
+  throw new Error(`nothing open is called "${asked}". Open now: ${open.join(' | ') || 'nothing'}`)
+}
+
+/** Remember a page, replacing an entry with the same sid. */
+export function trackPage(ctx, page) {
+  if (!page?.sid)
+    return
+  const pages = Array.isArray(ctx.pages) ? ctx.pages : (ctx.pages = [])
+  const next = { sid: page.sid, url: page.url || '', title: page.title || '' }
+  const at = pages.findIndex(existing => existing.sid === next.sid)
+  if (at === -1)
+    pages.push(next)
+  else
+    pages[at] = { ...pages[at], ...next }
+  ctx.lastPage = next
+}
+
+/** Forget a page and keep `lastPage` honest. */
+export function untrackPage(ctx, sid) {
+  if (!Array.isArray(ctx.pages))
+    return
+  ctx.pages = ctx.pages.filter(page => page.sid !== sid)
+  if (ctx.lastPage?.sid === sid)
+    ctx.lastPage = ctx.pages[ctx.pages.length - 1] || null
+}
+
 export async function executeToolCall(call, ctx = {}) {
   const name = String(call?.name || '')
   const args = call?.args || {}
@@ -235,12 +310,12 @@ export async function executeToolCall(call, ctx = {}) {
       // branch of `show_panel`: a ReferenceError that the tool swallowed into
       // "the browser could not open that page (base is not defined)". It lives
       // at module scope now, so no branch can be the only one that declares it.
-      const target = String(args.sid || ctx.lastPage?.sid || '')
+      const target = resolveTarget(ctx, args)
       if (action === 'goto') {
         const url = String(args.text || '')
         if (!/^https?:\/\//i.test(url)) throw new Error('goto needs an absolute http(s) url')
         const page = await openPage(url)
-        ctx.lastPage = { sid: page.sid, url: page.url }
+        trackPage(ctx, page)
         if (typeof ctx.onPanel === 'function')
           ctx.onPanel({ kind: 'live', sid: page.sid, url: page.url || url, title: page.title || '' })
         text = `Opened ${page.url || url}.`
@@ -252,7 +327,7 @@ export async function executeToolCall(call, ctx = {}) {
         // window she had closed was still there.
         if (action === 'close') {
           await closePage(target)
-          if (ctx.lastPage && ctx.lastPage.sid === target) ctx.lastPage = null
+          untrackPage(ctx, target)
           if (typeof ctx.onPanel === 'function') ctx.onPanel({ kind: 'control', action: 'close' })
           text = 'Closed that page.'
         }
@@ -276,6 +351,31 @@ export async function executeToolCall(call, ctx = {}) {
             text = `Done — ${action}${args.text ? ` "${String(args.text).slice(0, 40)}"` : ''}. The page is ${body.title || body.url || 'updated'}.`
         }
       }
+    }
+    else if (name === 'show_chart') {
+      // A chart is rendered by a URL, not by her describing one: the window then
+      // shows a real PNG that can be saved, zoomed and reopened, and the model
+      // only has to produce the numbers. quickchart renders Chart.js config
+      // server-side, so no new dependency ships for this.
+      const type = String(args.type || 'bar').toLowerCase()
+      const labels = Array.isArray(args.labels) ? args.labels.map(String).slice(0, 40) : []
+      const values = Array.isArray(args.values) ? args.values.map(Number).slice(0, 40) : []
+      if (!labels.length || labels.length !== values.length)
+        throw new Error('show_chart needs one label for every value')
+      if (values.some(value => !Number.isFinite(value)))
+        throw new Error('show_chart needs numbers, not words')
+      if (typeof ctx.onPanel !== 'function')
+        throw new Error('this session cannot show a chart')
+      const config = {
+        type: ['bar', 'line', 'pie', 'doughnut', 'radar'].includes(type) ? type : 'bar',
+        data: { labels, datasets: [{ label: String(args.title || '').slice(0, 60), data: values }] },
+        options: { plugins: { title: { display: !!args.title, text: String(args.title || '').slice(0, 60) } } },
+      }
+      const url = `https://quickchart.io/chart?w=640&h=360&bkg=white&c=${encodeURIComponent(JSON.stringify(config))}`
+      ctx.onPanel({ kind: 'image', url, title: String(args.title || 'Chart').slice(0, 80) })
+      text = labels.length === 2
+        ? `${labels[0]} ${values[0]} against ${labels[1]} ${values[1]} — the chart is on the screen beside you.`
+        : `The ${type} chart with ${labels.length} points is on the screen beside you.`
     }
     else if (name === 'control_avatar') {
       if (typeof ctx.onPanel !== 'function') throw new Error('this session cannot move the avatar')
@@ -340,7 +440,7 @@ export async function executeToolCall(call, ctx = {}) {
         catch (error) {
           throw new Error(`the browser could not open that page (${String(error.message || error).slice(0, 100)})`)
         }
-        ctx.lastPage = { sid: opened.sid, url: opened.url || url }
+        trackPage(ctx, { sid: opened.sid, url: opened.url || url, title: opened.title || '' })
         ctx.onPanel({ kind: 'live', sid: opened.sid, url: opened.url || url, title: String(opened.title || args.title || '').slice(0, 80) })
         text = `The page is open beside you — ${opened.title || 'it'} — and I can click or scroll it for you.`
       }

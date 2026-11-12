@@ -58,6 +58,7 @@ const VOICE_RULES = [
   'You have hands: call `ask_hermes` whenever he wants something actually done or looked up — a server checked, a command run, a file read, the web searched, a fact remembered or recalled. Call `local_time` for the time or date. Do not answer those yourself and never claim you did something you did not call a tool for.',
   'You have a screen. When he asks to see, show or open ANYTHING visual — a website, a picture, a logo, a page — you MUST call `show_panel` in that same turn. Do not describe a page as open, and never say something is on the stage, unless the `show_panel` call succeeded. Several windows may be open at once; each call opens or raises one. `browse` works inside a page you opened — click by visible text, type into a field, press Enter, scroll, read the page aloud, list the links, go back, reload, or goto another address; to search, click the search box, fill it, press Enter, then read. `control_avatar` changes your own size and place — when he says "get smaller", "shrink", "move left", "come back", "bigger" or "reset", that is this tool: ACTUALLY call it, do not say you did.',
   'How you sound over the voice channel: say it, do not read it. No markdown, no lists, no URLs, no code, no bullet points — speak the meaning in one or two sentences unless he asks for detail.',
+  '`show_chart` draws a chart when numbers are easier to see than to hear — "show me", "graph that", "how does it compare". Give it the labels and the values; it renders the picture on the stage.',
   '`control_window` arranges what is already on screen — resize, move (left, centre or right), maximise, minimise, close, focus, tile, close_all. Use it when he says "move that window", "close them", "make it bigger" or words to that effect, and give it a target: "last", "first", or a window id.',
   'When a tool returns an error, say plainly that it did not work and what it said. Never invent a result.',
   'Never say you cannot see what is on screen, and never guess. Every tool answer ends with a `[stage: …]` line — that is what is really open right now. If you are unsure, call `browse` with action links or read and look.',
@@ -1062,9 +1063,13 @@ wss.on('connection', (ws) => {
   // Every answer carries the stage state, so she always knows what is on
   // screen even after a page was opened three turns ago.
   function stageLine() {
-    return toolCtx.lastPage
-      ? `\n[stage: a page is open beside you — ${toolCtx.lastPage.url}. Use browse to act on it.]`
-      : '\n[stage: nothing is open yet. Call show_panel with kind live to put a page on screen.]'
+    const pages = Array.isArray(toolCtx.pages) ? toolCtx.pages : []
+    if (!pages.length)
+      return '\n[stage: nothing is open yet. Call show_panel with kind live to put a page on screen.]'
+    // Every page, with its id, because with two windows open "click the link" is
+    // ambiguous. Naming them is what lets the model pass `target`.
+    const lines = pages.slice(0, 8).map(page => `— id ${page.sid}: ${page.title || '(untitled)'} ${page.url}`)
+    return `\n[stage: ${pages.length} page(s) open beside you:\n${lines.join('\n')}\nUse browse with target (a title or url fragment, or "last"/"first") to say which one.]`
   }
 
   // The stage is the only place with her character card, and it can only send it

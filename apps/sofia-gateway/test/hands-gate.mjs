@@ -29,6 +29,8 @@ const { browseCommand, closePage, normalizePosition, openPage, runBrowse } = awa
 const { executeToolCall } = await import(process.env.TOOLS_MODULE || '../tools.mjs')
 
 const textOf = r => String(r?.response?.result ?? '')
+const says = (text, pattern) => new RegExp(pattern, 'i').test(String(text))
+const saysFailure = text => says(text, 'That did not work')
 
 // --- 1. show_panel opened a page for a URL the model called an image ----------
 // The label is wrong on purpose: a website tagged "image" must still open as a
@@ -200,6 +202,78 @@ function report() {
   const passed = results.filter(r => r[0] === 'PASS').length
   console.log(`\n${passed}/${results.length}`)
   process.exit(passed === results.length ? 0 : 1)
+}
+
+// --- 6b. several pages: a call must land on the one that was named ---------
+// One remembered `lastPage` was a coin toss the moment two windows were open:
+// "click the link" hit whichever page happened to be last. The context keeps
+// every page now, and a call names one by title, url, sid, "first" or "last".
+{
+  const panels = []
+  const ctx = { lastPage: null, pages: [], onPanel: p => panels.push(p) }
+  const openOne = async (url) => {
+    const text = textOf(await executeToolCall({ name: 'show_panel', args: { kind: 'live', url } }, ctx))
+    if (/That did not work/i.test(text))
+      fail('two pages can be open at once', text.slice(0, 120))
+    return text
+  }
+  await openOne('https://example.com/')
+  await openOne('https://github.com/')
+  ctx.pages?.length === 2
+    ? ok('two pages can be open at once', ctx.pages.map(p => p.sid).join(','))
+    : fail('two pages can be open at once', JSON.stringify(ctx.pages))
+
+  // The decisive assertion: the same action, two different targets, two
+  // different answers. A registry that always resolved "last" would pass one of
+  // these and fail the other.
+  const exampleLinks = textOf(await executeToolCall({ name: 'browse', args: { action: 'links', target: 'example' } }, ctx))
+  const githubLinks = textOf(await executeToolCall({ name: 'browse', args: { action: 'links', target: 'github' } }, ctx))
+  const exampleOk = /^Links: .+/.test(exampleLinks) && !/That did not work/i.test(exampleLinks)
+  const githubOk = /^Links: .+/.test(githubLinks) && !/That did not work/i.test(githubLinks)
+  if (exampleOk && githubOk && exampleLinks !== githubLinks)
+    ok('a target picks the page that was named', `example and github returned different pages`)
+  else
+    fail('a target picks the page that was named', `example=${exampleLinks.slice(0, 50)} github=${githubLinks.slice(0, 50)}`)
+
+  const unknown = textOf(await executeToolCall({ name: 'browse', args: { action: 'read', target: 'no-such-window' } }, ctx))
+  says(unknown, 'nothing open is called') && says(unknown, 'github|example')
+    ? ok('an unknown target says what is open instead of guessing', unknown.slice(0, 70))
+    : fail('an unknown target says what is open instead of guessing', unknown.slice(0, 100))
+
+  // `last` and `first` are the words the model is told to use.
+  const first = textOf(await executeToolCall({ name: 'browse', args: { action: 'links', target: 'first' } }, ctx))
+  first === exampleLinks
+    ? ok('"first" means the page opened first', `${first.slice(0, 40)}`)
+    : fail('"first" means the page opened first', first.slice(0, 80))
+
+  for (const page of [...(ctx.pages || [])])
+    await executeToolCall({ name: 'browse', args: { action: 'close', sid: page.sid } }, ctx).catch(() => {})
+}
+
+// --- 6c. a chart is a picture, not a paragraph ------------------------------
+// "Show me a chart" used to be a sentence about a chart. The tool renders one
+// from the numbers, as a URL the window can display, save and reopen.
+{
+  const panels = []
+  const ctx = { lastPage: null, pages: [], onPanel: p => panels.push(p) }
+  const text = textOf(await executeToolCall({ name: 'show_chart', args: { type: 'bar', title: 'Sales', labels: ['Q1', 'Q2', 'Q3'], values: [12, 30, 22] } }, ctx))
+  const panel = panels.find(p => p.kind === 'image' && /quickchart\.io/.test(String(p.url)))
+  panel
+    ? ok('a chart is drawn on the stage', `image from ${new URL(panel.url).host}`)
+    : fail('a chart is drawn on the stage', JSON.stringify(panels).slice(0, 140))
+  // Assert the claim, not a particular sentence: what matters is that she
+  // tells him it is on screen, so the words she is allowed to use are broad.
+  says(text, 'chart') && says(text, 'screen|beside you')
+    ? ok('she says she showed it, and did', text.slice(0, 70))
+    : fail('she says she showed it, and did', text.slice(0, 90))
+  const bad = textOf(await executeToolCall({ name: 'show_chart', args: { type: 'bar', labels: ['a'], values: ['lots'] } }, ctx))
+  says(bad, 'That did not work')
+    ? ok('a chart with words for numbers is refused', bad.slice(0, 60))
+    : fail('a chart with words for numbers is refused', bad.slice(0, 80))
+  const mismatch = textOf(await executeToolCall({ name: 'show_chart', args: { type: 'line', labels: ['a', 'b'], values: [1] } }, ctx))
+  says(mismatch, 'one label for every value')
+    ? ok('a chart with a mismatched label count is refused', mismatch.slice(0, 60))
+    : fail('a chart with a mismatched label count is refused', mismatch.slice(0, 80))
 }
 
 // --- 7. a typed read reaches the model, not just the browser ---------------
