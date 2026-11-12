@@ -274,6 +274,14 @@ function showPanel(payload: { kind?: 'image' | 'web' | 'live', url: string, titl
     focusWindow(bySid.id)
     return
   }
+  // Everything past this point creates a window, so a payload with no address
+  // has nothing to create. A tick for a sid whose window was closed (or whose
+  // page was evicted) used to fall through and open a blank box with no url —
+  // the gate caught it as "a state update with no url does not clear the stage —
+  // 2 -> 3 window(s)". The bySid branch above is the only place an address-less
+  // update belongs, and it has already returned.
+  if (!payload.url)
+    return
   const existing = windows.value.find(w => w.url === payload.url)
   if (existing) { focusWindow(existing.id); return }
   const n = windows.value.length
