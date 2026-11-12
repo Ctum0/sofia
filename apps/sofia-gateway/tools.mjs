@@ -45,11 +45,11 @@ export const LIVE_TOOLS = [
       },
       {
         name: 'browse',
-        description: 'Do things inside a page on his screen. action: click (by visible text), clickSelector, fill (selector + text), press (Enter, Tab…), scroll, read (returns the visible text so you can answer from it), links (what is clickable), back, forward, reload, goto (url), close. Use it whenever he says "search for", "click", "type", "open the second result", "what does it say". Several pages can be open at once: say which one with `target` (a title fragment, a url fragment, or "last"/"first"), because "click the link" is ambiguous when two windows are up. [stage: …] lists what is open.',
+        description: 'Do things inside a page on his screen. action: click (by visible text), clickSelector, fill (selector + text), select (a dropdown option), check (tick or untick a box; text "off" unticks), date (YYYY-MM-DD into a date field), press (Enter, Tab…), scroll, read (returns the visible text so you can answer from it), links (what is clickable), look (what is on screen right now, including dialogs), back, forward, reload, goto (url), close. Fields inside an iframe are found too. Use it whenever he says "search for", "click", "type", "open the second result", "what does it say". Several pages can be open at once: say which one with `target` (a title fragment, a url fragment, or "last"/"first"), because "click the link" is ambiguous when two windows are up. [stage: …] lists what is open.',
         parameters: {
           type: 'OBJECT',
           properties: {
-            action: { type: 'STRING', enum: ['click', 'clickSelector', 'fill', 'press', 'scroll', 'read', 'links', 'look', 'back', 'forward', 'reload', 'goto', 'close'] },
+            action: { type: 'STRING', enum: ['click', 'clickSelector', 'fill', 'select', 'check', 'date', 'press', 'scroll', 'read', 'links', 'look', 'back', 'forward', 'reload', 'goto', 'close'] },
             text: { type: 'STRING', description: 'Visible text to click or type, or a URL for goto' },
             selector: { type: 'STRING', description: 'CSS selector, for clickSelector or fill' },
             key: { type: 'STRING', description: 'Key to press, or the selector to fill' },

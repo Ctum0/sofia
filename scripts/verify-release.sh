@@ -85,6 +85,20 @@ if ! git merge-base --is-ancestor "$deploy_target" "$commit" 2>/dev/null; then
   fail 3 "deployment built ${commit:0:9}, which does not contain the newest runtime commit ${deploy_target:0:9}"
 fi
 
+# The browser service is not part of the Coolify app and a deploy once deleted
+# it, which made the whole release fail with "fetch failed". Bring the host
+# services up before anything depends on them; the script is idempotent, so a
+# healthy browser costs nothing here.
+if [ -f scripts/host-services.sh ]; then
+  host_out=$(bash scripts/host-services.sh 2>&1)
+  host_rc=$?
+  if [ "$host_rc" != "0" ]; then
+    echo "$host_out" | tail -8
+    fail 4 "host services are not healthy (scripts/host-services.sh exited $host_rc)"
+  fi
+  note "$(echo "$host_out" | grep -E 'sofia-browser answers' | head -1)"
+fi
+
 echo "== 3. container and health =="
 # Coolify marks the deployment finished a beat before the new container reports
 # healthy, so a check with no patience reads that gap as an outage.

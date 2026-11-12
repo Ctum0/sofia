@@ -73,6 +73,9 @@ export class LiveBridge {
     this.ws = null
     this.ready = false
     this.retired = false
+    this.started = false
+    this.beginWhenReady = null
+    this.personaDeadline = null
     this.resumeHandle = resumeHandle
     this.attempts = 0
     this.reconnecting = false
@@ -145,6 +148,8 @@ export class LiveBridge {
       }
     }
     const instruction = this.instructionOf()
+    // Remembered so the `ready` event can report whose words reached the session.
+    this.lastInstruction = instruction || ''
     if (instruction)
       setup.systemInstruction = { parts: [{ text: instruction }] }
     if (this.tools?.length)
@@ -154,6 +159,34 @@ export class LiveBridge {
 
   start() {
     this.openSocket('initial')
+    return this
+  }
+
+  /**
+   * Wait until her card arrives, then open the socket.
+   *
+   * `start()` used to run the moment the browser connected, while the persona is
+   * a message that arrives just after. Whichever landed second decided the
+   * personality: if Google's handshake won, the session was built from the
+   * operating rules alone and her card never reached it — silently, because
+   * nothing compared the two. A short wait makes the order deterministic, and
+   * the timeout means a client that never sends a card still gets a session
+   * rather than a hang.
+   */
+  startAfterPersona({ timeoutMs = 400 } = {}) {
+    if (this.started)
+      return this
+    this.started = true
+    const begin = () => {
+      if (this.ws || this.retired)
+        return
+      this.openSocket('initial')
+    }
+    this.personaDeadline = setTimeout(begin, timeoutMs)
+    this.beginWhenReady = () => {
+      clearTimeout(this.personaDeadline)
+      begin()
+    }
     return this
   }
 
@@ -179,7 +212,20 @@ export class LiveBridge {
       if (msg.setupComplete) {
         this.ready = true
         this.attempts = 0
-        this.emit({ type: 'ready', model: this.model, voice: this.voice, resumed, reason })
+        // Who the session was actually built as. A behavioural probe ("ask her
+        // something only the card would make her say") cannot be a gate: it waits
+        // on a model reply and flakes. These two fields are the deterministic
+        // fact — a gate can assert the card's own words are in the instruction
+        // that reached Google, which is the only thing that can be proven here.
+        this.emit({
+          type: 'ready',
+          model: this.model,
+          voice: this.voice,
+          resumed,
+          reason,
+          instructionChars: this.lastInstruction?.length || 0,
+          instructionHead: String(this.lastInstruction || '').slice(0, 160),
+        })
         return
       }
 

@@ -40,6 +40,7 @@ export default [
         // ships these functions to the page, so `scrollY` is real there even
         // though it does not exist in Node.
         scrollX: 'readonly',
+        Event: 'readonly',
         scrollY: 'readonly',
         getComputedStyle: 'readonly',
         requestAnimationFrame: 'readonly',

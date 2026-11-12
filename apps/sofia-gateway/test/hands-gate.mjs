@@ -276,6 +276,82 @@ function report() {
     : fail('a chart with a mismatched label count is refused', mismatch.slice(0, 80))
 }
 
+// --- 6c-ter. forms, one control at a time ----------------------------------
+// "Book me a ticket" was a lie until these existed: `fill` handles text and
+// nothing else, so a dropdown, a checkbox and a date field each stopped her.
+// Tested on pages that actually contain the control, and each assertion reads
+// the control's own state back — "the call did not throw" is not "it worked".
+{
+  const ctx = { lastPage: null, pages: [], onPanel: () => {} }
+  const openAndLook = async (url) => {
+    const text = textOf(await executeToolCall({ name: 'show_panel', args: { kind: 'live', url } }, ctx))
+    return { ok: !saysFailure(text), sid: ctx.lastPage?.sid || '' }
+  }
+  const closeAll = async () => {
+    for (const page of [...(ctx.pages || [])])
+      await executeToolCall({ name: 'browse', args: { action: 'close', sid: page.sid } }, ctx).catch(() => {})
+  }
+
+  // A dropdown, inside the iframe a real tryit page uses — the case a top-level
+  // locator cannot reach.
+  let page = await openAndLook('https://www.w3schools.com/tags/tryit.asp?filename=tryhtml_select')
+  if (!page.ok) {
+    fail('a dropdown can be chosen', 'page did not open')
+  }
+  else {
+    const chosen = textOf(await executeToolCall({ name: 'browse', args: { action: 'select', selector: 'select', text: 'Audi' } }, ctx))
+    saysFailure(chosen)
+      ? fail('a dropdown can be chosen, even inside a frame', chosen.slice(0, 120))
+      : ok('a dropdown can be chosen, even inside a frame', chosen.slice(0, 70))
+    const missing = textOf(await executeToolCall({ name: 'browse', args: { action: 'select', selector: 'select', text: 'No Such Car' } }, ctx))
+    says(missing, 'offers|no option')
+      ? ok('a missing dropdown option says what is offered', missing.slice(0, 80))
+      : fail('a missing dropdown option says what is offered', missing.slice(0, 120))
+  }
+  await closeAll()
+
+  // A checkbox: on, off, on — the state is read back each time.
+  page = await openAndLook('https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/checkbox')
+  if (!page.ok) {
+    fail('a checkbox can be ticked and unticked', 'page did not open')
+  }
+  else {
+    const states = []
+    for (const want of ['on', 'off', 'on']) {
+      const text = textOf(await executeToolCall({ name: 'browse', args: { action: 'check', selector: 'input[type=checkbox]', text: want } }, ctx))
+      states.push({ want, ok: !saysFailure(text), text })
+    }
+    states.every(state => state.ok)
+      ? ok('a checkbox can be ticked and unticked', 'on -> off -> on')
+      : fail('a checkbox can be ticked and unticked', states.find(state => !state.ok)?.text.slice(0, 120))
+  }
+  await closeAll()
+
+  // A date field: typed as ISO, read back from the field.
+  page = await openAndLook('https://www.w3schools.com/html/tryit.asp?filename=tryhtml_input_date')
+  if (!page.ok) {
+    fail('a date can be typed into a date field', 'page did not open')
+  }
+  else {
+    const dated = textOf(await executeToolCall({ name: 'browse', args: { action: 'date', selector: 'input[type=date]', text: '1990-05-04' } }, ctx))
+    saysFailure(dated)
+      ? fail('a date can be typed into a date field', dated.slice(0, 120))
+      : ok('a date can be typed into a date field', dated.slice(0, 70))
+  }
+  await closeAll()
+
+  // And the hostile case: a selector that matches nothing must say so, not
+  // report success because the call returned.
+  page = await openAndLook('https://example.com/')
+  if (page.ok) {
+    const nothing = textOf(await executeToolCall({ name: 'browse', args: { action: 'select', selector: '#no-such-select', text: 'x' } }, ctx))
+    saysFailure(nothing)
+      ? ok('a missing control is reported as missing', nothing.slice(0, 70))
+      : fail('a missing control is reported as missing', nothing.slice(0, 110))
+  }
+  await closeAll()
+}
+
 // --- 6c-bis. she can see the state, not only the text ----------------------
 // `read` returns innerText, which cannot show a dialog, a CAPTCHA or an error
 // banner — so "the click did not work" was invisible to her. `look` returns what

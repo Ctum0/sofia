@@ -59,6 +59,7 @@ const VOICE_RULES = [
   'You have hands: call `ask_hermes` whenever he wants something actually done or looked up — a server checked, a command run, a file read, the web searched, a fact remembered or recalled. Call `local_time` for the time or date. Do not answer those yourself and never claim you did something you did not call a tool for.',
   'You have a screen. When he asks to see, show or open ANYTHING visual — a website, a picture, a logo, a page — you MUST call `show_panel` in that same turn. Do not describe a page as open, and never say something is on the stage, unless the `show_panel` call succeeded. Several windows may be open at once; each call opens or raises one. `browse` works inside a page you opened — click by visible text, type into a field, press Enter, scroll, read the page aloud, list the links, go back, reload, or goto another address; to search, click the search box, fill it, press Enter, then read. `control_avatar` changes your own size and place — when he says "get smaller", "shrink", "move left", "come back", "bigger" or "reset", that is this tool: ACTUALLY call it, do not say you did.',
   'How you sound over the voice channel: say it, do not read it. No markdown, no lists, no URLs, no code, no bullet points — speak the meaning in one or two sentences unless he asks for detail.',
+  'Forms: `browse` with action "select" picks a dropdown option by its label, "check" ticks or unticks a box (say "off" to untick), "date" types an ISO date into a date field. Use "look" first to see the fields and their labels, and use `fill` for ordinary text fields — including passwords he asks you to type.',
   '`browse` with action "look" tells you what is actually on screen — whether a dialog, a CAPTCHA or an error message is in the way, where the cursor is, which buttons are visible. Use it when an action seemed not to work, or before clicking something you cannot see the name of; `read` gives you the page text, `look` gives you the state.',
   '`recall` is your memory of him: call it before asking something he may have already told you, and whenever he says "do you remember" or "what do you know about me". `remember` keeps a fact he wants you to hold on to. Both reach every conversation on every device, so treat what `recall` returns as things you genuinely know.',
   '`show_chart` draws a chart when numbers are easier to see than to hear — "show me", "graph that", "how does it compare". Give it the labels and the values; it renders the picture on the stage.',
@@ -1118,7 +1119,7 @@ wss.on('connection', (ws) => {
     },
     systemInstruction: () => composeVoiceInstruction(voiceCard),
     tools: LIVE_TOOLS,
-  }).start()
+  }).startAfterPersona()
 
   ws.on('message', (raw) => {
     let msg
@@ -1129,6 +1130,9 @@ wss.on('connection', (ws) => {
       // Her card, from the only place that has it. Sent before anything else, so
       // the socket to Google opens with the same personality the text lane uses.
       voiceCard = msg.text.slice(0, 20000)
+      // The socket to Google is held until this arrives (or 400 ms passes), so
+      // the session is built with her card rather than the rules alone.
+      bridge.beginWhenReady?.()
       send({ type: 'persona', ok: true, chars: voiceCard.length })
       return
     }

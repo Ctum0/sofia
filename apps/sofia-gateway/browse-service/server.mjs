@@ -72,7 +72,11 @@ const BROWSER_IDLE_MS = Number(process.env.BROWSER_IDLE_MS || 30000)
 // A profile on disk is what makes a login survive a suspend. Without it every
 // resume is a fresh, logged-out browser, which would make the suspend useless
 // for the one workflow that needs it most.
-const PROFILE_DIR = process.env.PROFILE_DIR || '/profile'
+// `/app/data` is the volume this container is expected to mount (the gateway
+// uses the same one). A path outside a mounted volume would be an anonymous
+// writable layer: the profile would look like it worked and silently vanish on
+// the next container recreate — losing every login the feature exists for.
+const PROFILE_DIR = process.env.PROFILE_DIR || '/app/data/profile'
 
 let lastUsed = Date.now()
 let inFlight = 0
@@ -236,6 +240,28 @@ async function act({ sid, action, x, y, text, key, selector }) {
   // first, then the historical spellings, so an old caller keeps working while
   // a new one is exact.
   const css = String(selector ?? key ?? text ?? '')
+  // A control inside an <iframe> (a payment form, an SSO widget, a captcha) is
+  // invisible to a top-level locator. Chromium partitions the page into frames,
+  // so a miss on the main frame is retried inside each child frame before the
+  // call is allowed to fail — "the field is not there" and "the field is in a
+  // frame" look identical from outside and only one of them is the product's
+  // fault.
+  const frameOf = async (locatorFor) => {
+    const main = locatorFor(page)
+    if ((await main.count().catch(() => 0)) > 0)
+      return main
+    for (const frame of page.frames()) {
+      if (frame === page.mainFrame())
+        continue
+      try {
+        const candidate = locatorFor(frame)
+        if ((await candidate.count()) > 0)
+          return candidate
+      }
+      catch {}
+    }
+    return main
+  }
   switch (action) {
     case 'click':
       await page.mouse.click(Number(x), Number(y))
@@ -327,7 +353,7 @@ async function act({ sid, action, x, y, text, key, selector }) {
     case 'clickSelector':
       if (!css)
         throw new Error('clickSelector needs a CSS selector')
-      await page.locator(css).first().click({ timeout: 15000 })
+      await (await frameOf(scope => scope.locator(css))).first().click({ timeout: 15000 })
       break
     case 'fill': {
       if (!css)
@@ -337,7 +363,7 @@ async function act({ sid, action, x, y, text, key, selector }) {
       // whether the named field is the one that received the text. `landed` is
       // returned, not just checked here, so a gate can assert on it instead of
       // inferring success from "the call did not throw".
-      const field = page.locator(css).first()
+      const field = (await frameOf(scope => scope.locator(css))).first()
       const words = String(text || '')
       await field.fill(words, { timeout: 15000 })
       const landed = await field.inputValue().catch(() => undefined)
@@ -350,8 +376,84 @@ async function act({ sid, action, x, y, text, key, selector }) {
       // never contains what a form field holds.
       if (!css)
         throw new Error('value needs a CSS selector')
-      const landed = await page.locator(css).first().inputValue({ timeout: 8000 }).catch(() => null)
+      const landed = await (await frameOf(scope => scope.locator(css))).first().inputValue({ timeout: 8000 }).catch(() => null)
       return { ...(await snap(sid)), landed, selector: css }
+    }
+    case 'select': {
+      // A <select> is not a text field: `fill` throws on it, and a native picker
+      // cannot be clicked by coordinates in headless. selectOption takes either
+      // the visible label or the value, which is how a person describes it.
+      if (!css)
+        throw new Error('select needs a CSS selector')
+      const wanted = String(text || key || '')
+      if (!wanted)
+        throw new Error('select needs the option to choose')
+      const el = (await frameOf(scope => scope.locator(css))).first()
+      await el.waitFor({ state: 'attached', timeout: 10000 })
+      const options = await el.evaluate(node => [...node.options].map(o => ({ label: (o.label || o.textContent || '').trim(), value: o.value }))).catch(() => [])
+      // Exact label, exact value, then a unique case-insensitive containment: the
+      // model says "United Kingdom" where the label is "United Kingdom (UK)".
+      const exact = options.find(o => o.label === wanted || o.value === wanted)
+      const loose = options.filter(o => o.label.toLowerCase().includes(wanted.toLowerCase()))
+      const pick = exact || (loose.length === 1 ? loose[0] : null)
+      if (!pick) {
+        throw new Error(`no option "${wanted}" in that select. It offers: ${options.slice(0, 12).map(o => o.label).join(' | ') || 'nothing'}`)
+      }
+      await el.selectOption({ value: pick.value })
+      const now = await el.inputValue().catch(() => '(unknown)')
+      return { ...(await snap(sid)), selected: pick.label, value: now, selector: css }
+    }
+    case 'check': {
+      // Checkbox and radio share this: `state` says which way, because "tick the
+      // box" and "untick it" are the same selector and opposite outcomes.
+      if (!css)
+        throw new Error('check needs a CSS selector')
+      const want = String(text ?? key ?? 'on').toLowerCase()
+      const target = want === 'off' || want === 'false' || want === 'no' || want === 'untick' ? false : true
+      const el = (await frameOf(scope => scope.locator(css))).first()
+      await el.waitFor({ state: 'attached', timeout: 10000 })
+      const wasChecked = await el.isChecked().catch(() => null)
+      if (wasChecked === null)
+        throw new Error('that is not a checkbox or radio button')
+      if (wasChecked !== target) {
+        // `setChecked` waits for the element to be visible and stable, which a
+        // checkbox behind a label or inside a collapsed section never is. The
+        // state still has to change, so fall back to the DOM property and then
+        // report what the DOM actually says — the box is the truth, not the call.
+        try {
+          await el.setChecked(target, { timeout: 8000 })
+        }
+        catch {
+          await el.evaluate((node, want) => {
+            if (node.checked !== want) {
+              node.click()
+              if (node.checked !== want)
+                node.checked = want
+            }
+            node.dispatchEvent(new Event('input', { bubbles: true }))
+            node.dispatchEvent(new Event('change', { bubbles: true }))
+          }, target)
+        }
+      }
+      const nowChecked = await el.isChecked().catch(() => target)
+      if (nowChecked !== target)
+        throw new Error(`that box would not ${target ? 'tick' : 'untick'}; it still reads ${nowChecked}`)
+      return { ...(await snap(sid)), checked: nowChecked, selector: css }
+    }
+    case 'date': {
+      // A date input rejects a click on the picker in headless; it accepts
+      // `fill` with ISO text, which is what a person would type anyway.
+      if (!css)
+        throw new Error('date needs a CSS selector')
+      const when = String(text || key || '').trim()
+      if (!when)
+        throw new Error('date needs a value, for example 2026-03-14')
+      const dateField = (await frameOf(scope => scope.locator(css))).first()
+      await dateField.fill(when, { timeout: 10000 })
+      const landed = await dateField.inputValue().catch(() => null)
+      if (landed !== null && landed !== when)
+        throw new Error(`the date field reads "${landed}" after typing "${when}"`)
+      return { ...(await snap(sid)), value: landed, selector: css }
     }
     case 'press':
       await page.keyboard.press(String(key || 'Enter'))

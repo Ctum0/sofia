@@ -81,13 +81,40 @@ function onAnyInteraction() {
   touchInteraction()
 }
 
-function onPageClick(event: MouseEvent) {
+// --- the keyboard, which the window never had ------------------------------
+//
+// The page is an <img>, so typing into a login form was impossible: clicking a
+// field put nothing anywhere. A live window is focusable and relays keys.
+const accepting = ref(false)
+
+function onKeydown(event: KeyboardEvent) {
+  if (!props.win.sid || busy.value)
+    return
+  // Let the browser handle the combinations that belong to the app shell, not to
+  // the page (tab, refresh, devtools). Everything a person types into a field
+  // goes through.
+  if (event.metaKey || event.ctrlKey || event.altKey)
+    return
+  if (event.key.length === 1) {
+    event.preventDefault()
+    void act('type', { text: event.key })
+    return
+  }
+  if (event.key === 'Enter' || event.key === 'Tab' || event.key === 'Backspace' || event.key === 'Escape') {
+    event.preventDefault()
+    void act('press', { key: event.key })
+  }
+}
+
+/** Put the caret in a field on the page, so typing goes where the user clicked. */
+async function focusAt(event: MouseEvent) {
   touchInteraction()
   const img = event.currentTarget as HTMLImageElement
   const rect = img.getBoundingClientRect()
   const x = Math.round((event.clientX - rect.left) * (PAGE.w / rect.width))
   const y = Math.round((event.clientY - rect.top) * (PAGE.h / rect.height))
-  void act('click', { x, y })
+  await act('click', { x, y })
+  accepting.value = true
 }
 
 function onWheel(event: WheelEvent) {
@@ -269,7 +296,17 @@ function openExternal() {
       <img :src="win.url" :alt="win.title || 'image'">
     </div>
 
-    <div v-else-if="win.kind === 'live'" class="sofia-window__body sofia-window__body--live">
+    <div
+      v-else-if="win.kind === 'live'"
+      class="sofia-window__body sofia-window__body--live"
+      :class="{ 'is-accepting': accepting }"
+      tabindex="0"
+      role="application"
+      :aria-label="`${win.title || host} — click a field to type into the page`"
+      @keydown="onKeydown"
+      @focus="accepting = true"
+      @blur="accepting = false"
+    >
       <div class="sofia-window__tools">
         <button type="button" class="sofia-window__btn" title="Back" @click="act('back')">
           ←
@@ -284,7 +321,7 @@ function openExternal() {
         :src="frameSrc"
         alt=""
         draggable="false"
-        @pointerdown="onPageClick"
+        @pointerdown="focusAt"
         @wheel.prevent="onWheel"
       >
       <!-- Sleeping on purpose: the page was suspended to stop it burning CPU,
@@ -292,6 +329,9 @@ function openExternal() {
            difference between a deliberate sleep and a window that looks broken. -->
       <p v-if="sleeping" class="sofia-window__asleep">
         Asleep to save power — click to wake
+      </p>
+      <p v-else-if="accepting" class="sofia-window__typing">
+        Typing goes to this page
       </p>
     </div>
 
@@ -360,7 +400,24 @@ function openExternal() {
 }
 .sofia-window__urltab { font-size: 0.7rem; color: #8f7a72; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sofia-window__page { width: 100%; flex: 1; min-height: 0; object-fit: fill; cursor: crosshair; border-radius: 0 0 13px 13px; }
-.sofia-window__body--live { position: relative; }
+.sofia-window__body--live { position: relative; outline: none; }
+/* Where typing goes. Without this, a keystroke either vanishes or lands in the
+   chat box, and he cannot tell which. */
+.sofia-window__body--live:focus-visible,
+.sofia-window__body--live.is-accepting {
+  box-shadow: inset 0 0 0 2px #a3283a;
+}
+.sofia-window__typing {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: #7b1f2b;
+  color: #f5e6d3;
+  font-size: 0.65rem;
+  pointer-events: none;
+}
 .sofia-window__asleep {
   position: absolute;
   left: 0.5rem;

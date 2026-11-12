@@ -179,7 +179,7 @@ function handleEvent(event: VoiceEvent) {
 /** Built before the click so `unlock()` can run synchronously inside it. */
 const prepared = shallowRef<VoiceClient | null>(null)
 void loadClient()
-  .then(({ SofiaVoice }) => { prepared.value = new SofiaVoice({ onEvent: handleEvent, persona: personaForVoice() }) })
+  .then(({ SofiaVoice }) => { prepared.value = new SofiaVoice({ onEvent: handleEvent, persona: personaForVoice }) })
   .catch(() => {})
 
 function tick() {
@@ -255,7 +255,10 @@ async function start() {
     prepared.value = null
     if (!client) {
       const { SofiaVoice } = await loadClient()
-      client = new SofiaVoice({ onEvent: handleEvent, persona: personaForVoice() })
+      // A function, not a snapshot: `personaForVoice` is evaluated when the
+      // socket opens, which is after the card store has hydrated. Passing the
+      // value here read it before hydration and sent '' on every cold load.
+      client = new SofiaVoice({ onEvent: handleEvent, persona: personaForVoice })
     }
     voice.value = client
     // Mirrored before the first tick so a human (or the gate) can read the
