@@ -229,7 +229,11 @@ try {
   // logged-out visitors, and a context that has accumulated cookies between runs
   // will legitimately not offer it. A hardcoded label made this gate fail for a
   // reason that has nothing to do with the product.
-  const signInLabel = await page.evaluate(async () => {
+  // Read as a FUNCTION, because the window is reset below: a label discovered from
+  // the old page is then sent against a new one, and the click has nothing to hit.
+  // That is exactly how this gate failed with `offers: none` and then "still on
+  // https://github.com/ after 45 s" — the reset left the label stale.
+  const readSignInLinks = () => page.evaluate(async () => {
     const img = document.querySelector('[data-testid=sofia-window][data-kind=live] img')
     const sid = String(img?.getAttribute('src') || '').match(/sid=([^&]+)/)?.[1]
     if (!sid)
@@ -243,6 +247,8 @@ try {
     const offers = (body.links || []).map(l => String(l.text || '').trim()).filter(Boolean)
     return { label: offers.find(t => /^(sign in|log in|signin|login)$/i.test(t)) || null, offers }
   }).catch(() => ({ label: null, offers: [] }))
+
+  let signInLabel = await readSignInLinks()
 
   // Already on the sign-in page is a pass, not a failure: the window may have
   // arrived there by any route (a previous run's session, a click earlier in this
@@ -288,6 +294,8 @@ try {
     await say('open github and show me')
     await page.waitForFunction(() => document.querySelectorAll('[data-testid=sofia-window]').length > 0, { timeout: 60000 }).catch(() => {})
     await page.waitForTimeout(3000)
+    // The links belong to the page that is open NOW.
+    signInLabel = await readSignInLinks()
   }
 
   const urlOf = () => page.evaluate(() => {
