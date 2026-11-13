@@ -224,5 +224,8 @@ catch (error) {
 finally {
   log(`\n${pass}/${total}`)
   await browser.close()
-  process.exit(pass === total && total >= 3 ? 0 : 1)
+  // `exitCode`, not `exit`: stdout is a pipe in the release run, and exiting
+// immediately after printing the tally can drop it (measured: 641 of 4000
+// lines and the final count lost). See text-panel-gate.mjs.
+process.exitCode = pass === total && total >= 3 ? 0 : 1
 }

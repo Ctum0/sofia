@@ -275,6 +275,47 @@ check('G14 no locale ships the legacy persona', () => {
   return `${locales.length} locales, migration marker present`
 })
 
+// G15 — a gate must not call `process.exit()` after printing its tally.
+//
+// stdout is a pipe in the release run (`out=$(run_gate …)`), where Node's writes
+// are asynchronous. Measured: a script printing 4000 lines then exiting delivered
+// 3359 of them and lost the final count; the same script setting `exitCode`
+// delivered 4000/4000. The verifier reads the count from that output, so an exit
+// turns a finished gate into "did not report a count" — and drops the FAIL lines
+// that would have explained it. `frame-gate.mjs` documented the trap; six gates
+// still had it.
+check('G15 no gate exits before its tally is flushed', () => {
+  const dir = join(root, 'apps/sofia-gateway/test')
+  const gates = readdirSync(dir).filter(name => name.endsWith('-gate.mjs') || name === 'guards.mjs')
+  const offenders = []
+  for (const name of gates) {
+    const text = read(`apps/sofia-gateway/test/${name}`)
+    const lastCount = Math.max(text.lastIndexOf('/${total}'), text.lastIndexOf('/${results.length}'), text.lastIndexOf('checks passed'), text.lastIndexOf('/${pass}'))
+    if (lastCount === -1)
+      continue
+    // Only an UNCONDITIONAL exit after the tally is the defect. A `process.exit`
+    // inside a `.catch()` handler or an early `if` prints its own line and must
+    // stop immediately; those are not the tally being dropped.
+    const tail = text.slice(lastCount)
+    for (const line of tail.split('\n')) {
+      // Stop at the end of the enclosing function: exits in later handlers are
+      // a different statement, not this one.
+      if (/^\}/.test(line.trim()) && !/^\}\s*$/.test(line.trim()))
+        continue
+      if (/^\s*process\.exit\(/.test(line)) {
+        const before = tail.slice(0, tail.indexOf(line))
+        // Inside a callback (`}).catch(` / `function` block) → not the tally path.
+        if (/\.(?:catch|then|finally)\(|=>\s*\{[\s\S]*$/.test(before))
+          continue
+        offenders.push(name)
+        break
+      }
+    }
+  }
+  assert(offenders.length === 0, `these exit before flushing: ${offenders.join(', ')}`)
+  return `${gates.length} gates`
+})
+
 // G13 — a stage event with no tab goes to every tab. `close everything` typed in
 // one tab cleared another tab's windows, and no single-tab gate can see it: the
 // bug is the *audience* of the event, not its content.

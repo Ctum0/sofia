@@ -79,5 +79,8 @@ try {
   const failed = results.filter(r => !r.ok)
   console.log(`\n${results.length - failed.length}/${results.length}`)
   await browser.close()
-  process.exit(failed.length ? 1 : 0)
+  // `exitCode`, not `exit`: stdout is a pipe in the release run, and exiting
+// immediately after printing the tally can drop it (measured: 641 of 4000
+// lines and the final count lost). See G15 in scripts/ci/guards.mjs.
+process.exitCode = failed.length ? 1 : 0
 }

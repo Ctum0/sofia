@@ -201,7 +201,10 @@ process.on('uncaughtException', (error) => {
 function report() {
   const passed = results.filter(r => r[0] === 'PASS').length
   console.log(`\n${passed}/${results.length}`)
-  process.exit(passed === results.length ? 0 : 1)
+  // `exitCode`, not `exit`: stdout is a pipe in the release run, and exiting
+// immediately after printing the tally can drop it (measured: 641 of 4000
+// lines and the final count lost). See text-panel-gate.mjs.
+process.exitCode = passed === results.length ? 0 : 1
 }
 
 // --- 6b. several pages: a call must land on the one that was named ---------

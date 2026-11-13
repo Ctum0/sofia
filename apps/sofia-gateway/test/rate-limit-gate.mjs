@@ -107,4 +107,7 @@ const passed = results.filter(Boolean).length
 console.log(`\n${passed}/${results.length} checks passed`)
 if (passed !== results.length)
   console.log('note: this gate deliberately leaves the runner address locked for ~5 minutes when it passes.')
-process.exit(passed === results.length ? 0 : 1)
+// `exitCode`, not `exit`: stdout is a pipe in the release run, and exiting
+// immediately after printing the tally can drop it (measured: 641 of 4000
+// lines and the final count lost). See G15 in scripts/ci/guards.mjs.
+process.exitCode = passed === results.length ? 0 : 1

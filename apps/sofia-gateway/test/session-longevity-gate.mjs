@@ -202,7 +202,10 @@ function finish() {
   }
   const failed = results.filter(r => !r.pass)
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`)
-  process.exit(failed.length === 0 ? 0 : 1)
+  // `exitCode`, not `exit`: stdout is a pipe in the release run, and exiting
+// immediately after printing the tally can drop it (measured: 641 of 4000
+// lines and the final count lost). See G15 in scripts/ci/guards.mjs.
+process.exitCode = failed.length === 0 ? 0 : 1
 }
 
 // Never hang forever.

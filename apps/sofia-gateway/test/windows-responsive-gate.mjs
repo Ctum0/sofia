@@ -153,8 +153,11 @@ for (const vp of VIEWPORTS) {
 await browser.close()
 const failed = results.filter(r => !r.ok)
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`)
-if (failed.length) {
+// `exitCode`, not `exit`: stdout is a pipe in the release run, and exiting
+// immediately after printing the tally can drop it (measured: 641 of 4000 lines
+// and the final count lost). See text-panel-gate.mjs.
+if (failed.length)
   console.log('FAILED:', failed.map(f => `${f.vp}: ${f.n}`).join(' | '))
-  process.exit(1)
-}
-console.log('ALL PASS')
+else
+  console.log('ALL PASS')
+process.exitCode = failed.length ? 1 : 0
