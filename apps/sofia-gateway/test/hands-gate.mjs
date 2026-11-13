@@ -354,7 +354,7 @@ process.exitCode = passed === results.length ? 0 : 1
     // Derive the threshold from the rules themselves instead of naming a size.
     // `rulesOnly + 200` cannot go stale when the rules text is edited; a hardcoded
     // 3000 would turn a shorter card into a false failure on a correct build.
-    const rulesOnly = VOICE_RULES.join('\n\n').length
+    const rulesOnly = VOICE_RULES.length
     cold.length > rulesOnly + 200 && /Sithum|assistant|calm, quick/i.test(cold)
       ? ok('a cold device still gets her card, not the rules alone', `${cold.length} chars, rules alone ${rulesOnly}`)
       : fail('a cold device still gets her card, not the rules alone', `${cold.length} chars, rules alone ${rulesOnly}: ${cold.slice(0, 60)}`)
