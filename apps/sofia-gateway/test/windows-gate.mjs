@@ -10,6 +10,32 @@
 // a point, and (b) is this predicate able to see an overlay at all.
 import { chromium } from 'playwright'
 
+/** Closes the browser, but never waits more than a few seconds for it. */
+// A response already in flight when the browser closes rejects AFTER the tally has
+// been printed, and Node's default handler turns that into a non-zero exit with a
+// stack trace after the count. Report the count as the last word instead.
+let tallied = false
+process.on('unhandledRejection', (error) => {
+  if (!tallied)
+    step('the gate ran without an unhandled rejection', false, String(error?.message || error).slice(0, 110))
+})
+process.on('uncaughtException', (error) => {
+  if (!tallied)
+    step('the gate ran without an uncaught exception', false, String(error?.message || error).slice(0, 110))
+})
+
+async function closeBrowserQuietly(browser, ms = 8000) {
+  if (!browser)
+    return
+  // `.catch()` only handles a REJECTION. A close that never settles hangs the
+  // process, and the tally afterwards is never printed — which the verifier reads
+  // as "did not report a count" for a gate whose every assertion passed.
+  await Promise.race([
+    browser.close().catch(() => {}),
+    new Promise(resolve => setTimeout(resolve, ms).unref?.()),
+  ])
+}
+
 const BASE = process.env.BASE || 'https://sofia.ctum.org'
 const PASSWORD = process.env.SOFIA_PASSWORD || ''
 const results = []
@@ -317,7 +343,10 @@ try {
   const failed = results.filter(r => !r.ok)
   // Close before printing: see the note in frame-gate.mjs — a tally printed
   // before an awaited close can be lost entirely.
-  await browser.close().catch(() => {})
+  await closeBrowserQuietly(browser)
+  // Latch BEFORE the tally: a guard that never latches turns post-tally teardown
+  // noise into an extra FAIL, turning a green gate red.
+  tallied = true
   console.log(`\n${results.length - failed.length}/${results.length}`)
   // `exitCode`, not `exit`: stdout is a pipe in the release run, and exiting
 // immediately after printing the tally can drop it (measured: 641 of 4000

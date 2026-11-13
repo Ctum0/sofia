@@ -4,6 +4,32 @@
 // moves, and a close that releases it.
 import { chromium } from 'playwright'
 
+/** Closes the browser, but never waits more than a few seconds for it. */
+// A response already in flight when the browser closes rejects AFTER the tally has
+// been printed, and Node's default handler turns that into a non-zero exit with a
+// stack trace after the count. Report the count as the last word instead.
+let tallied = false
+process.on('unhandledRejection', (error) => {
+  if (!tallied)
+    fail('the gate ran without an unhandled rejection', String(error?.message || error).slice(0, 110))
+})
+process.on('uncaughtException', (error) => {
+  if (!tallied)
+    fail('the gate ran without an uncaught exception', String(error?.message || error).slice(0, 110))
+})
+
+async function closeBrowserQuietly(browser, ms = 8000) {
+  if (!browser)
+    return
+  // `.catch()` only handles a REJECTION. A close that never settles hangs the
+  // process, and the tally afterwards is never printed — which the verifier reads
+  // as "did not report a count" for a gate whose every assertion passed.
+  await Promise.race([
+    browser.close().catch(() => {}),
+    new Promise(resolve => setTimeout(resolve, ms).unref?.()),
+  ])
+}
+
 const BASE = process.env.BASE || 'https://sofia.ctum.org'
 const PASS = process.env.SOFIA_PASSWORD || ''
 let pass = 0
@@ -104,7 +130,8 @@ catch (error) {
   fail('gate ran without throwing', String(error.message || error).slice(0, 200))
 }
 finally {
-  await browser.close()
+  await closeBrowserQuietly(browser)
+  tallied = true
   console.log(`\n${pass}/${total}`)
   // `exitCode`, not `exit`: stdout is a pipe in the release run, and exiting
 // immediately after printing the tally can drop it (measured: 641 of 4000

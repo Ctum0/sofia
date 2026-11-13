@@ -4,12 +4,53 @@
 // and after she clicks, and fails if they are identical.
 import { chromium } from 'playwright'
 
+/** Closes the browser, but never waits more than a few seconds for it. */
+// A response already in flight when the browser closes rejects AFTER the tally has
+// been printed, and Node's default handler turns that into a non-zero exit with a
+// stack trace after the count — the verifier then reports "did not report a count"
+// for a gate that finished. These handlers keep the printed count as the last word,
+// and still FAIL loudly if the throw happened BEFORE the tally, which is a real
+// error rather than teardown noise.
+// `fail(...)`, not `console.log`: only `fail` increments `total`, so a bare log
+// leaves `pass === total` true and `finally` still exits 0 — a false green with a
+// FAIL line above it. This is the subtle half of the bug that made a truncated run
+// look like a pass.
+let tallied = false
+process.on('unhandledRejection', (error) => {
+  if (!tallied)
+    fail('the gate ran without an unhandled rejection', String(error?.message || error).slice(0, 110))
+})
+process.on('uncaughtException', (error) => {
+  if (!tallied)
+    fail('the gate ran without an uncaught exception', String(error?.message || error).slice(0, 110))
+})
+
+async function closeBrowserQuietly(browser, ms = 8000) {
+  if (!browser)
+    return
+  // `.catch()` only handles a REJECTION. A close that never settles hangs the
+  // process, and the tally afterwards is never printed — which the verifier reads
+  // as "did not report a count" for a gate whose every assertion passed.
+  await Promise.race([
+    browser.close().catch(() => {}),
+    new Promise(resolve => setTimeout(resolve, ms).unref?.()),
+  ])
+}
+
 const BASE = process.env.BASE || 'https://sofia.ctum.org'
 const PASS = process.env.SOFIA_PASSWORD || ''
 let pass = 0
 let total = 0
 const ok = (n, d = '') => { total++; pass++; console.log(`PASS  ${n}${d ? ` — ${d}` : ''}`) }
 const fail = (n, d = '') => { total++; console.log(`FAIL  ${n}${d ? ` — ${d}` : ''}`) }
+
+// The assertions this gate is defined to run. Without it, an abort mid-run reports
+// a SHORTER tally that still reads `pass === total` — a false green. The guards
+// below stop the process dying with a stack trace after the tally, which is what
+// made an early abort look like a crash instead of a truncated gate; this constant
+// is what makes the truncation visible.
+const EXPECTED = 6
+let completed = false
 
 const browser = await chromium.launch({ args: ['--no-sandbox'] })
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
@@ -128,19 +169,44 @@ try {
     : fail('and it can go back to the right', rightSide ? `x=${rightSide.x} of ${rightSide.vw}` : 'no window')
 
   // 5. closing leaves the stage empty instead of reopening itself
+  //
+  // Every read here tolerates the document going away. The turn closes every
+  // window on the stage, and the page that reports the result can be re-rendered
+  // under it; an `evaluate` that throws took the whole gate down at this exact
+  // assertion twice, and the count afterwards read "5/6" for a behaviour that
+  // worked.
   await say('close everything')
-  await page.waitForTimeout(2500)
-  const after = await page.evaluate(() => document.querySelectorAll('[data-testid=sofia-window]').length)
-  after === 0 ? ok('closing does not reopen the page', '0 windows') : fail('closing does not reopen the page', `${after} left`)
+  await page.waitForTimeout(3000)
+  let after = null
+  for (let attempt = 0; attempt < 6 && after !== 0; attempt += 1) {
+    after = await page.evaluate(() => document.querySelectorAll('[data-testid=sofia-window]').length)
+      .catch(() => null)
+    if (after !== 0)
+      await page.waitForTimeout(700).catch(() => {})
+  }
+  after === 0 ? ok('closing does not reopen the page', '0 windows') : fail('closing does not reopen the page', after === null ? 'the stage became unreachable' : `${after} left`)
+
+  completed = true
+}
+catch (error) {
+  // An abort is a FAIL, not a short successful run.
+  fail('the gate ran to completion', String(error?.message || error).slice(0, 110))
 }
 finally {
   // Close FIRST, then print. The tally used to be printed before an awaited
   // `browser.close()`, so if that close hangs or the container is torn down while
   // it waits, the count is never written and the verifier says "did not report a
   // count" for a gate whose every assertion passed.
-  await browser.close().catch(() => {})
+  await closeBrowserQuietly(browser)
+  tallied = true
   console.log(`\n${pass}/${total}`)
-  // No process.exit(): it truncates stdout on a pipe, which is how this gate
-  // once finished having printed a single line.
-  process.exitCode = (pass === total && total > 0) ? 0 : 1
+  // Three ways to be red, and only one of them is an assertion that failed:
+  // a skipped assertion (total < EXPECTED) and an aborted run (completed false)
+  // are just as red, because both mean the gate checked less than it claims.
+  // Only when the abort was not already recorded by the `catch` above, which
+  // already called `fail(...)` and counted itself. Two FAIL lines for one abort
+  // makes the numerator and the denominator both wrong.
+  if (!completed && pass === total)
+    fail('the gate ran every assertion', `it stopped after ${total} of ${EXPECTED}`)
+  process.exitCode = (pass === total && total === EXPECTED && completed) ? 0 : 1
 }

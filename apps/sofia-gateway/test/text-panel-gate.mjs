@@ -3,6 +3,19 @@
 // have caught "she says GitHub is open, and nothing is".
 import { chromium } from 'playwright'
 
+/** Closes the browser, but never waits more than a few seconds for it. */
+async function closeBrowserQuietly(browser, ms = 8000) {
+  if (!browser)
+    return
+  // `.catch()` only handles a REJECTION. A close that never settles hangs the
+  // process, and the tally afterwards is never printed — which the verifier reads
+  // as "did not report a count" for a gate whose every assertion passed.
+  await Promise.race([
+    browser.close().catch(() => {}),
+    new Promise(resolve => setTimeout(resolve, ms).unref?.()),
+  ])
+}
+
 const BASE = process.env.BASE || 'https://sofia.ctum.org'
 const PASS = process.env.SOFIA_PASSWORD || ''
 let pass = 0
@@ -433,6 +446,6 @@ catch (error) {
   fail('gate ran without throwing', String(error.message || error).slice(0, 160))
 }
 finally {
-  await browser?.close().catch(() => {})
+  await closeBrowserQuietly(browser)
   report()
 }
