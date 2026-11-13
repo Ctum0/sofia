@@ -1,10 +1,12 @@
 /**
- * Proves the gateway side of the seam: a local agent can connect, and
- * `agentCall` reaches it and gets an answer back.
+ * Proves the gateway's agent ENDPOINT: an unpaired client is refused, a paired
+ * one connects, an unexpected result does not kill the socket, and a disconnect
+ * is noticed.
  *
- * This is the piece that was missing — the agent was tested against a stand-in
- * gateway, and the gateway against nothing. Between them sat an upgrade route
- * that did not exist, so the real pair could never have connected.
+ * It does NOT exercise `agentCall` -- nothing here drives a request from the
+ * gateway to the agent. That round trip is covered in `agent-transport.test.mjs`,
+ * which starts the real agent. This file's earlier header claimed more than it
+ * proved, which is how a "5/5" gets read as evidence the bridge works.
  *
  * Run: `node apps/sofia-gateway/test/agent-bridge.test.mjs`
  */

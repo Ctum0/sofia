@@ -30,10 +30,19 @@ jobs:
         run: node scripts/ci/guards.mjs
       - name: gateway parses
         run: |
-          for f in apps/sofia-gateway/*.mjs apps/sofia-gateway/browse-service/*.mjs; do
+          # Every hand-written module in the product, not only the gateway: the
+          # local browser agent and its tests were outside this loop, so a syntax
+          # error there would reach a push unchecked.
+          for f in apps/sofia-gateway/*.mjs apps/sofia-gateway/browse-service/*.mjs \
+                   apps/sofia-agent/*.mjs apps/sofia-agent/test/*.mjs; do
             node --check "$f" || exit 1
           done
-          echo "all gateway files parse"
+          echo "all product files parse"
+      - name: agent guardrails
+        # Needs no browser and runs in ~60 ms, so it belongs in CI. The real-browser
+        # test (apps/sofia-agent/test/browser.test.mjs) needs a Chromium on the
+        # runner and stays out.
+        run: node apps/sofia-agent/test/guardrails.test.mjs
       - name: release script is valid shell
         run: bash -n scripts/verify-release.sh
 

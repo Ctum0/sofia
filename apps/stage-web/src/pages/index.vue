@@ -188,7 +188,11 @@ function applyControl(payload: { action: string, target?: string, x?: number, y?
     // they land on top of each other — indistinguishable from a single window.
     // That case goes low and wide in one column instead, the same call the
     // single-window path already makes below 768 px.
-    const columns = vw >= 260 * 2 + gutter * 3
+    // Below 769 px the column is full width (the media query drops the 56% cap),
+    // so a left column at x=24 would sit on top of her — the same regression the
+    // single-window path was fixed for. There is no "side by side" on a screen
+    // that cannot hold both, so those widths stay in one column.
+    const columns = vw > 768 && vw >= 260 * 2 + gutter * 3
     const colW = columns ? Math.round((vw - gutter * 3) / 2) : vw - gutter * 2
     const leftCount = columns && n > 1 ? Math.ceil(n / 2) : 0
     windows.value = windows.value.map((win, index) => {

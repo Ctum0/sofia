@@ -339,6 +339,18 @@ export async function openPage(url, { base = process.env.BROWSER_URL || 'http://
 
 /** Close one page by its session id. */
 export async function closePage(sid, { base = process.env.BROWSER_URL || 'http://sofia-browser:8790', timeoutMs = 15_000 } = {}) {
+  if (transport) {
+    // Without this branch, "close that window" POSTed to the host service for a
+    // page that only exists on the user's machine: it 404'd, the window stayed
+    // open, and she reported it closed.
+    try {
+      await transport({ action: 'close', sid }, { timeoutMs })
+    }
+    catch {
+      // Closing something already gone is not an error worth surfacing.
+    }
+    return
+  }
   const res = await fetch(`${base}/close`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

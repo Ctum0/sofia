@@ -39,7 +39,16 @@ RUN git config --global --add safe.directory /repo || true
 # build was absent in the next), and Coolify builds with its own builder
 # anyway. A mount would look like an optimisation without being one; the
 # filtered install is the real win and it works with any builder.
-RUN pnpm install --filter=@proj-airi/stage-web... --no-frozen-lockfile
+#
+# FROZEN, not `--no-frozen-lockfile`. The loose flag let pnpm re-resolve against
+# the whole workspace on every build, and `autoInstallPeers: true` in
+# `.npmrc` then pulled `canvas@3.2.3` — an optional peer of jsdom — which
+# source-builds with node-gyp and needs a Python this image deliberately omits
+# (see the apt line above). That is a red deploy whose cause is invisible in the
+# log ("gyp ERR! Could not find any Python"), and it happened on 2026-11-13 when
+# a new workspace package made the resolution differ. A frozen install resolves
+# exactly what CI resolved, so a lockfile that passes CI cannot fail here.
+RUN pnpm install --filter=@proj-airi/stage-web... --frozen-lockfile
 
 ENV NODE_OPTIONS=--max-old-space-size=3072
 RUN pnpm -F @proj-airi/stage-web build
