@@ -347,12 +347,16 @@ process.exitCode = passed === results.length ? 0 : 1
   // used to compose the operating rules ALONE (~1.6 k chars): she was "brief, do
   // not narrate" with no identity, and a gate that only measured length passed.
   {
-    const { composeVoiceInstruction } = await import(process.env.SERVER_MODULE || '../server.mjs')
+    const { composeVoiceInstruction, VOICE_RULES } = await import(process.env.SERVER_MODULE || '../server.mjs')
     const cold = composeVoiceInstruction('')
     const mine = composeVoiceInstruction('MY OWN CARD')
-    cold.length > 3000 && /Sithum|assistant/.test(cold) && /brief/i.test(cold)
-      ? ok('a cold device still gets her card, not the rules alone', `${cold.length} chars`)
-      : fail('a cold device still gets her card, not the rules alone', `${cold.length} chars: ${cold.slice(0, 60)}`)
+    // Derive the threshold from the rules themselves instead of naming a size.
+    // `rulesOnly + 200` cannot go stale when the rules text is edited; a hardcoded
+    // 3000 would turn a shorter card into a false failure on a correct build.
+    const rulesOnly = VOICE_RULES.join('\n\n').length
+    cold.length > rulesOnly + 200 && /Sithum|assistant|calm, quick/i.test(cold)
+      ? ok('a cold device still gets her card, not the rules alone', `${cold.length} chars, rules alone ${rulesOnly}`)
+      : fail('a cold device still gets her card, not the rules alone', `${cold.length} chars, rules alone ${rulesOnly}: ${cold.slice(0, 60)}`)
     // The card's own words come first and the operating rules follow: "You have
     // hands" is the first thing VOICE_RULES says. Asserting a word like "brief"
     // was wrong — the rules never say it, so the check failed on correct code.
@@ -372,16 +376,32 @@ process.exitCode = passed === results.length ? 0 : 1
       : fail('uncheck carries its direction', JSON.stringify(command))
     page = await openAndLook('https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/checkbox')
     if (page.ok) {
+      // The service returns `checked` and THROWS when the state did not change, so
+      // these two booleans are the whole proof: true after ticking, false after
+      // unticking. The previous version asserted a truthy response object and never
+      // re-read the box, so it would have passed if `uncheck` ticked it again —
+      // exactly the regression it exists to catch.
+      const on = await runBrowse({ action: 'check', selector: 'input[type=checkbox]', text: 'on' }, { sid: page.sid }).catch(() => null)
+      const off = await runBrowse({ action: 'check', selector: 'input[type=checkbox]', text: 'off' }, { sid: page.sid }).catch(() => null)
+      on?.body?.checked === true
+        ? ok('the box was ticked before unchecking', 'checked: true')
+        : fail('the box was ticked before unchecking', JSON.stringify(on?.body?.checked ?? on?.body?.error))
+      off?.body?.checked === false
+        ? ok('uncheck leaves the box unticked', 'checked: false')
+        : fail('uncheck leaves the box unticked', JSON.stringify(off?.body?.checked ?? off?.body?.error))
+
+      // And through the TOOL, which is the path the model uses: `uncheck` maps to
+      // the service's `check` with text "off". Re-read the box afterwards, because
+      // the reply alone would say "Done" either way.
       await executeToolCall({ name: 'browse', args: { action: 'check', selector: 'input[type=checkbox]', text: 'on' } }, ctx)
-      const before = await runBrowse({ action: 'value', selector: 'input[type=checkbox]' }, { sid: page.sid }).catch(() => null)
-      const off = textOf(await executeToolCall({ name: 'browse', args: { action: 'uncheck', selector: 'input[type=checkbox]' } }, ctx))
-      // report only, but say what the box now holds
-      !saysFailure(off)
-        ? ok('uncheck is accepted on a real box', off.slice(0, 60))
-        : fail('uncheck is accepted on a real box', off.slice(0, 120))
-      before
-        ? ok('the box was ticked before unchecking', `value before: ${JSON.stringify(before.body?.landed)}`)
-        : fail('the box was ticked before unchecking', 'could not read it')
+      const ticked = await runBrowse({ action: 'value', selector: 'input[type=checkbox]' }, { sid: page.sid }).catch(() => null)
+      const said = textOf(await executeToolCall({ name: 'browse', args: { action: 'uncheck', selector: 'input[type=checkbox]' } }, ctx))
+      const afterTool = await runBrowse({ action: 'value', selector: 'input[type=checkbox]' }, { sid: page.sid }).catch(() => null)
+      // A checkbox's `value` is "on" when ticked and "" when not, which is the only
+      // state a value read can see.
+      ticked?.body?.landed === 'on' && afterTool?.body?.landed === ''
+        ? ok('the uncheck tool leaves the box unticked', `"${ticked?.body?.landed}" -> "${afterTool?.body?.landed}"`)
+        : fail('the uncheck tool leaves the box unticked', `"${ticked?.body?.landed}" -> "${afterTool?.body?.landed}" · ${said.slice(0, 50)}`)
     }
     await closeAll()
   }

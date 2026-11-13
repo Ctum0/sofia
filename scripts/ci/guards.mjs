@@ -275,6 +275,26 @@ check('G14 no locale ships the legacy persona', () => {
   return `${locales.length} locales, migration marker present`
 })
 
+// G16 — a tool event must not carry raw tool arguments to the browser.
+//
+// `send({ type: 'tool', …, args: call.args })` shipped the password for a
+// `browse action:'fill'` over the socket to the stage. The reply was redacted, so
+// a test of the reply passed while this sink leaked — and no gate can see it,
+// because the event only exists on a real Live session. A text check is the
+// durable proof.
+check('G16 tool events redact their arguments', () => {
+  const server = read('apps/sofia-gateway/server.mjs')
+  assert(server.includes('export function redactArgs'), 'redactArgs is gone — nothing sanitises tool args')
+  // Every `send({…args: …})` must route the args through `redactArgs`. Matching on
+  // the presence of `redactArgs` on the same line, rather than on the shape of the
+  // expression, is what actually fails when someone writes the raw form back.
+  const sends = server.split('\n').map((line, i) => ({ line, n: i + 1 })).filter(({ line }) => /send\(\{[^}]*\bargs:/.test(line))
+  assert(sends.length > 0, 'no tool event carries args — did the shape change?')
+  const raw = sends.filter(({ line }) => !/redactArgs\(/.test(line))
+  assert(raw.length === 0, `these send raw tool args: ${raw.map(({ line, n }) => `${n}: ${line.trim().slice(0, 60)}`).join(' | ')}`)
+  return `${sends.length} tool event(s) with args, all redacted`
+})
+
 // G15 — a gate must not call `process.exit()` after printing its tally.
 //
 // stdout is a pipe in the release run (`out=$(run_gate …)`), where Node's writes

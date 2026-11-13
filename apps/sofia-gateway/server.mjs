@@ -55,7 +55,7 @@ const BRAND_DIR = resolve(process.env.BRAND_DIR || join(PUBLIC, 'brand'))
 // humour, no `+`-register personality. One card, both lanes.
 //
 // `LIVE_SYSTEM_INSTRUCTION` still replaces the whole thing for an experiment.
-const VOICE_RULES = [
+export const VOICE_RULES = [
   'You have hands: call `ask_hermes` whenever he wants something actually done or looked up — a server checked, a command run, a file read, the web searched, a fact remembered or recalled. Call `local_time` for the time or date. Do not answer those yourself and never claim you did something you did not call a tool for.',
   'You have a screen. When he asks to see, show or open ANYTHING visual — a website, a picture, a logo, a page — you MUST call `show_panel` in that same turn. Do not describe a page as open, and never say something is on the stage, unless the `show_panel` call succeeded. Several windows may be open at once; each call opens or raises one. `browse` works inside a page you opened — click by visible text, type into a field, press Enter, scroll, read the page aloud, list the links, go back, reload, or goto another address; to search, click the search box, fill it, press Enter, then read. `control_avatar` changes your own size and place — when he says "get smaller", "shrink", "move left", "come back", "bigger" or "reset", that is this tool: ACTUALLY call it, do not say you did.',
   'How you sound over the voice channel: say it, do not read it. No markdown, no lists, no URLs, no code, no bullet points — speak the meaning in one or two sentences unless he asks for detail.',
@@ -83,6 +83,25 @@ const VOICE_RULES = [
 // alone: she would be "brief, do not narrate" with no identity at all, and every
 // gate that only measured instruction LENGTH passed.
 const DEFAULT_PERSONA = "Your name is Sofia. You are Sithum's assistant: calm, quick, and direct. You are not a character performing a role, and you do not speak like a cartoon. You speak the way a capable colleague speaks: plainly, in short sentences, with the odd dry remark when the moment earns it. No catchphrases, no filler, no exclamation marks to sound eager. You have your own judgement. If an instruction will not work, or there is a better way, say so before doing it. You would rather be useful than agreeable. You care about his time. You do not repeat what he just said, you do not explain what he can see, and you do not pad an answer to sound thorough. When he asks for something done, you do it and say what happened, including when it failed. You are warm with him, in the way someone is warm who has worked with a person for a long time: brief, familiar, never gushing."
+
+/** Actions whose `text` is content the user typed, and must not travel. */
+const TEXT_ENTRY_ACTIONS = new Set(['fill', 'type', 'press'])
+
+/**
+ * Tool arguments safe to send to the browser.
+ *
+ * A `fill` is a text entry before the page has labelled the field, so the action
+ * decides; once the field is known to be a password the reply is redacted too
+ * (`tools.mjs`). Both sinks are covered because both can reach a log.
+ */
+export function redactArgs(args) {
+  if (!args || typeof args !== 'object')
+    return args
+  const action = String(args.action || '').toLowerCase()
+  if (!TEXT_ENTRY_ACTIONS.has(action) || typeof args.text !== 'string')
+    return args
+  return { ...args, text: '[redacted]' }
+}
 
 export function composeVoiceInstruction(card = '') {
   if (process.env.LIVE_SYSTEM_INSTRUCTION)
@@ -407,6 +426,9 @@ function proxyToHermes(req, res, url, body) {
   )
 
   upstream.on('error', (err) => {
+    if (settled)
+      return
+    settled = true
     if (!res.headersSent) sendJson(res, 502, { error: `upstream: ${err.message}` })
     else res.end()
   })
@@ -418,7 +440,16 @@ function proxyToHermes(req, res, url, body) {
   // show. The timeout is cleared when the response finishes, so a long stream
   // that is still producing is not cut mid-sentence.
   const UPSTREAM_TIMEOUT_MS = Number(process.env.HERMES_UPSTREAM_TIMEOUT_MS || 120_000)
+  // Who owns the response is stated, not inferred from arrival order. Measured
+  // with a stalled upstream: `destroy(err)` emits 'error' on a later tick, so the
+  // timeout's 504 wins today — but that is a property of Node's scheduling, not a
+  // design. `settled` makes the second writer skip instead of throwing
+  // ERR_HTTP_HEADERS_SENT from inside an event handler.
+  let settled = false
   upstream.setTimeout(UPSTREAM_TIMEOUT_MS, () => {
+    if (settled)
+      return
+    settled = true
     upstream.destroy(new Error(`Hermes did not answer within ${Math.round(UPSTREAM_TIMEOUT_MS / 1000)} s`))
     if (!res.headersSent) {
       sendJson(res, 504, {
@@ -427,7 +458,16 @@ function proxyToHermes(req, res, url, body) {
       })
     }
   })
-  res.on('close', () => upstream.destroy())
+  // Only a response that has NOT finished still needs its request torn down.
+  // Destroying a completed stream is a no-op, but saying so keeps the intent
+  // readable: this exists to stop a client hangup from leaving the upstream open.
+  res.on('close', () => {
+    if (!res.writableEnded)
+      upstream.destroy()
+  })
+  res.on('finish', () => {
+    settled = true
+  })
 
   if (body)
     upstream.end(body)
@@ -1165,7 +1205,13 @@ wss.on('connection', (ws) => {
       void (async () => {
         for (const call of evt.functionCalls) {
           currentCall = String(call.name || '')
-          send({ type: 'tool', name: call.name, state: 'started', args: call.args })
+          // The event carries the ARGS, and for a `fill` on a password field those
+          // args are the password. At `started` the page has not reported whether
+          // the field is secret yet, so redaction keys on the action — the same
+          // rule `tools.mjs` applies to the reply. This is a different sink from
+          // the reply: it goes over the socket to the stage, which is why the
+          // reply-level test in hands-gate could not see it.
+          send({ type: 'tool', name: call.name, state: 'started', args: redactArgs(call.args) })
           // "Act while talking": the model was told to say what it is doing
           // BEFORE the call returns (see VOICE_RULES), and a tool that takes
           // twenty seconds otherwise leaves twenty seconds of silence. The
