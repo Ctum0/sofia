@@ -3,6 +3,7 @@
 // Each one is cheap, static, and names the incident it prevents, so a red run
 // tells you what went wrong without needing the chat history.
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -262,22 +263,44 @@ check('G14 no locale ships the legacy persona', () => {
   }
   assert(offenders.length === 0, `legacy persona in: ${offenders.join(', ')}`)
 
-  // The seed's migration has to catch the SAME wording. Changing a locale's
-  // default un-filters a stored card that matched it, turning the old text into a
-  // "user edit" that is stranded forever and synced as one — so the migration
-  // markers must still recognise every legacy locale, and must not match the new
-  // text (or it would rewrite her persona on every load).
-  // The matcher lives where the locale-correct built-in text is (`airi-card.ts`,
-  // next to `migratePreIruCard`), not in the gateway: the seed cannot interpolate
-  // module-scope constants into the browser script, and an English persona written
-  // over a Japanese card is not a migration.
+  // Every persona this fork has shipped must be either the current text or a hash
+  // the migration remembers. Otherwise the device that stored it is stranded as a
+  // "user edit" and its card is uploaded as one — the failure this whole mechanism
+  // exists to prevent, and the one that recurs every time the wording changes.
+  //
+  // A hash set rather than a wording regex: the regex matched user-authored cards
+  // too ("you are a VTuber", "a 15 years old detective") and would overwrite them.
   const cards = read('packages/stage-ui/src/stores/modules/airi-card.ts')
-  const markerAt = cards.indexOf('const legacyPersonaDescription =')
-  assert(markerAt !== -1, 'legacyPersonaDescription is gone — the card migration has no matcher')
-  const markerLine = cards.slice(markerAt, cards.indexOf('\n', markerAt))
-  assert(/VTuber/.test(markerLine) && /15/.test(markerLine),
-    'the migration marker no longer names VTuber or an age — it cannot recognise the old cards')
-  return `${locales.length} locales, migration marker present`
+  const setAt = cards.indexOf('const retiredPersonaDescriptionHashes = new Set([')
+  assert(setAt !== -1, 'retiredPersonaDescriptionHashes is gone — the card migration has no matcher')
+  const setEnd = cards.indexOf('])', setAt)
+  const hashes = new Set((cards.slice(setAt, setEnd).match(/'[0-9a-f]{64}'/g) || []).map(h => h.slice(1, -1)))
+  assert(hashes.size > 0, 'the retired persona set is empty')
+
+  // The live text must NOT be in the set. If it were, `migratePreIruCard` would
+  // rewrite the card to the same value on every load and `splitCard` would never
+  // see a settled state — a permanent re-write loop.
+  //
+  // Read the prefix through the YAML parser, because the block scalar's indentation
+  // and the `{'literal'}` rendering are exactly what a hand-rolled reader gets
+  // wrong (twice, during this work).
+  const currentHashes = []
+  for (const name of locales) {
+    const yaml = spawnSync(process.execPath, ['-e', `
+      const { parse } = require('yaml')
+      const fs = require('fs')
+      const doc = parse(fs.readFileSync(${JSON.stringify(`packages/i18n/src/locales/${name}/base.yaml`)}, 'utf8'))
+      process.stdout.write(String(doc?.prompt?.prefix ?? ''))
+    `], { encoding: 'utf8' })
+    assert(yaml.status === 0, `could not parse ${name}/base.yaml: ${(yaml.stderr || '').slice(0, 120)}`)
+    const rendered = yaml.stdout.replace(/\{'([\s\S]*?)'\}/g, '$1')
+    currentHashes.push(createHash('sha256').update(rendered, 'utf8').digest('hex'))
+  }
+  const alsoRetired = currentHashes.filter(h => hashes.has(h))
+  assert(alsoRetired.length === 0,
+    `the live persona is in the retired set, so it would be rewritten every load: ${alsoRetired.length} locale(s)`)
+
+  return `${locales.length} locales, ${hashes.size} retired persona hashes, none current`
 })
 
 // G16 — a tool event must not carry raw tool arguments to the browser.

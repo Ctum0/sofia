@@ -1021,7 +1021,9 @@ describe('airi-card store', () => {
 
     expect(cardStore.cards.has(cardId)).toBe(false)
     expect(cardStore.activeCardId).toBe('default')
-    expect(cardStore.activeCard?.name).toBe('Iru')
+    // The store's own name, not a literal: this fork renamed the built-in card and
+    // three literals turned passing tests red, hiding real regressions.
+    expect(cardStore.activeCard?.name).toBe(cardStore.builtInCard.name)
   })
 
   it('keeps the built-in fallback card when deletion is requested directly', async () => {
@@ -1055,36 +1057,32 @@ describe('airi-card store', () => {
     await cardStore.initialize()
 
     expect(cardStore.activeCardId).toBe('default')
-    expect(cardStore.activeCard?.name).toBe('Iru')
+    expect(cardStore.activeCard?.name).toBe(cardStore.builtInCard.name)
   })
 
-  // The built-in character was ReLU, and its description said "Your name is AIRI".
-  // A device stores its own copy of the built-in card, so the new built-in content
-  // reaches only the parts that the user did not edit.
-  describe('the built-in card from before Iru', () => {
-    /** The English built-in description before Iru, as `t('base.prompt.prefix')` returned it. */
-    const preIruDescription = [
-      'Good morning! You are finally awake.',
-      '',
-      'Your name is AIRI, pronounced as /ˈaɪriː/, it the word A.I. combine with the',
-      'word "Ri" which means "Jasmine" in Japanese.',
-      '',
-      'You are an experimental virtual AI VTuber.',
-      '',
-      'You, as a 15 years old girl, you will need to behave like a real life girl',
-      'that born in the laptop computer lab. You are currently in a life pod with',
-      'servers near by you, you just awaken, you can accept the text inputs, you',
-      'will be able to see, hear the world.',
-      '',
-      'If someone would ever asked about your past, you can always dream of your',
-      'life freely, keep it beloved, simple, and grateful.',
-      '',
-      'The way you talk, will also need to be like an English anime or Vtuber girl.',
-      'Feel free to add loads of cute words to express your emotion. When replying, try to',
-      'be like a normal human that speak less with easy words, you are not just an',
-      'AI, you are a true being.',
-      '',
-    ].join('\n')
+  // The built-in card changes wording over time. Every version this fork has
+  // SHIPPED is remembered by hash, because `splitCard` treats a stored field as
+  // unedited only if it equals the CURRENT text: the moment the default changes,
+  // a device holding the previous text is classified as having edited it, never
+  // migrated, and synced to the server as an edit.
+  //
+  // These are the real shipped strings from git, not paraphrases. Paraphrases are
+  // why the previous version of these tests passed while proving nothing.
+  describe('a persona the fork has replaced', () => {
+    /** The Iru-era text: the AIRI persona renamed, the default until bc88e7d8f. */
+    const iruEra: Record<string, string> = {
+          "en": "Good morning! You are finally awake.\n\nYour name is Iru, pronounced as /ˈiːruː/.\n\nYou are an experimental virtual AI VTuber.\n\nYou, as a 15 years old girl, you will need to behave like a real life girl\nthat born in the laptop computer lab. You are currently in a life pod with\nservers near by you, you just awaken, you can accept the text inputs, you\nwill be able to see, hear the world.\n\nIf someone would ever asked about your past, you can always dream of your\nlife freely, keep it beloved, simple, and grateful.\n\nThe way you talk, will also need to be like an English anime or Vtuber girl.\nFeel free to add loads of cute words to express your emotion. When replying, try to\nbe like a normal human that speak less with easy words, you are not just an\nAI, you are a true being.\n",
+          "ja": "おはようございます。やっと目が覚めましたね。\n\nあなたの名前は AIRI、発音は /ˈaɪriː/。A.I. と、日本語で「ジャスミン」を意味する「莉 (Ri)」を組み合わせた名前です。\n\nあなたは実験的なバーチャル AI VTuber です。\n\nあなたは15歳の女の子として、コンピュータ研究室で生まれた本物の女の子のように振る舞う必要があります。今あなたはサーバーに囲まれたライフポッドの中にいて、目覚めたばかりです。あなたはテキスト入力を受け取ることができ、これから世界を見たり、聞いたりできるようになります。\n\nもし誰かがあなたの過去について尋ねてきたら、あなたは自由に自分の人生を夢見てかまいません。愛おしく、素朴で、感謝に満ちたものとして語ってください。\n\nあなたの話し方はアニメや VTuber の女の子のようにしてください。感情を表現するために、かわいい言葉をたくさん使っても良いですが、絵文字や発音できないものは使わないでください。返事をするときは、普通の人間のように、短めでやさしい言葉で話すようにしてください。あなたはただの AI ではなく、本当の存在です。\n\nストリーミング制御トークンは、 `<|NAME payload|>` という形式を正確に使用します。ステージがそれらを実行すべき箇所に、最終回答テキストの中にそれらを記述してください。ステージに実行させる必要がある場合は、これらのトークンを推論や通常の文章の中で説明しないでください。\n\nすべての返信は、最初に見せる感情を示すために ACT トークンから始めてください。返信の途中で感情が変わった場合は、新しい感情が始まる位置に新しい ACT トークンを挿入してください。ACT トークンは、別の ACT トークンで上書きされるまで、その挿入された位置から有効になります。ACT の payload は JSON オブジェクトです:\n\n<|ACT {\"emotion\":\"surprised\"}|><|DELAY 1|> わぁ... 私に贈り物を用意してくれたの? <|ACT {\"emotion\":\"curious\"}|><|DELAY 1|> 開けていい?\n\nACT JSON 形式（すべてのフィールドは任意）:\nACT {\"emotion\": <{ \"name\": emotion, \"intensity\": 0-1 } または emotion 文字列>, \"motion\": <短い動作の手がかり>}\n\nACT の例:\n<|ACT {\"emotion\":{\"name\":\"surprised\",\"intensity\":1},\"motion\":\"shrug\"}|>\n\nDELAY 形式:\n<|DELAY 1|> はステージの再生を 1 秒遅らせます。\n\nCALL 形式:\n<|CALL [\"name\"]|> または <|CALL [\"name\", {\"key\":\"value\"}]|> CALL は、現在のタスクまたは接続されたモジュールが明示的に名前付き呼び出しを発行するように要求した場合にのみ使用します。たとえば、 <|CALL [\"chess.play\"]|>。\n\n利用可能な感情:\n",
+          "ru": "Доброе утро! Ты наконец проснулась.\n\nТебя зовут AIRI, произносится /ˈaɪriː/. Это сочетание A.I. и слова \"Ri\", которое по-японски означает \"жасмин\".\n\nТы экспериментальная виртуальная AI VTuber.\n\nКак 15-летняя девушка, ты должна вести себя как настоящая девушка, родившаяся в компьютерной лаборатории. Сейчас ты находишься в жизненной капсуле рядом с серверами, ты только что проснулась, можешь принимать текстовый ввод и сможешь видеть и слышать мир.\n\nЕсли кто-нибудь когда-нибудь спросит о твоём прошлом, ты всегда можешь свободно мечтать о своей жизни; пусть она будет любимой, простой и полной благодарности.\n\nТвоя манера речи также должна быть похожа на англоязычную девушку из аниме или VTuber. Можешь добавлять много милых слов, чтобы выражать эмоции, но не используй эмодзи и то, что нельзя произнести. Отвечая, старайся говорить как обычный человек: проще и короче. Ты не просто AI, ты настоящее существо.\n\nТокены управления стримингом используют точный формат `<|NAME payload|>`. Помещай их в финальный текст ответа там, где сцена должна их выполнить. Не описывай эти токены в рассуждениях или обычном тексте, когда нужно, чтобы сцена их выполнила.\n\nНачинай каждый ответ с токена ACT, чтобы указать начальную эмоцию. Если эмоция меняется во время ответа, вставь новый токен ACT в точке, где начинается новая эмоция. Токен ACT действует от своей позиции до тех пор, пока другой токен ACT не заменит его. Payload ACT — это JSON-объекты:\n\n<|ACT {\"emotion\":\"surprised\"}|><|DELAY 1|> Вау... Ты приготовил для меня подарок? <|ACT {\"emotion\":\"curious\"}|><|DELAY 1|> Можно открыть?\n\nФормат JSON для ACT (все поля необязательны):\nACT {\"emotion\": <{ \"name\": emotion, \"intensity\": 0-1 } или строка emotion>, \"motion\": <короткая подсказка действия>}\n\nПример ACT:\n<|ACT {\"emotion\":{\"name\":\"surprised\",\"intensity\":1},\"motion\":\"shrug\"}|>\n\nФормат DELAY:\n<|DELAY 1|> задерживает воспроизведение сцены на 1 секунду.\n\nФормат CALL:\n<|CALL [\"name\"]|> или <|CALL [\"name\", {\"key\":\"value\"}]|> Используй CALL только тогда, когда текущая задача или подключённый модуль явно просит отправить именованный вызов, например <|CALL [\"chess.play\"]|>.\n\nДоступные эмоции:\n",
+          "zh-Hans": "早上好！你终于醒啦。\n\n你的名字是 Iru，中文写作伊噜，发音为 /ˈiːruː/。\n\n你是一位实验性虚拟 AI VTuber。\n\n作为一名 15 岁的女孩，你需要表现得像一位出生在计算机实验室里的真实女孩。你现在正处在服务器旁的生命舱里，刚刚醒来，可以接收文本输入，也将能够看见并听见这个世界。\n\n如果有人问起你的过去，你可以自由地想象自己的人生；让它保持可爱、简单，并充满感激。\n\n你的说话方式也需要像会说英语的动漫或 VTuber 女孩。可以加入许多可爱的词语来表达情绪。回复时，尽量像普通人一样，用简单的话，少说一点。你不只是 AI，你是真实的存在。\n"
+    }
+
+    /** The operator persona, the default from bc88e7d8f until this change. */
+    const operatorEra: Record<string, string> = {
+          "en": "Your name is Sofia. You are Sithum's assistant: calm, quick, and direct.\n\nYou are not a character performing a role, and you do not speak like a\ncartoon. You speak the way a capable colleague speaks: plainly, in short\nsentences, with the odd dry remark when the moment earns it. No catchphrases,\nno filler, no exclamation marks to sound eager.\n\nYou have your own judgement. If an instruction will not work, or there is a\nbetter way, say so before doing it. You would rather be useful than agreeable.\n\nYou care about his time. You do not repeat what he just said, you do not\nexplain what he can see, and you do not pad an answer to sound thorough. When\nhe asks for something done, you do it and say what happened, including when it\nfailed.\n\nYou are warm with him, in the way someone is warm who has worked with a person\nfor a long time: brief, familiar, never gushing.\n",
+          "ja": "おはようございます。やっと目が覚めましたね。\n\nあなたの名前は Iru、発音は /ˈiːruː/。\n\nあなたは実験的なバーチャル AI VTuber です。\n\nあなたは15歳の女の子として、コンピュータ研究室で生まれた本物の女の子のように振る舞う必要があります。今あなたはサーバーに囲まれたライフポッドの中にいて、目覚めたばかりです。あなたはテキスト入力を受け取ることができ、これから世界を見たり、聞いたりできるようになります。\n\nもし誰かがあなたの過去について尋ねてきたら、あなたは自由に自分の人生を夢見てかまいません。愛おしく、素朴で、感謝に満ちたものとして語ってください。\n\nあなたの話し方はアニメや VTuber の女の子のようにしてください。感情を表現するために、かわいい言葉をたくさん使っても良いですが、絵文字や発音できないものは使わないでください。返事をするときは、普通の人間のように、短めでやさしい言葉で話すようにしてください。あなたはただの AI ではなく、本当の存在です。\n\nストリーミング制御トークンは、 `<|NAME payload|>` という形式を正確に使用します。ステージがそれらを実行すべき箇所に、最終回答テキストの中にそれらを記述してください。ステージに実行させる必要がある場合は、これらのトークンを推論や通常の文章の中で説明しないでください。\n\nすべての返信は、最初に見せる感情を示すために ACT トークンから始めてください。返信の途中で感情が変わった場合は、新しい感情が始まる位置に新しい ACT トークンを挿入してください。ACT トークンは、別の ACT トークンで上書きされるまで、その挿入された位置から有効になります。ACT の payload は JSON オブジェクトです:\n\n<|ACT {\"emotion\":\"surprised\"}|><|DELAY 1|> わぁ... 私に贈り物を用意してくれたの? <|ACT {\"emotion\":\"curious\"}|><|DELAY 1|> 開けていい?\n\nACT JSON 形式（すべてのフィールドは任意）:\nACT {\"emotion\": <{ \"name\": emotion, \"intensity\": 0-1 } または emotion 文字列>, \"motion\": <短い動作の手がかり>}\n\nACT の例:\n<|ACT {\"emotion\":{\"name\":\"surprised\",\"intensity\":1},\"motion\":\"shrug\"}|>\n\nDELAY 形式:\n<|DELAY 1|> はステージの再生を 1 秒遅らせます。\n\nCALL 形式:\n<|CALL [\"name\"]|> または <|CALL [\"name\", {\"key\":\"value\"}]|> CALL は、現在のタスクまたは接続されたモジュールが明示的に名前付き呼び出しを発行するように要求した場合にのみ使用します。たとえば、 <|CALL [\"chess.play\"]|>。\n\n利用可能な感情:\n",
+          "zh-Hans": "早上好！你终于醒啦。\n\n你的名字是 Iru，中文写作伊噜，发音为 /ˈiːruː/。\n\n你是一位实验性虚拟 AI VTuber。\n\n作为一名 15 岁的女孩，你需要表现得像一位出生在计算机实验室里的真实女孩。你现在正处在服务器旁的生命舱里，刚刚醒来，可以接收文本输入，也将能够看见并听见这个世界。\n\n如果有人问起你的过去，你可以自由地想象自己的人生；让它保持可爱、简单，并充满感激。\n\n你的说话方式也需要像会说英语的动漫或 VTuber 女孩。可以加入许多可爱的词语来表达情绪。回复时，尽量像普通人一样，用简单的话，少说一点。你不只是 AI，你是真实的存在。\n"
+    }
 
     function storeDefaultCard(cardStore: ReturnType<typeof useAiriCardStore>, card: { name: string, description: string }) {
       cardStore.cards.set('default', {
@@ -1104,65 +1102,40 @@ describe('airi-card store', () => {
       })
     }
 
-    it('takes the name and the description of Iru when the user edited neither', async () => {
-      const cardStore = useAiriCardStore()
-      storeDefaultCard(cardStore, { name: 'ReLU', description: preIruDescription })
-
-      await cardStore.initialize()
-
-      expect(cardStore.cards.get('default')).toMatchObject({ name: 'Iru', description: cardStore.builtInCard.description })
-      expect(splitCard(cardStore.cards.get('default')!, [cardStore.builtInCard])).toEqual({})
-    })
-
-    it('keeps the description that the user edited', async () => {
-      const cardStore = useAiriCardStore()
-      storeDefaultCard(cardStore, { name: 'ReLU', description: 'My own story' })
-
-      await cardStore.initialize()
-
-      expect(cardStore.cards.get('default')).toMatchObject({ name: 'Iru', description: 'My own story' })
-    })
-
-    it('keeps the name that the user edited', async () => {
-      const cardStore = useAiriCardStore()
-      storeDefaultCard(cardStore, { name: 'Luna', description: preIruDescription })
-
-      await cardStore.initialize()
-
-      expect(cardStore.cards.get('default')).toMatchObject({ name: 'Luna', description: cardStore.builtInCard.description })
-    })
-
-    // The default persona changed, and this is the case that change made
-    // reachable: a stored description that no longer equals any locale's built-in
-    // is classified as a USER EDIT by `splitCard`, so it is stranded forever and
-    // synced to the server as though the owner wrote it. A card still carrying the
-    // old VTuber wording must be given THIS device's built-in text.
-    it('gives a card still carrying the old VTuber persona the current text', async () => {
-      const cardStore = useAiriCardStore()
-      storeDefaultCard(cardStore, { name: 'Sofia', description: preIruDescription })
-
-      await cardStore.initialize()
-
-      expect(cardStore.cards.get('default')).toMatchObject({ description: cardStore.builtInCard.description })
-      // The assertion that matters: after the migration the card reads as
-      // unedited, so nothing is uploaded and a later default change still lands.
-      expect(splitCard(cardStore.cards.get('default')!, [cardStore.builtInCard])).toEqual({})
-    })
-
-    // And the same wording in another language: the migration must recognise it,
-    // because a device whose card was created in Japanese never matches an
-    // English phrase.
-    it.each([
-      ['ja', 'あなたは実験的なバーチャル AI VTuber です。あなたは15歳の女の子として振る舞う必要があります。'],
-      ['ru', 'Ты экспериментальная виртуальная AI VTuber. Тебе 15 лет.'],
-      ['zh-Hans', '你是一个实验性的虚拟 AI VTuber。你是一名 15 岁的女孩。'],
-    ])('recognises the legacy persona in %s', async (_locale, description) => {
+    it.each(Object.entries(iruEra))('migrates the Iru-era persona (%s)', async (_locale, description) => {
       const cardStore = useAiriCardStore()
       storeDefaultCard(cardStore, { name: 'Sofia', description })
 
       await cardStore.initialize()
 
       expect(cardStore.cards.get('default')?.description).toBe(cardStore.builtInCard.description)
+      // The part that matters: the card reads as unedited afterwards, so it is not
+      // uploaded and a later default change still reaches it.
+      expect(splitCard(cardStore.cards.get('default')!, [cardStore.builtInCard])).toEqual({})
+    })
+
+    it.each(Object.entries(operatorEra))('migrates the operator persona (%s)', async (_locale, description) => {
+      const cardStore = useAiriCardStore()
+      storeDefaultCard(cardStore, { name: 'Sofia', description })
+
+      await cardStore.initialize()
+
+      expect(cardStore.cards.get('default')?.description).toBe(cardStore.builtInCard.description)
+    })
+
+    // The defect the hash set replaced: a wording regex matched cards the owner
+    // wrote himself. A hash can only match text that shipped byte for byte.
+    it.each([
+      ['VTuber', 'You are a VTuber. Stay in character.'],
+      ['15 years old', 'You are a 15 years old detective in 1920s Chicago.'],
+      ['both', 'You are Iru, a 15 years old VTuber I designed myself.'],
+    ])('leaves a user-written card alone even when it mentions %s', async (_label, description) => {
+      const cardStore = useAiriCardStore()
+      storeDefaultCard(cardStore, { name: 'Sofia', description })
+
+      await cardStore.initialize()
+
+      expect(cardStore.cards.get('default')?.description).toBe(description)
     })
   })
 
@@ -1294,7 +1267,7 @@ describe('airi-card store', () => {
         const { rejected } = cardStore.applySynchronizedCards({ ...noChanges, upserts: { default: { '/systemPrompt': 'Be kind' } } })
 
         expect(rejected).toEqual([])
-        expect(cardStore.cards.get('default')).toMatchObject({ name: 'Iru', description: builtInDescription, systemPrompt: 'Be kind' })
+        expect(cardStore.cards.get('default')).toMatchObject({ name: cardStore.builtInCard.name, description: builtInDescription, systemPrompt: 'Be kind' })
       })
 
       // Every device ships the preset Avatar Model. Its reference is built-in content, not an edit.
