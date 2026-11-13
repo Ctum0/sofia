@@ -261,24 +261,46 @@ const SEED_SCRIPT = `<script>
       if (rawCards) {
         var parsed = JSON.parse(rawCards);
         var touched = false;
-        var walk = function (node) {
+        // The BUILT-IN card only. This walk used to rename any node whose name was
+        // Iru or AIRI, which is fine for the stock card and destructive for one
+        // Sithum wrote himself: a character he deliberately called Iru would be
+        // silently renamed to Sofia on every load, forever, with no way to notice.
+        // The stock card is the map entry "default" (or a node that says it is), so
+        // that is the only one touched.
+        var isBuiltInCard = function (node, key) {
+          return key === 'default' || node.id === 'default' || node.characterId === 'default';
+        };
+        // The store is a Map, which VueUse serialises as [[key, value], …]; a card
+        // entry therefore arrives as a pair whose FIRST element is the id. Reading
+        // that is what lets the built-in card be identified at all — without it the
+        // walk sees only arrays and never finds a key.
+        var walk = function (node, key) {
           if (!node || typeof node !== 'object') return;
-          if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) walk(node[i]); return; }
-          if (typeof node.name === 'string' && LEGACY.indexOf(node.name.trim()) !== -1) {
-            node.name = 'Sofia';
-            touched = true;
+          if (Array.isArray(node)) {
+            if (node.length === 2 && typeof node[0] === 'string' && node[1] && typeof node[1] === 'object') {
+              walk(node[1], node[0]);
+              return;
+            }
+            for (var i = 0; i < node.length; i++) walk(node[i], undefined);
+            return;
           }
-          // The persona copy opens with the character introducing itself by the
-          // legacy name, so a renamed card still answers to the old one. Rewrite
-          // that line only: the rest of the description is personality, which is
-          // the part worth keeping.
-          if (typeof node.description === 'string' && node.description.indexOf('Your name is ' + LEGACY[0]) !== -1) {
-            node.description = node.description
-              .split('Your name is ' + LEGACY[0] + ', pronounced as /ˈiːruː/.').join('Your name is Sofia.')
-              .split('Your name is ' + LEGACY[0]).join('Your name is Sofia');
-            touched = true;
+          if (isBuiltInCard(node, key)) {
+            if (typeof node.name === 'string' && LEGACY.indexOf(node.name.trim()) !== -1) {
+              node.name = 'Sofia';
+              touched = true;
+            }
+            // The persona copy opens with the character introducing itself by the
+            // legacy name, so a renamed card still answers to the old one. Rewrite
+            // that line only: the rest of the description is personality, which is
+            // the part worth keeping.
+            if (typeof node.description === 'string' && node.description.indexOf('Your name is ' + LEGACY[0]) !== -1) {
+              node.description = node.description
+                .split('Your name is ' + LEGACY[0] + ', pronounced as /ˈiːruː/.').join('Your name is Sofia.')
+                .split('Your name is ' + LEGACY[0]).join('Your name is Sofia');
+              touched = true;
+            }
           }
-          for (var k in node) { if (node[k] && typeof node[k] === 'object') walk(node[k]); }
+          for (var k in node) { if (node[k] && typeof node[k] === 'object') walk(node[k], k); }
         };
         walk(parsed);
         if (touched) localStorage.setItem('airi-cards', JSON.stringify(parsed));

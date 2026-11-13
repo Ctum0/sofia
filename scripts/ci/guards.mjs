@@ -239,7 +239,12 @@ check('G14 no locale ships the legacy persona', () => {
   // every locale. `anime` is deliberately NOT a marker: the replacement text says
   // "you do not speak like a cartoon", so the word legitimately appears in the
   // correct version too.
-  const markers = [/VTuber/i, /15\s*(?:years? old|year-old|歳|años|ans|세|лет|ปี|tuổi|岁|歲)/i]
+  // `Iru` matters separately from the age and the VTuber line: those files are
+  // Crowdin-managed (`crowdin-cron-sync.yml` downloads approved translations daily),
+  // so an upstream project that still has the old text approved can revert a hand
+  // edit within a day. Naming the character catches that revert even when a
+  // translation rewords the other two.
+  const markers = [/VTuber/i, /Iru/i, /15\s*(?:years? old|year-old|歳|años|ans|세|лет|ปี|tuổi|岁|歲)/i]
   const offenders = []
   for (const name of locales) {
     const text = read(`packages/i18n/src/locales/${name}/base.yaml`)

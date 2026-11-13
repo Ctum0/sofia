@@ -20,6 +20,7 @@
 //   inside the gateway container:  node hands-gate.mjs
 //   from a laptop against prod:    BASE=https://sofia.ctum.org SOFIA_PASSWORD=… node hands-gate.mjs
 import process from 'node:process'
+import { readFileSync } from 'node:fs'
 
 const results = []
 const ok = (name, detail = '') => { results.push(['PASS', name]); console.log(`PASS  ${name}${detail ? ` — ${detail}` : ''}`) }
@@ -363,6 +364,52 @@ process.exitCode = passed === results.length ? 0 : 1
     mine.startsWith('MY OWN CARD') && /You have hands/.test(mine)
       ? ok('a sent card wins over the default, and the rules still apply', `${mine.length} chars`)
       : fail('a sent card wins over the default, and the rules still apply', mine.slice(0, 70))
+  }
+
+  // The seed's card rewrite must rename the BUILT-IN card and leave a card the
+  // user wrote alone. It runs in the browser, so it is exercised here exactly as
+  // emitted: extracted from `server.mjs`, run in a fake DOM with a `location` (the
+  // script reads `location.origin` first, and the seed's own `try{}catch{}` would
+  // otherwise swallow the ReferenceError and make every assertion vacuous — which
+  // is how the first version of this check passed while proving nothing).
+  {
+    const serverSource = readFileSync(new URL('../server.mjs', import.meta.url), 'utf8')
+    const marker = 'const SEED_SCRIPT = `'
+    const at = serverSource.indexOf(marker)
+    const body = serverSource.slice(at + marker.length)
+    const script = body.slice(0, body.indexOf('`')).replace(/^\s*<script>\s*/, '').replace(/\s*<\/script>\s*$/, '')
+    const store = new Map()
+    const fakeLocal = {
+      getItem: k => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, v),
+    }
+    // The store is a Map: VueUse writes it as [[id, card], …].
+    store.set('airi-cards', JSON.stringify([
+      ['default', { name: 'Iru', description: 'Your name is Iru, pronounced as /ˈiːruː/. You are an experimental virtual AI VTuber.' }],
+      ['mine', { name: 'Iru', description: 'My own character, also called Iru. Written by Sithum.' }],
+    ]))
+    let threw = null
+    try {
+      // eslint-disable-next-line no-new-func
+      new Function('location', 'localStorage', 'window', 'navigator', 'caches', 'document', script)(
+        { origin: 'http://127.0.0.1:8787' }, fakeLocal, {}, { serviceWorker: { getRegistrations: () => Promise.resolve([]) } },
+        { keys: () => Promise.resolve([]), delete: () => Promise.resolve() }, { querySelector: () => null, addEventListener: () => {} },
+      )
+    }
+    catch (error) {
+      threw = error
+    }
+    const after = threw ? [] : JSON.parse(store.get('airi-cards'))
+    const byId = Object.fromEntries(after.map(([id, card]) => [id, card]))
+    !threw
+      ? ok('the seed script runs in the browser as emitted', 'no exception')
+      : fail('the seed script runs in the browser as emitted', threw.message.slice(0, 90))
+    byId.default?.name === 'Sofia'
+      ? ok('the seed renames the built-in card', `name: ${byId.default?.name}`)
+      : fail('the seed renames the built-in card', `name: ${JSON.stringify(byId.default?.name)}`)
+    byId.mine?.name === 'Iru'
+      ? ok('the seed leaves a user-written card alone', `name: ${byId.mine?.name}`)
+      : fail('the seed leaves a user-written card alone', `name: ${JSON.stringify(byId.mine?.name)} (it was renamed)`)
   }
 
   // `uncheck` must UNTICK. It maps to the same verb as `check`, whose default is
