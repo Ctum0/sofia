@@ -146,7 +146,12 @@ run_gate() {
   # "Target page, context or browser has been closed" mid-run in Chromium, and
   # this session saw that symptom three times in gates that pass standalone. A
   # browser ate through 64 MB on a page with images.
-  docker run --rm --network host --shm-size=1g \
+  #
+  # `timeout`, because a wedged gate used to block the whole release forever: the
+  # gate's output is captured in `$( … )`, so nothing is printed and nothing can
+  # time it out from outside. 1800 s is above the slowest measured gate (~700 s)
+  # and low enough that a hang is reported as a hang rather than as silence.
+  timeout 1800 docker run --rm --network host --shm-size=1g \
     -v /home/ctum/qa:/qa \
     -v "$TREE_GATES:/qa/current:ro" \
     -v /home/ctum/secrets:/home/ctum/secrets:ro \
@@ -217,6 +222,12 @@ for g in text-panel-gate.mjs windows-gate.mjs browser-gate.mjs frame-gate.mjs wi
   docker exec "$(docker ps --format '{{.Names}}' | grep zp31 | head -1)" \
     curl -s -m 8 -X POST http://sofia-browser:8790/close-all >/dev/null 2>&1 || true
   out=$(run_gate "$g")
+  gate_rc=$?
+  # `timeout` exits 124; say so, instead of letting the next check interpret an
+  # empty string as "did not report a count".
+  if [ "$gate_rc" = "124" ]; then
+    echo "  note: ${g} exceeded 1800 s and was killed — that is a hang, not a slow gate"
+  fi
   # Keep every gate's full output. A gate that dies has its tail printed above and
   # its count is the only thing the verifier acts on, so the lines that explain WHY
   # were being thrown away — three separate investigations today reconstructed

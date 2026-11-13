@@ -98,7 +98,13 @@ elif [ "$MODE" = "--recreate" ] || [ "$(browser_state)" != "running" ]; then
   [ -d "$PROFILE_DIR_HOST" ] || { mkdir -p "$PROFILE_DIR_HOST" && chmod 700 "$PROFILE_DIR_HOST"; }
   say "starting sofia-browser"
   docker rm -f sofia-browser >/dev/null 2>&1
+  # A memory cap, because this container had none: `docker stats` showed it
+  # reporting the HOST's 23.47 GiB as its limit, so a runaway page could take the
+  # whole VPS down with the eleven other services on it. `browse-service` already
+  # runs `--disable-dev-shm-usage`, and 1 GiB covers the measured worst case (five
+  # live pages, ~80 MB here plus Chromium's renderers).
   docker run -d --name sofia-browser --restart unless-stopped \
+    --memory 1g --memory-swap 1g \
     --network coolify \
     -v "$REPO/apps/sofia-gateway/browse-service:/app" \
     -v "$QA_DIR:/qa" \
