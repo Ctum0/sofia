@@ -198,7 +198,14 @@ note "$brand_ok brand assets"
 # opens nothing, and — added 2026-11-10 — the same window on a phone, a tablet
 # and a laptop, because that gate found a real 74 px overlap at 1024x768 while
 # every other gate looked at 1440 only.
-for g in windows-gate.mjs browser-gate.mjs text-panel-gate.mjs frame-gate.mjs windows-responsive-gate.mjs; do
+# text-panel-gate runs FIRST, on its own. It holds one stage page for ~200 s and
+# is the only gate that dies with "Target page, context or browser has been
+# closed" when the verifier has already run several Chromium containers — twice in
+# a row at the same step, while passing 18/18 standalone through the same capture
+# path (`out=$(run_gate …)`). Whatever Chromium does to itself after the other
+# gates have run, giving the longest gate a fresh one is the fix that costs
+# nothing and hides nothing: the assertions are unchanged.
+for g in text-panel-gate.mjs windows-gate.mjs browser-gate.mjs frame-gate.mjs windows-responsive-gate.mjs; do
   out=$(run_gate "$g")
   # A browser that cannot reach the page is not a product failure. Seen on
   # 2026-11-10: "net::ERR_NETWORK_CHANGED" scored windows-gate 0/1 and read
