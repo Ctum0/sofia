@@ -1,0 +1,41 @@
+# 
+# 0 5 * * 1 tar -zcf /var/backups/home.tgz /home/
+# Each task to run has to be defined through a single line
+# Edit this file to introduce tasks to be run by cron.
+# For example, you can run a backup of all your user accounts
+# For more information see the manual pages of crontab(5) and cron(8)
+# Notice that tasks will be started based on the cron's system
+# Output of the crontab jobs (including errors) is sent through
+# To define the time you can provide concrete values for
+# and day of week (dow) or use '*' in these fields (for 'any').
+# and what command to run for the task
+# at 5 a.m every week with:
+# daemon's notion of time and timezones.
+# email to the user the crontab file belongs to (unless redirected).
+# indicating with different fields when the task will be run
+# m h  dom mon dow   command
+# minute (m), hour (h), day of month (dom), month (mon),
+*/5 * * * * /home/ctum/memory-monitor.sh 2>&1 >/dev/null
+0 */6 * * * docker exec hermes python3 -c "import gc; gc.collect()" 2>/dev/null
+0 2 * * * /home/ctum/backup.sh >> /home/ctum/hermes-agent/logs/backup-cron.log 2>&1
+0 2 * * * /home/ctum/wazuh-cleanup.sh >> /home/ctum/logs/wazuh-cleanup.log 2>&1
+0 3 * * * /home/ctum/hermes-agent/rotate-logs.sh >> /home/ctum/hermes-agent/logs/rotate-cron.log 2>&1
+0 3 * * 0 /home/ctum/prune-memory-log.sh 2>&1 >/dev/null
+0 3 * * 0 docker restart litellm >> /home/ctum/logs/litellm-restart.log 2>&1
+0 4 * * * docker image prune -f >> /home/ctum/hermes-agent/logs/prune-cron.log 2>&1
+0 5 * * * /home/ctum/vps-backup.sh >> /home/ctum/logs/vps-backup.log 2>&1
+30 7 * * * bash /home/ctum/hermes-agent/auto-update.sh >> /home/ctum/hermes-agent/logs/cron-err.log 2>&1
+@reboot /bin/bash -c 'for s in 10 30 60 120; do sleep $s; /home/ctum/reapply-limits.sh >/dev/null 2>&1; done' &
+@reboot sleep 10 && /home/ctum/bin/ensure-iris-route.sh >/dev/null 2>&1
+0 4 * * 0 sudo /usr/bin/journalctl --vacuum-size=500M >> /home/ctum/logs/journald-vacuum.log 2>&1
+*/15 * * * * /home/ctum/reapply-limits.sh >/dev/null 2>&1
+*/10 * * * * flock -n /tmp/netwatch.lock python3 /home/ctum/netwatch/netwatch.py >> /home/ctum/netwatch/cron.log 2>&1
+*/15 * * * * /home/ctum/bin/research-watchdog.sh >> /home/ctum/logs/research-watchdog.log 2>&1
+* * * * * /home/ctum/bin/watchdog-collector.sh >/dev/null 2>&1
+@reboot sleep 12 && /home/ctum/bin/ensure-sofia-route.sh >/dev/null 2>&1
+30 4 * * * /home/ctum/scripts/docker-prune.sh >> /home/ctum/logs/docker-prune.log 2>&1
+* * * * * /home/ctum/bin/bulk-stop-guard.sh >/dev/null 2>&1
+
+# Wazuh VD cache cap — monthly (added 2026-11-12). No-op unless the manager is running.
+# Wazuh 4.14.8 accumulates vulnerability-detector SSTs in queue/vd* and never compacts them.
+0 4 1 * * /usr/bin/docker inspect -f "{{.State.Running}}" single-node-wazuh.manager-1 2>/dev/null | grep -q true && (/usr/bin/docker compose -f /home/ctum/wazuh-docker/single-node/docker-compose.yml stop wazuh.manager && /usr/bin/docker run --rm --entrypoint sh -v single-node_wazuh_queue:/q alpine:3.20 -c "rm -rf /q/vd/* /q/vd_updater/* /q/indexer/*" && /usr/bin/docker compose -f /home/ctum/wazuh-docker/single-node/docker-compose.yml start wazuh.manager) >/tmp/wazuh-vd-clean.log 2>&1

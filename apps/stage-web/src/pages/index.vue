@@ -289,28 +289,36 @@ function showPanel(payload: { kind?: 'image' | 'web' | 'live', url: string, titl
   const vh = window.innerHeight
   // She keeps the left of the stage; what she opens takes the right. A window
   // dropped in the middle covers the avatar, which is the thing he asked not to
-  // happen.
+  // happen: her column narrows to `stage-column--narrow` and the window takes
+  // the width she gave up.
   //
-  // The shoulder is READ, not assumed: the first version placed windows by
-  // "viewport minus width minus 48" and the 620 px default only cleared her at
-  // >=1280 px. Measured on the live build 2026-11-10: at 1024 it started 74 px
-  // over her (356 vs shoulder 430) and at 768 it started 476 px over her
-  // (100 vs 576) — a 768-wide window is a tablet or a landscape phone, where
-  // the dock does mount. So: measure her column, and when no real window fits
-  // beside her, go low and wide instead of pretending — her head stays clear.
+  // The window sits against the column's MEASURED right edge. Its predecessor
+  // parked it at `herW * 0.75` — three quarters across a column whose avatar
+  // only fills the middle — and on the user's 1912x1085 screenshot that left
+  // the avatar ending at x=290 with the window starting at x=929 and empty
+  // stage between them. A fraction of the column cannot know where her edge is;
+  // the layout already does.
+  //
+  // The rect is read BEFORE the window exists, so the column is still at full
+  // width, and a second window reads it mid-transition. Both are wider than
+  // where it settles, so bound the reading by the share the scoped CSS hands
+  // over (56% under `stage-column--narrow`): a measurement is used only when it
+  // is already narrower than that.
+  //
+  // Below 768 px the media query drops the 56% (a tablet cannot hold a window
+  // beside her), and the 360 px floor below sends the window low and wide
+  // instead of pretending — measured 2026-11-10: a window placed beside her at
+  // 768 px started 476 px over her, on her head.
+  const gutter = 24
+  const narrowShare = 0.56
   const col = document.querySelector('.stage-column')?.getBoundingClientRect()
-  // Read BEFORE the window exists, so the column is still at full width. What
-  // matters is where it ends up AFTER `stage-column--narrow` applies, so take
-  // the narrower of the two: 58% (the CSS says 56%; the measured post-open
-  // column ran to 57.9% at 1280, and a shoulder 19 px short of hers is a
-  // failure) and, below the media query's 768 px, the full width.
-  const herW = Math.min(col ? col.width : vw, Math.round(vw * (vw <= 768 ? 1 : 0.58)))
-  const shoulder = Math.round(herW * 0.75)
-  const besideW = vw - shoulder - 48
+  const narrowW = Math.round(vw * narrowShare)
+  const herRight = Math.round(col?.x ?? 0) + Math.min(Math.round(col?.width ?? narrowW), narrowW)
+  const besideW = vw - herRight - gutter * 2
   const beside = besideW >= 360
   const preferredW = kind === 'live' ? 680 : kind === 'web' ? 560 : 620
   const w = beside ? Math.min(preferredW, besideW) : vw - 48
-  const x = beside ? Math.min(Math.max(shoulder, vw - w - 48 - n * 30), vw - w - 16) : 24
+  const x = beside ? Math.min(herRight + gutter + n * 30, vw - w - gutter) : 24
   const y = beside ? 104 + n * 28 : Math.max(96, Math.round(vh * 0.42))
   const h = Math.min(kind === 'live' ? 520 : kind === 'web' ? 320 : 440, Math.max(240, vh - y - 24))
   windows.value = [...windows.value, {
