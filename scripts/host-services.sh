@@ -70,7 +70,31 @@ fi
 # network as the app, must see the browse-service source, must have the profile
 # volume, and must be able to resolve `playwright` (the image ships browsers but
 # the module is resolved from the QA directory, which is mounted).
-if [ "$MODE" = "--recreate" ] || [ "$(browser_state)" != "running" ]; then
+# A restart is needed when the SOURCE changed, not only when the container died.
+# `/app` is a bind mount, so a new `server.mjs` appears in the container
+# immediately while the running process keeps the old module — and every check
+# that greps the file then passes while the service serves stale code. That cost
+# a gate run today: the file had the fix, the process did not.
+# Comparing file contents cannot work: `/app` is a bind mount, so the container's
+# copy is always identical to the tree the instant it changes. What goes stale is
+# the MODULE LOADED IN MEMORY. The observable fact is time — a source file newer
+# than the process that read it means the process is running older code.
+browser_stale=0
+if [ "$(browser_state)" = "running" ]; then
+  source_mtime=$(date -r "$REPO/apps/sofia-gateway/browse-service/server.mjs" +%s 2>/dev/null || echo 0)
+  started_at=$(docker inspect -f '{{.State.StartedAt}}' sofia-browser 2>/dev/null)
+  started_epoch=$(date -d "$started_at" +%s 2>/dev/null || echo 0)
+  if [ "$source_mtime" -gt 0 ] && [ "$started_epoch" -gt 0 ] && [ "$source_mtime" -gt "$started_epoch" ]; then
+    browser_stale=1
+    say "sofia-browser started before its source changed ($((source_mtime - started_epoch))s older); restarting"
+  fi
+fi
+
+# Stale code needs only a restart: the container and its profile volume are fine,
+# and `docker rm` would throw away every page the user has open.
+if [ "$browser_stale" = "1" ] && [ "$MODE" != "--recreate" ]; then
+  docker restart sofia-browser >/dev/null || fail 2 "could not restart sofia-browser"
+elif [ "$MODE" = "--recreate" ] || [ "$(browser_state)" != "running" ]; then
   [ -d "$PROFILE_DIR_HOST" ] || { mkdir -p "$PROFILE_DIR_HOST" && chmod 700 "$PROFILE_DIR_HOST"; }
   say "starting sofia-browser"
   docker rm -f sofia-browser >/dev/null 2>&1
