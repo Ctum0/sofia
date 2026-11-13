@@ -236,10 +236,19 @@ try {
   // gate), and demanding a "Sign in" link on /login asks the page to link to
   // itself. What matters is that a click lands on a sign-in page — the assertion
   // below — not that the entry point is a particular link.
+  //
+  // Detected from the page's OWN content as well as the stage's remembered URL.
+  // The `data-url` attribute is written when the stage last heard about the page,
+  // and a click earlier in this gate advances the page without the attribute
+  // necessarily following; the release run then reported `offers: … Forgot
+  // password? | Create an account` — a sign-in page with no "Sign in" link, judged
+  // a failure. Those two links exist nowhere else.
   const alreadyThere = await page.evaluate(() => {
     const el = document.querySelector('[data-testid=sofia-window][data-kind=live]')
     return /sign|login/i.test(el?.getAttribute('data-url') || '')
   }).catch(() => false)
+  const looksLikeSignIn = signInLabel.offers.some(t => /forgot password|create an account|sign in to/i.test(t))
+  const onSignIn = alreadyThere || looksLikeSignIn
   // Three explicit outcomes. The first version recorded a pass only when the page
   // was ALREADY on the sign-in page and a failure when neither held — so the
   // normal case (a label was found) contributed nothing at all, and the gate's
@@ -247,19 +256,27 @@ try {
   if (signInLabel.label) {
     ok('the page offers a sign-in control to click', `"${signInLabel.label}"`)
   }
-  else if (alreadyThere) {
+  else if (onSignIn) {
     ok('the page offers a sign-in control to click', 'already on the sign-in page')
   }
   else {
     fail('the page offers a sign-in control to click', `offers: ${signInLabel.offers.slice(0, 6).join(' | ') || 'none'}`)
   }
-  // Assert the TRANSITION, not an absolute state. The page before the click is
-  // github.com, and the sign-in URL contains "github.com" too — so a fixed wait
-  // followed by one absolute read was really asking "did this happen within 20 s",
-  // and under the host load of back-to-back gates it did not: the same check
-  // passed 18/18 standalone and failed in the release run with "saw
-  // https://github.com/" — the click was still in flight, not wrong. Waiting for
-  // the URL to CHANGE makes the failure mean what it says.
+  // Nothing to click when the window is already on the sign-in page. Rather than
+  // skip the click path, put the window back on the page that offers the link: the
+  // transition is the thing this gate exists to check, and a page caught mid-flow
+  // by an earlier step must not turn that check into a pass for work never done.
+  if (onSignIn && !signInLabel.label) {
+    await say('close everything')
+    await page.waitForFunction(
+      () => document.querySelectorAll('[data-testid=sofia-window]').length === 0,
+      { timeout: 15000 },
+    ).catch(() => {})
+    await say('open github and show me')
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid=sofia-window]').length > 0, { timeout: 60000 }).catch(() => {})
+    await page.waitForTimeout(3000)
+  }
+
   const urlOf = () => page.evaluate(() => {
     const el = document.querySelector('[data-testid=sofia-window][data-kind=live]')
     return el ? (el.getAttribute('data-url') || '') : ''
