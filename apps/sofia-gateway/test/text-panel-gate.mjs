@@ -25,7 +25,7 @@ try {
 catch (error) {
   fail('the gate could start a browser', String(error?.message || error).slice(0, 160))
   console.log(`\n${pass}/${total}`)
-  process.exit(1)
+  process.exitCode = 1
 }
 
 // A `page.evaluate` still in flight when the browser closes rejects AFTER the
@@ -39,7 +39,13 @@ function report() {
     return
   reported = true
   console.log(`\n${pass}/${total}`)
-  process.exit(pass === total ? 0 : 1)
+  // No `process.exit()` here. stdout is a PIPE in the release run (`out=$(run_gate
+  // ...)`), where Node's writes are asynchronous: exiting on the next line threw
+  // away everything still buffered — the tally AND the FAIL lines above it, so the
+  // verifier could only report "did not report a count" and its retry logic never
+  // saw the error that would have explained it. `frame-gate.mjs` documents the same
+  // trap. An exit code is all that is needed.
+  process.exitCode = (pass === total && total > 0) ? 0 : 1
 }
 process.on('unhandledRejection', (error) => {
   fail('the gate ran without an unhandled rejection', String(error?.message || error).slice(0, 160))
