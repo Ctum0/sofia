@@ -271,9 +271,38 @@ export function browseCommand(args = {}) {
   return out
 }
 
+/**
+ * Where browser actions actually execute.
+ *
+ * Two implementations exist: the headless service beside the gateway (default),
+ * and a local agent on the user's own machine driving a real Chromium. The
+ * caller cannot tell them apart — that is the point, because the tool contract,
+ * the model's view and every existing gate stay identical whether a page is a
+ * screenshot from this host or a window on a second monitor.
+ *
+ * Injected rather than imported: `server.mjs` imports this module, so reaching
+ * back into it would be a cycle.
+ */
+let transport = null
+
+/** Install the local-agent transport. Called once at startup when an agent is paired. */
+export function useTransport(next) {
+  transport = next
+}
+
 /** Ask the browser service to act on one page. Never throws on a page-level failure. */
 export async function runBrowse(step, { base = process.env.BROWSER_URL || 'http://sofia-browser:8790', sid, x = 640, y = 400, timeoutMs = 45_000 } = {}) {
   const payload = { sid, x, y, ...browseCommand(step) }
+  if (transport) {
+    try {
+      const body = await transport(payload, { timeoutMs })
+      return { ok: true, status: 200, body, payload }
+    }
+    catch (error) {
+      // Same shape as an HTTP failure, so `body.error` is where callers look.
+      return { ok: false, status: 502, body: { error: String(error?.message || error) }, payload }
+    }
+  }
   const res = await fetch(`${base}/act`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -288,6 +317,14 @@ export async function runBrowse(step, { base = process.env.BROWSER_URL || 'http:
 
 /** Open a page in a fresh browser context. */
 export async function openPage(url, { base = process.env.BROWSER_URL || 'http://sofia-browser:8790', timeoutMs = 45_000 } = {}) {
+  if (transport) {
+    try {
+      return await transport({ action: 'open', url }, { timeoutMs })
+    }
+    catch (error) {
+      throw new Error(String(error?.message || error))
+    }
+  }
   const res = await fetch(`${base}/open`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

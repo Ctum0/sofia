@@ -259,13 +259,15 @@ async function act({ sid, action, x, y, text, key, selector }) {
   // call is allowed to fail — "the field is not there" and "the field is in a
   // frame" look identical from outside and only one of them is the product's
   // fault.
+  // The main page first, then every child frame. Read per call, not cached: a
+  // consent dialog or an embedded widget attaches its frame after the page's
+  // first paint, so a list taken once at the top of `act` can miss it.
+  const scopesNow = () => [page, ...page.frames().filter(frame => frame !== page.mainFrame())]
   const frameOf = async (locatorFor) => {
     const main = locatorFor(page)
     if ((await main.count().catch(() => 0)) > 0)
       return main
-    for (const frame of page.frames()) {
-      if (frame === page.mainFrame())
-        continue
+    for (const frame of scopesNow().slice(1)) {
       try {
         const candidate = locatorFor(frame)
         if ((await candidate.count()) > 0)
@@ -319,45 +321,66 @@ async function act({ sid, action, x, y, text, key, selector }) {
       // while a perfectly good link sits beside it. Prefer a real control by
       // role, then any *visible* element whose text matches, then its clickable
       // ancestor.
+      //
+      // Consent walls ("Accept all", "Before you continue") and embedded sign-in
+      // widgets render inside an <iframe>, and a Playwright locator does not
+      // pierce one. Searching only the main page reported "nothing visible says
+      // Accept all" while the button was on screen, so every scope is searched
+      // in turn — main page first, so a top-level match still wins.
       const wanted = String(text || '').trim()
       const roles = ['link', 'button', 'tab', 'menuitem']
       let clicked = false
       for (const role of roles) {
-        const candidate = page.getByRole(role, { name: wanted, exact: false })
-        const count = await candidate.count().catch(() => 0)
-        for (let i = 0; i < count; i++) {
-          const el = candidate.nth(i)
-          if (await el.isVisible().catch(() => false)) {
-            await el.click({ timeout: 8000 })
-            clicked = true
-            break
+        for (const scope of scopesNow()) {
+          const candidate = scope.getByRole(role, { name: wanted, exact: false })
+          const count = await candidate.count().catch(() => 0)
+          for (let i = 0; i < count; i++) {
+            const el = candidate.nth(i)
+            if (await el.isVisible().catch(() => false)) {
+              await el.click({ timeout: 8000 })
+              clicked = true
+              break
+            }
           }
+          if (clicked)
+            break
         }
         if (clicked)
           break
       }
       if (!clicked) {
-        const matches = page.getByText(wanted, { exact: false })
-        const count = await matches.count().catch(() => 0)
-        for (let i = 0; i < count; i++) {
-          const el = matches.nth(i)
-          if (!(await el.isVisible().catch(() => false)))
-            continue
-          const target = el.locator('xpath=ancestor-or-self::a | ancestor-or-self::button | ancestor-or-self::*[@role="button"][1]').first()
-          const useIt = (await target.count().catch(() => 0)) > 0 ? target : el
-          await useIt.click({ timeout: 8000 })
-          clicked = true
-          break
+        for (const scope of scopesNow()) {
+          const matches = scope.getByText(wanted, { exact: false })
+          const count = await matches.count().catch(() => 0)
+          for (let i = 0; i < count; i++) {
+            const el = matches.nth(i)
+            if (!(await el.isVisible().catch(() => false)))
+              continue
+            const target = el.locator('xpath=ancestor-or-self::a | ancestor-or-self::button | ancestor-or-self::*[@role="button"][1]').first()
+            const useIt = (await target.count().catch(() => 0)) > 0 ? target : el
+            await useIt.click({ timeout: 8000 })
+            clicked = true
+            break
+          }
+          if (clicked)
+            break
         }
       }
       if (!clicked) {
         // Never a bare "not found": the caller cannot retry without knowing
         // what is actually clickable here, and a blind retry is how she ends up
-        // narrating a click that never happened.
-        const offers = await page.evaluate(() => [...document.querySelectorAll('a[href], button, [role=button], [role=tab], input[type=submit]')]
+        // narrating a click that never happened. The frame walk runs the same
+        // query inside each child frame — a control inside an iframe is on
+        // screen, so leaving it out of the list would be a lie.
+        const SURVEY = () => [...document.querySelectorAll('a[href], button, [role=button], [role=tab], input[type=submit]')]
           .filter(el => el.getClientRects().length > 0)
           .map(el => (el.textContent || el.value || el.getAttribute('aria-label') || '').trim())
-          .filter(t => t && t.length < 60)).catch(() => [])
+          .filter(t => t && t.length < 60)
+        const offers = await page.evaluate(SURVEY).catch(() => [])
+        for (const frame of scopesNow().slice(1)) {
+          const inFrame = await frame.evaluate(SURVEY).catch(() => [])
+          offers.push(...inFrame)
+        }
         const unique = [...new Set(offers)].slice(0, 12)
         throw new Error(`nothing visible on the page says "${wanted}". The page offers: ${unique.join(' | ') || 'no clickable controls'}`)
       }

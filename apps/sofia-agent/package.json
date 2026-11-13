@@ -1,0 +1,17 @@
+{
+  "name": "@sofia/agent",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Runs on YOUR machine: drives a local Chromium over one outbound WebSocket, so Sofia browses with real logins on a real screen instead of a headless browser on the VPS.",
+  "main": "sofia-agent.mjs",
+  "bin": {
+    "sofia-agent": "./sofia-agent.mjs"
+  },
+  "scripts": {
+    "start": "node sofia-agent.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.62.1"
+  }
+}

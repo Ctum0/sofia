@@ -21,6 +21,7 @@
 //   2. strips model reasoning from completions (the body is a mouth, not a mind),
 //   3. holds the Live socket so voice needs no client-side secret.
 import { Buffer } from 'node:buffer'
+import { createHash, timingSafeEqual } from 'node:crypto'
 import { createServer, request as httpRequest, STATUS_CODES } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 import { appendFileSync, createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
@@ -30,6 +31,7 @@ import { WebSocketServer } from 'ws'
 
 import { DEFAULT_MODEL, DEFAULT_VOICE, LiveBridge } from './live.mjs'
 import { LIVE_TOOLS, executeToolCall } from './tools.mjs'
+import { useTransport } from './intent.mjs'
 import { openPage, runBrowse, stageIntent } from './intent.mjs'
 import { recordTurn } from './memory.mjs'
 import { SseReasoningFilter, stripReasoningFromBody } from './reasoning-filter.mjs'
@@ -64,7 +66,7 @@ export const VOICE_RULES = [
   '`recall` is your memory of him: call it before asking something he may have already told you, and whenever he says "do you remember" or "what do you know about me". `remember` keeps a fact he wants you to hold on to. Both reach every conversation on every device, so treat what `recall` returns as things you genuinely know.',
   '`show_chart` draws a chart when numbers are easier to see than to hear — "show me", "graph that", "how does it compare". Give it the labels and the values; it renders the picture on the stage.',
   '`control_window` arranges what is already on screen — resize, move (left, centre or right), maximise, minimise, close, focus, tile, close_all. Use it when he says "move that window", "close them", "make it bigger" or words to that effect, and give it a target: "last", "first", or a window id.',
-  'Narrate, then act: say in one short clause what you are about to do BEFORE calling a slow tool ("pulling that up", "let me check"), then make the call. Never leave him in silence while a page loads, and never claim a result before the tool returns.',
+  'Narrate ONCE, then act: say one short clause about what you are doing before a slow tool ("pulling that up"), make the call, and then say nothing about it unless he needs to know something the screen cannot tell him. A page appearing IS the answer — do not announce it a second time. Never narrate the same action twice, never describe a tool running, and never restate a result you already gave. If the tool failed, say what it said, once.',
   'When a tool returns an error, say plainly that it did not work and what it said. Never invent a result.',
   'Never say you cannot see what is on screen, and never guess. Every tool answer ends with a `[stage: …]` line — that is what is really open right now. If you are unsure, call `browse` with action links or read and look.',
 ].join(' ')
@@ -108,6 +110,24 @@ export function composeVoiceInstruction(card = '') {
     return process.env.LIVE_SYSTEM_INSTRUCTION
   const persona = String(card || '').trim() || DEFAULT_PERSONA
   return `${persona}\n\n${VOICE_RULES}`
+}
+
+/**
+ * The pairing token a local browser agent must present.
+ *
+ * Kept separate from SOFIA_PASSWORD on purpose: the password grants access to the
+ * STAGE, while this token grants control of a browser on the user's own machine.
+ * Sharing one value would mean a leaked session cookie also buys browser control.
+ *
+ * Compared by digest so the comparison is constant-time and length-independent.
+ */
+function agentTokenMatches(given) {
+  const expected = (process.env.SOFIA_AGENT_TOKEN || '').trim()
+  if (!expected || !given)
+    return false
+  const a = createHash('sha256').update(String(given)).digest()
+  const b = createHash('sha256').update(expected).digest()
+  return timingSafeEqual(a, b)
 }
 
 function hermesKey() {
@@ -1162,8 +1182,135 @@ function refuseUpgrade(socket, status, body) {
   }
 }
 
+// The local browser agent (`apps/sofia-agent`) dials OUT to this path. It is a
+// separate socket from the voice stream with its own registry, because the two
+// have different lifetimes: the voice socket dies with the tab, while the agent
+// stays connected for hours and serves every window.
+const agentWss = new WebSocketServer({ noServer: true })
+/** The connected local agent, or null. Only one at a time: two agents driving two
+ *  laptops would make "the open page" ambiguous, and the tool contract has one. */
+let agentSocket = null
+/** Pending request -> resolver, so a call can be awaited like a normal promise. */
+const agentPending = new Map()
+let agentSeq = 0
+
+/**
+ * Ask the local agent to do something, and wait for its answer.
+ *
+ * This is the seam: `browse` and `show_panel` keep one shape whether the page is
+ * a headless browser on this host or a real Chromium on the user's laptop. The
+ * caller cannot tell which, and neither can the model.
+ */
+export function agentCall(body, { timeoutMs = 60_000 } = {}) {
+  if (!agentSocket)
+    return Promise.reject(new Error('no browser agent is connected — start sofia-agent on your machine'))
+  const id = `c${++agentSeq}`
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      agentPending.delete(id)
+      reject(new Error(`the browser agent did not answer within ${Math.round(timeoutMs / 1000)} s`))
+    }, timeoutMs)
+    agentPending.set(id, { resolve, reject, timer })
+    try {
+      agentSocket.send(JSON.stringify({ type: 'call', id, ...body }))
+    }
+    catch (error) {
+      clearTimeout(timer)
+      agentPending.delete(id)
+      reject(error)
+    }
+  })
+}
+
+/** True when a local agent is attached, so callers can prefer it over the host. */
+export function agentReady() {
+  return !!agentSocket
+}
+
+agentWss.on('connection', (ws, req) => {
+  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
+  const supplied = url.searchParams.get('token') || ''
+  // The socket already passed `isAuthed` or the token check, but a cookie-authed
+  // upgrade must not silently become browser control: this path needs its own
+  // token, always.
+  if (!agentTokenMatches(supplied) && !agentTokenMatches(req.headers['x-sofia-agent-token'])) {
+    ws.close(4401, 'agent token required')
+    return
+  }
+
+  // A second agent replaces the first: the user may have restarted theirs, and
+  // refusing forever would look like a broken product.
+  if (agentSocket) {
+    try { agentSocket.close(4409, 'replaced by a newer connection') }
+    catch {}
+  }
+  agentSocket = ws
+  // From here on, every browser action goes to the user's own machine: real
+  // Chromium, real logins, a window they can see. Installing it on connect (and
+  // uninstalling on disconnect) means the product upgrades itself the moment the
+  // agent attaches, with no setting to keep in sync.
+  useTransport((payload, { timeoutMs } = {}) => agentCall(payload, { timeoutMs }))
+  console.log('[sofia-gateway] browser agent connected')
+
+  ws.on('message', (raw) => {
+    let msg
+    try { msg = JSON.parse(String(raw)) }
+    catch { return }
+    if (msg.type === 'ping') {
+      try { ws.send(JSON.stringify({ type: 'pong' })) }
+      catch {}
+      return
+    }
+    if (msg.type !== 'result')
+      return
+    const pending = agentPending.get(msg.id)
+    if (!pending)
+      return
+    clearTimeout(pending.timer)
+    agentPending.delete(msg.id)
+    if (msg.ok)
+      pending.resolve(msg.result)
+    else
+      pending.reject(new Error(String(msg.error || 'the agent failed')))
+  })
+
+  ws.on('close', () => {
+    if (agentSocket === ws) {
+      agentSocket = null
+      // Back to the host service. The alternative -- leaving the transport
+      // installed -- turns every browse into a 60 s timeout that reads as "she is
+      // stuck", which is worse than falling back to a headless page.
+      useTransport(null)
+      console.log('[sofia-gateway] browser agent disconnected')
+    }
+    // Nothing can be answered on a dead socket; fail them now rather than after
+    // a minute of timeout that reads as "she is stuck".
+    for (const [id, pending] of agentPending) {
+      clearTimeout(pending.timer)
+      pending.reject(new Error('the browser agent disconnected mid-request'))
+      agentPending.delete(id)
+    }
+  })
+
+  ws.on('error', () => {})
+})
+
 server.on('upgrade', (req, socket, head) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
+
+  if (url.pathname === '/api/agent') {
+    // The pairing token travels in the query string because a browser WebSocket
+    // cannot set headers. It is checked BEFORE the upgrade completes, so an
+    // unpaired client never becomes a socket.
+    const token = url.searchParams.get('token') || ''
+    if (!isAuthed(req) && !agentTokenMatches(token)) {
+      refuseUpgrade(socket, 401, 'unauthorized')
+      return
+    }
+    agentWss.handleUpgrade(req, socket, head, (ws) => agentWss.emit('connection', ws, req))
+    return
+  }
+
   if (url.pathname !== '/api/live/stream') {
     refuseUpgrade(socket, 404, 'not found')
     return
@@ -1234,14 +1381,17 @@ wss.on('connection', (ws) => {
           // the reply: it goes over the socket to the stage, which is why the
           // reply-level test in hands-gate could not see it.
           send({ type: 'tool', name: call.name, state: 'started', args: redactArgs(call.args) })
-          // "Act while talking": the model was told to say what it is doing
-          // BEFORE the call returns (see VOICE_RULES), and a tool that takes
-          // twenty seconds otherwise leaves twenty seconds of silence. The
-          // stage is told which one is running so it can show it too.
+          // Progress for the STAGE, not for her to speak: a GitHub page takes
+          // 20-40 s and the window should show that something is happening.
+          // 1500 ms was chosen when these events were also expected to prompt
+          // narration, which produced ~15-25 events per page load and a
+          // "still opening github" loop. They never reach the model (tool events
+          // go to the browser only), so a slower tick costs nothing and keeps
+          // the socket quiet.
           const startedAt = Date.now()
           const progress = setInterval(() => {
             send({ type: 'tool', name: call.name, state: 'running', ms: Date.now() - startedAt })
-          }, 1500)
+          }, 5000)
           let result
           try {
             result = await executeToolCall(call, toolCtx)
