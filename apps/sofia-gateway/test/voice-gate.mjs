@@ -302,6 +302,10 @@ finally {
   clearInterval(sampler)
   await closeBrowserQuietly(browser)
   const failed = results.filter(r => !r.ok).length
+  // Latch here, not only in the early-abort branch above: without it a teardown
+  // rejection after this line calls `step(..., false, …)`, appends a spurious FAIL
+  // and turns a green run red. This is the main path, so it is the one that needs it.
+  tallied = true
   console.log(`\n${results.length - failed}/${results.length} checks passed`)
   // `exitCode`, not `exit`: stdout is a pipe in the release run, and exiting
 // immediately after printing the tally can drop it (measured: 641 of 4000
