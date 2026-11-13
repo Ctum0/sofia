@@ -206,7 +206,22 @@ note "$brand_ok brand assets"
 # gates have run, giving the longest gate a fresh one is the fix that costs
 # nothing and hides nothing: the assertions are unchanged.
 for g in text-panel-gate.mjs windows-gate.mjs browser-gate.mjs frame-gate.mjs windows-responsive-gate.mjs; do
+  # Reclaim the shared browser before each gate. The gates are independent
+  # assertions but they share one `sofia-browser`: pages left by an earlier gate
+  # (a voice turn that opened GitHub, a window a gate chose to leave up) keep
+  # burning CPU, and this release has measured the cost at ~180% per live page.
+  # Under that load the longest gate timed out at a fixed wait while passing
+  # 18/18 standalone and through the identical `out=$(run_gate …)` capture.
+  # Clearing between gates asserts nothing less: leftover pages are not part of
+  # what any gate asserts.
+  docker exec "$(docker ps --format '{{.Names}}' | grep zp31 | head -1)" \
+    curl -s -m 8 -X POST http://sofia-browser:8790/close-all >/dev/null 2>&1 || true
   out=$(run_gate "$g")
+  # Keep every gate's full output. A gate that dies has its tail printed above and
+  # its count is the only thing the verifier acts on, so the lines that explain WHY
+  # were being thrown away — three separate investigations today reconstructed
+  # output that the script had already discarded.
+  printf '%s\n' "$out" > "/home/ctum/gate-${g}.log" 2>/dev/null || true
   # A browser that cannot reach the page is not a product failure. Seen on
   # 2026-11-10: "net::ERR_NETWORK_CHANGED" scored windows-gate 0/1 and read
   # like a regression. Retry once, and say that it was the network.
