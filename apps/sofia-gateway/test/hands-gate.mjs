@@ -444,11 +444,12 @@ process.exitCode = passed === results.length ? 0 : 1
       const ticked = await runBrowse({ action: 'value', selector: 'input[type=checkbox]' }, { sid: page.sid }).catch(() => null)
       const said = textOf(await executeToolCall({ name: 'browse', args: { action: 'uncheck', selector: 'input[type=checkbox]' } }, ctx))
       const afterTool = await runBrowse({ action: 'value', selector: 'input[type=checkbox]' }, { sid: page.sid }).catch(() => null)
-      // A checkbox's `value` is "on" when ticked and "" when not, which is the only
-      // state a value read can see.
-      ticked?.body?.landed === 'on' && afterTool?.body?.landed === ''
-        ? ok('the uncheck tool leaves the box unticked', `"${ticked?.body?.landed}" -> "${afterTool?.body?.landed}"`)
-        : fail('the uncheck tool leaves the box unticked', `"${ticked?.body?.landed}" -> "${afterTool?.body?.landed}" · ${said.slice(0, 50)}`)
+      // `checked`, not `landed`: a checkbox's `value` is the string it would submit
+      // ("on") whether or not it is ticked, so comparing values compares "on" with
+      // "on" and can only ever fail. The state is `checked`.
+      ticked?.body?.checked === true && afterTool?.body?.checked === false
+        ? ok('the uncheck tool leaves the box unticked', `checked ${ticked?.body?.checked} -> ${afterTool?.body?.checked}`)
+        : fail('the uncheck tool leaves the box unticked', `checked ${ticked?.body?.checked} -> ${afterTool?.body?.checked} · ${said.slice(0, 50)}`)
     }
     await closeAll()
   }

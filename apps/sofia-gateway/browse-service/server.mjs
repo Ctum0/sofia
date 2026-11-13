@@ -393,8 +393,15 @@ async function act({ sid, action, x, y, text, key, selector }) {
       // never contains what a form field holds.
       if (!css)
         throw new Error('value needs a CSS selector')
-      const landed = await (await frameOf(scope => scope.locator(css))).first().inputValue({ timeout: 8000 }).catch(() => null)
-      return { ...(await snap(sid)), landed, selector: css }
+      const field = (await frameOf(scope => scope.locator(css))).first()
+      const landed = await field.inputValue({ timeout: 8000 }).catch(() => null)
+      // A checkbox's `value` is the string it would submit ("on") whether or not
+      // it is ticked — the state lives in `checked`, not in `value`. Reporting
+      // only `landed` made "is this box ticked" unanswerable without mutating it,
+      // and an assertion built on it compared "on" with "on" and failed on
+      // correct behaviour. `null` for anything that is not a tickable control.
+      const checked = await field.evaluate(node => (node.type === 'checkbox' || node.type === 'radio') ? !!node.checked : null).catch(() => null)
+      return { ...(await snap(sid)), landed, checked, selector: css }
     }
     case 'select': {
       // A <select> is not a text field: `fill` throws on it, and a native picker
