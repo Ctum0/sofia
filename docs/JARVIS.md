@@ -32,17 +32,25 @@ the voice socket, the gateway composes `card + VOICE_RULES`, and the old
 hard-coded persona is deleted. `VOICE_RULES` keeps only what the card cannot
 know — the tools, "say it, do not read it", and "a failed tool is said plainly".
 
-**Still open, and a decision for you:**
+**Resolved** (commit `4516de197`): it was both, and the order mattered.
 
-1. `base.yaml` still holds AIRI's anime-VTuber default. Every device that has
-   never edited its card is running it. It is a fork-wide default, not a Sofia
-   file, so changing it is a branding decision with a diff in an upstream file.
-2. `profiles/sofia/SOUL.md` is the best-written persona in the system and is
-   used by `ask_hermes` alone. Either it becomes the card (so voice and text both
-   get it), or the card becomes the profile's soul. **They must be one text.**
+1. `SOUL.md` is the source. Its persona sections — temperament, conversational
+   behaviour, interaction principles, spoken delivery — were merged into the
+   card's `prompt.prefix` in all ten locales, translated per locale and keeping
+   each locale's streaming-token block verbatim. Its *Stage & Browser Workspace*
+   and *VPS & Container Rules* sections were deliberately left out: the first
+   named `mcp__sofia-browser__*` tools that this profile does not have, and the
+   second is host-lifecycle policy that has no business shipping to a device.
+2. `base.yaml` no longer holds AIRI's anime-VTuber default, in any locale.
+3. Every persona this fork has shipped is remembered by SHA-256 in
+   `retiredPersonaDescriptionHashes`, because changing the default makes a
+   device's stored text stop matching any built-in and `splitCard` then treats it
+   as a user edit — stranded forever, and uploaded as one. Coverage is verified
+   across all history.
 
-My recommendation: make `SOUL.md` the card's `personality`, and replace
-`base.yaml`'s prefix with a Sofia-appropriate one. Then one file defines her.
+`profiles/sofia/SOUL.md` in this repository is a copy of the Hermes profile, so
+the richest persona is not one VPS disk away from being lost. Hermes still reads
+its own copy; the two are edited together.
 
 ---
 

@@ -174,17 +174,31 @@ function applyControl(payload: { action: string, target?: string, x?: number, y?
     return
   }
   if (action === 'tile') {
-    // Right half, stacked: every window keeps its width, the heights divide.
+    // Two columns, left and right: "two browsers side by side" is what he asked
+    // for, and the predecessor put every window in the right half and divided
+    // the heights — one column wearing the name of a split. A single window
+    // still takes the right half, which is her side and where an alone window
+    // has always been.
     const vw = window.innerWidth
     const vh = window.innerHeight
     const n = windows.value.length || 1
-    const w = Math.max(320, Math.round(vw * 0.45))
-    const h = Math.max(180, Math.floor((vh - 140 - (n - 1) * 12) / n))
-    const x = vw - w - 32
-    windows.value = windows.value.map((win, index) => ({
-      ...win,
-      ...clampWindow({ x, y: 96 + index * (h + 12), w, h }),
-    }))
+    const gutter = 24
+    const top = 96
+    // Two 260 px windows do not fit across a phone, and clamped into one there
+    // they land on top of each other — indistinguishable from a single window.
+    // That case goes low and wide in one column instead, the same call the
+    // single-window path already makes below 768 px.
+    const columns = vw >= 260 * 2 + gutter * 3
+    const colW = columns ? Math.round((vw - gutter * 3) / 2) : vw - gutter * 2
+    const leftCount = columns && n > 1 ? Math.ceil(n / 2) : 0
+    windows.value = windows.value.map((win, index) => {
+      const inLeft = index < leftCount
+      const slot = inLeft ? index : index - leftCount
+      const slots = inLeft ? leftCount : Math.max(1, n - leftCount)
+      const h = Math.max(180, Math.floor((vh - top - gutter - (slots - 1) * gutter) / slots))
+      const x = inLeft ? gutter : columns ? gutter * 2 + colW : gutter
+      return { ...win, ...clampWindow({ x, y: top + slot * (h + gutter), w: colW, h }) }
+    })
     return
   }
   const target = windowFor(String(payload.target || 'last'))
@@ -310,10 +324,26 @@ function showPanel(payload: { kind?: 'image' | 'web' | 'live', url: string, titl
   // instead of pretending — measured 2026-11-10: a window placed beside her at
   // 768 px started 476 px over her, on her head.
   const gutter = 24
-  const narrowShare = 0.56
-  const col = document.querySelector('.stage-column')?.getBoundingClientRect()
-  const narrowW = Math.round(vw * narrowShare)
-  const herRight = Math.round(col?.x ?? 0) + Math.min(Math.round(col?.width ?? narrowW), narrowW)
+  // Where her model actually ends.
+  //
+  // The column keeps 56% of the viewport and the Live2D canvas fills that whole
+  // box (`w-full` in live2d/Canvas.vue), but the MODEL is centred and narrower —
+  // which is why reserving the column produced a dead band on the user's
+  // 1912x1085 screenshot: her pixels ended at x=290, the window started at x=929,
+  // and 639 px of stage sat empty between them.
+  //
+  // The painted bounds live inside Pixi (`modelNormalizeParams`), not in the DOM,
+  // so a canvas rect cannot answer this: it would report the column's edge and
+  // reproduce the same band. Measured on that screenshot her visible edge is at
+  // 15% of the viewport; the column starts at 56%. Taking the avatar's share of
+  // the column and adding the gutter is a HEURISTIC, and it is labelled one — the
+  // honest alternative is threading the model's bounds out of the renderer, which
+  // is a bigger change than this fix.
+  const AVATAR_SHARE_OF_COLUMN = 0.28
+  const colBox = document.querySelector('.stage-column')?.getBoundingClientRect()
+  const columnRight = colBox ? Math.round(colBox.right) : Math.round(vw * 0.56)
+  const columnLeft = colBox ? Math.round(colBox.x) : 0
+  const herRight = Math.round(columnLeft + (columnRight - columnLeft) * AVATAR_SHARE_OF_COLUMN)
   const besideW = vw - herRight - gutter * 2
   const beside = besideW >= 360
   const preferredW = kind === 'live' ? 680 : kind === 'web' ? 560 : 620

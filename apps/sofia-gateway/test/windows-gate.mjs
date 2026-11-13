@@ -174,16 +174,29 @@ try {
   // only true for a conversation with no messages.
   step('the chat yields while windows are open', two.chatPanelMounted === false,
     `panel mounted: ${two.chatPanelMounted}`)
-  // `18273e680` moved the windows into her right shoulder so they never cover
-  // her. This assertion existed then and the live-window rewrite (`28994c745`)
-  // dropped it, so the gate went on printing a green count while the property it
-  // was written for went unread (16/16 at `b4af81cf1` → 15/15 afterwards, and the
-  // missing one was this). Property, not value: anything that starts at or right
-  // of 75 % of the stage column is off her centre.
-  const shoulder = two.col ? two.col.x + two.col.w * 0.75 : null
-  step('what she opens stays in the right shoulder, never over her centre',
-    !!shoulder && two.wins.length > 0 && two.wins.every(w => w.x >= shoulder),
-    `column ${two.col?.x}..${two.col?.right} shoulder≥${Math.round(shoulder ?? 0)}, windows ${JSON.stringify(two.wins.map(w => w.x))}`)
+  // What she opens must not cover her. The property is "off her", not "past a
+  // fixed fraction of the column".
+  //
+  // This assertion used to require `x >= col.x + col.w * 0.75`. On a 1912-wide
+  // viewport that is x >= 803, while the Live2D model's painted edge measured
+  // from the user's own screenshot is x = 290 — so the fraction was demanding a
+  // 513 px dead band between her and the window. It passed by enforcing the
+  // exact gap the user then reported, which is what a value that stopped meaning
+  // its property looks like.
+  //
+  // The property is now checked directly against where the model ends.
+  const columnLeft = two.col ? two.col.x : null
+  // Her model is centred in the column and narrower than it: the painted edge
+  // measured 290 of a 1071-wide column on the user's 1912 screenshot, i.e. ~27 %.
+  // The placement code uses the same share, so the gate and the code agree on the
+  // number rather than the gate hard-coding a different one.
+  const avatarRight = columnLeft !== null && two.col
+    ? columnLeft + two.col.w * 0.28
+    : null
+  step('what she opens stays off her, in the column-right area',
+    avatarRight !== null && two.wins.length > 0
+    && two.wins.every(w => w.x > avatarRight),
+    `column ${two.col?.x}..${two.col?.right} avatarEnds≈${Math.round(avatarRight ?? 0)}, windows ${JSON.stringify(two.wins.map(w => w.x))}`)
   step('no window spills past the viewport edge',
     two.wins.length > 0 && two.wins.every(w => w.x >= 0 && w.y >= 0 && w.x + w.w <= two.vw && w.y + w.h <= two.vh),
     JSON.stringify(two.wins.map(w => `${w.x}+${w.w}/${two.vw} , ${w.y}+${w.h}/${two.vh}`)))

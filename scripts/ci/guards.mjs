@@ -303,6 +303,39 @@ check('G14 no locale ships the legacy persona', () => {
   return `${locales.length} locales, ${hashes.size} retired persona hashes, none current`
 })
 
+// G17 — the cold-device persona is the English card, not a copy that drifted.
+//
+// `DEFAULT_PERSONA` in the gateway is what a device with no card yet gets over
+// the voice lane, while the text lane gets `en/base.yaml`. Two hand-maintained
+// copies of who she is, and nothing compared them: the literal still said "calm,
+// quick, and direct" after every locale had moved to "warm, unhurried, and
+// quietly confident", so a fresh browser would have met two different people.
+check('G17 the gateway persona is the English card', () => {
+  const server = read('apps/sofia-gateway/server.mjs')
+  const at = server.indexOf('const DEFAULT_PERSONA = ')
+  assert(at !== -1, 'DEFAULT_PERSONA is gone — a cold device would get rules with no identity')
+  const line = server.slice(at, server.indexOf('\n', at))
+  const literal = JSON.parse(line.slice(line.indexOf('= ') + 2, line.lastIndexOf('"') + 1))
+
+  const yaml = spawnSync(process.execPath, ['-e', `
+    const { parse } = require('yaml')
+    const fs = require('fs')
+    const doc = parse(fs.readFileSync('packages/i18n/src/locales/en/base.yaml', 'utf8'))
+    process.stdout.write(JSON.stringify(String(doc.prompt.prefix).replace(/\\s*\\n\\s*/g, ' ').replace(/\\s+/g, ' ').trim()))
+  `], { encoding: 'utf8' })
+  assert(yaml.status === 0, `could not read en/base.yaml: ${(yaml.stderr || '').slice(0, 120)}`)
+  const card = JSON.parse(yaml.stdout)
+
+  const normalise = value => value.replace(/\s+/g, ' ').trim()
+  assert(normalise(literal) === normalise(card),
+    `DEFAULT_PERSONA has drifted from en/base.yaml (${literal.length} vs ${card.length} chars)`)
+
+  // A distinctive phrase, so the failure names what changed rather than a length.
+  assert(/good company/i.test(literal) || /assistant/.test(literal),
+    'DEFAULT_PERSONA no longer reads like the card')
+  return `${literal.length} chars, identical to en/base.yaml`
+})
+
 // G16 — a tool event must not carry raw tool arguments to the browser.
 //
 // `send({ type: 'tool', …, args: call.args })` shipped the password for a
