@@ -134,8 +134,12 @@ try {
   after === 0 ? ok('closing does not reopen the page', '0 windows') : fail('closing does not reopen the page', `${after} left`)
 }
 finally {
+  // Close FIRST, then print. The tally used to be printed before an awaited
+  // `browser.close()`, so if that close hangs or the container is torn down while
+  // it waits, the count is never written and the verifier says "did not report a
+  // count" for a gate whose every assertion passed.
+  await browser.close().catch(() => {})
   console.log(`\n${pass}/${total}`)
-  await browser.close()
   // No process.exit(): it truncates stdout on a pipe, which is how this gate
   // once finished having printed a single line.
   process.exitCode = (pass === total && total > 0) ? 0 : 1

@@ -150,8 +150,10 @@ for (const vp of VIEWPORTS) {
   await ctx.close()
 }
 
-await browser.close()
+await browser.close().catch(() => {})
 const failed = results.filter(r => !r.ok)
+// Printed after the close, not before: a tally written before an awaited close
+// can be lost if the close hangs. See frame-gate.mjs.
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`)
 // `exitCode`, not `exit`: stdout is a pipe in the release run, and exiting
 // immediately after printing the tally can drop it (measured: 641 of 4000 lines

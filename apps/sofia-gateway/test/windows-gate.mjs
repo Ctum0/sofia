@@ -315,8 +315,10 @@ try {
   step('gate ran without throwing', false, String(error).slice(0, 200))
 } finally {
   const failed = results.filter(r => !r.ok)
+  // Close before printing: see the note in frame-gate.mjs — a tally printed
+  // before an awaited close can be lost entirely.
+  await browser.close().catch(() => {})
   console.log(`\n${results.length - failed.length}/${results.length}`)
-  await browser.close()
   // `exitCode`, not `exit`: stdout is a pipe in the release run, and exiting
 // immediately after printing the tally can drop it (measured: 641 of 4000
 // lines and the final count lost). See text-panel-gate.mjs.
