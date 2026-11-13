@@ -133,7 +133,12 @@ for (const vp of VIEWPORTS) {
       }
     })
 
-    const shoulder = m.col ? Math.round(m.col.x + 0.75 * m.col.w) : Math.round(m.vw * 0.42)
+    // Where her model ends, using the SAME share the placement code uses (28 % of
+    // the column). This used to be 75 %, which on a 1440 viewport is x=1080 while
+    // the model's painted edge measured 226 on the real build — the number stopped
+    // meaning "her shoulder" and started demanding a ~500 px dead band, so the
+    // gate failed four viewports for correctly-placed windows.
+    const shoulder = m.col ? Math.round(m.col.x + 0.28 * m.col.w) : Math.round(m.vw * 0.10)
     const beside = m.vw - shoulder - 48 >= MIN_BESIDE
     const w0 = m.wins[0]
 

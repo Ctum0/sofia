@@ -1,187 +1,34 @@
-<picture>
-  <source
-    width="100%"
-    srcset="./docs/assets/banner-dark-1280x640.avif"
-    media="(prefers-color-scheme: dark)"
-  />
-  <source
-    width="100%"
-    srcset="./docs/assets/banner-light-1280x640.avif"
-    media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
-  />
-  <img width="250" src="./docs/assets/banner-light-1280x640.avif" />
-</picture>
+# Sofia
 
-<h1 align="center">Project AIRI</h1>
+A personal companion you can talk to, watch, and hand tasks to. Sofia is a fork
+of [Project AIRI](https://github.com/moeru-ai/airi) with her own identity, her own
+stage, and her own brain.
 
-<p align="center">Re-creating Neuro-sama, a soul container of AI waifu / virtual characters to bring them into our world.</p>
+She lives on a dark burgundy stage in the browser, drawn as a Live2D avatar. The
+stage is served by a single-origin Node gateway (`apps/sofia-gateway`), which is
+also her brain and hands: it proxies text turns to Hermes, bridges the browser to
+Gemini Live for voice, and drives a separate Playwright browser service. The API
+key never leaves the server.
 
-<p align="center">
-  [<a href="https://discord.gg/TgQ3Cu2F7A">Join Discord Server</a>] [<a href="https://airi.moeru.ai">Try it</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.zh-CN.md">简体中文</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ja-JP.md">日本語</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ru-RU.md">Русский</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.vi.md">Tiếng Việt</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.fr.md">Français</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ko-KR.md">한국어</a>]
-</p>
+## What she does
 
-<p align="center">
-  <a href="https://deepwiki.com/moeru-ai/airi"><img src="https://deepwiki.com/badge.svg"></a>
-  <a href="https://github.com/moeru-ai/airi/blob/main/LICENSE"><img src="https://img.shields.io/github/license/moeru-ai/airi.svg?style=flat&colorA=080f12&colorB=1fa669"></a>
-  <a href="https://discord.gg/TgQ3Cu2F7A"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Finvites%2FTgQ3Cu2F7A%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&suffix=%20members&logo=discord&logoColor=white&label=%20&color=7389D8&labelColor=6A7EC2"></a>
-  <a href="https://x.com/proj_airi"><img src="https://img.shields.io/badge/%40proj__airi-black?style=flat&logo=x&labelColor=%23101419&color=%232d2e30"></a>
-  <a href="https://t.me/+7M_ZKO3zUHFlOThh"><img src="https://img.shields.io/badge/Telegram-%235AA9E6?logo=telegram&labelColor=FFFFFF"></a>
-  <a href="./docs/wechat.md"><img src="https://img.shields.io/badge/WeChat-%2307C160?logo=wechat&logoColor=%2307C160&labelColor=FFFFFF"></a>
-  <a href="https://qun.qq.com/universal-share/share?ac=1&authKey=9g00d%2BZS7nORzcJugNNddJ7rCghZTIR7fhXabGwch2S%2BG%2BKGIKwlN1N2nIqkh2jg&busi_data=eyJncm91cENvZGUiOiIxMDU4MTU2Njk3IiwidG9rZW4iOiJmcnkra1hWNFIxNytEcG0zcHRUdVJIaldlRDFxN0dzK080QWtvTEdOQjJkNEY2eUFta1g1clNpbkxSMS9FQWFYIiwidWluIjoiMTI2MDkwNzMzNSJ9&data=b1eJrwn3GVOUh7YIxZ7l9vHQo99HPmRxKPpMKlDCmfzx8Y57IXb2EZCMaOC9rVTd2U558qpNjwUYUWlPHxVHvg&svctype=4&tempid=h5_group_info"><img src="https://img.shields.io/badge/QQ-%2312B7F5?logo=qq&labelColor=FFFFFF"></a>
-</p>
+- Talks — by voice or by typing, in the same conversation
+- Remembers — facts about you survive the conversation and every window
+- Shows things — pages, images, and charts go on the stage beside her
+- Acts on real pages — opens, clicks, fills, and reads what is on screen
+- Arranges the stage — her own size and place, and the windows she opened
+- Speaks first — she can open a subject instead of waiting to be asked
 
-<p float="left" align="center">
-  <!-- readme-section:release-binary-windows -->
-  <a href="https://github.com/moeru-ai/airi/releases/download/v0.14.1/AIRI-0.14.1-windows-x64-setup.exe">
-    <picture>
-      <source
-        width="33%"
-        srcset="./docs/assets/download-buttons/download-buttons.windows.dark.en-US.avif"
-        media="(prefers-color-scheme: dark)"
-      />
-      <source
-        width="33%"
-        srcset="./docs/assets/download-buttons/download-buttons.windows.light.en-US.avif"
-        media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
-      />
-      <img width="33%" src="./docs/assets/download-buttons/download-buttons.windows.light.en-US.avif" />
-    </picture>
-  </a>
-  <!-- readme-section:release-binary-macos -->
-  <a href="https://github.com/moeru-ai/airi/releases/download/v0.14.1/AIRI-0.14.1-darwin-arm64.dmg">
-    <picture>
-      <source
-        width="33%"
-        srcset="./docs/assets/download-buttons/download-buttons.macos.dark.en-US.avif"
-        media="(prefers-color-scheme: dark)"
-      />
-      <source
-        width="33%"
-        srcset="./docs/assets/download-buttons/download-buttons.macos.light.en-US.avif"
-        media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
-      />
-      <img width="33%" src="./docs/assets/download-buttons/download-buttons.macos.light.en-US.avif" />
-    </picture>
-  </a>
-  <a href="https://github.com/moeru-ai/airi/releases/latest">
-    <picture>
-      <source
-        width="33%"
-        srcset="./docs/assets/download-buttons/download-buttons.linux.dark.en-US.avif"
-        media="(prefers-color-scheme: dark)"
-      />
-      <source
-        width="33%"
-        srcset="./docs/assets/download-buttons/download-buttons.linux.light.en-US.avif"
-        media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
-      />
-      <img width="33%" src="./docs/assets/download-buttons/download-buttons.linux.light.en-US.avif" />
-    </picture>
-  </a>
-</p>
+## This README
 
-<p float="left" align="center">
-  <a href="https://airi.moeru.ai">
-    <picture>
-      <source
-        width="33%"
-        srcset="./docs/assets/QR%20code%20button/section.cards.qrcode.dark.en-US.avif"
-        media="(prefers-color-scheme: dark)"
-      />
-      <source
-        width="33%"
-        srcset="./docs/assets/QR%20code%20button/section.cards.qrcode.light.en-US.avif"
-        media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
-      />
-      <img width="33%" src="./docs/assets/QR%20code%20button/section.cards.qrcode.light.en-US.avif" />
-    </picture>
-  </a>
-  <a href="https://airi.moeru.ai">
-    <picture>
-      <source
-        width="33%"
-        srcset="./docs/assets/download-buttons/download-buttons.mobile.dark.en-US.avif"
-        media="(prefers-color-scheme: dark)"
-      />
-      <source
-        width="33%"
-        srcset="./docs/assets/download-buttons/download-buttons.mobile.light.en-US.avif"
-        media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
-      />
-      <img width="33%" src="./docs/assets/download-buttons/download-buttons.mobile.light.en-US.avif" />
-    </picture>
-  </a>
-  <a href="https://airi.moeru.ai">
-    <picture>
-      <source
-        width="33%"
-        srcset="./docs/assets/download-buttons/download-buttons.browser.dark.en-US.avif"
-        media="(prefers-color-scheme: dark)"
-      />
-      <source
-        width="33%"
-        srcset="./docs/assets/download-buttons/download-buttons.browser.light.en-US.avif"
-        media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
-      />
-      <img width="33%" src="./docs/assets/download-buttons/download-buttons.browser.light.en-US.avif" />
-    </picture>
-  </a>
-</p>
+The sections from **Recent DevLogs & Stories** down describe the upstream project
+this fork is built on, Project AIRI by the Moeru AI team. They are kept because
+they document the shared engine, the provider list, and how to build and run the
+monorepo, all of which still apply here. Where a command names upstream's own
+hosting or repository, it will not reach Sofia's deployment.
 
-<p align="center">
-  <a href="https://www.producthunt.com/products/airi?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-airi" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=993524&theme=neutral&t=1752696535380" alt="AIRI - A&#0032;container&#0032;of&#0032;cyber&#0032;living&#0032;souls&#0044;&#0032;re&#0045;creation&#0032;of&#0032;Neuro&#0045;sama | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
-  <a href="https://trendshift.io/repositories/14636" target="_blank"><img src="https://trendshift.io/api/badge/repositories/14636" alt="moeru-ai%2Fairi | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-  <a href="https://trendshift.io/repositories/14636" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/14636/weekly" alt="AIRI - #1 repository of the week across all languages | Trendshift" width="250" height="55" /></a>
-</p>
-
-> Heavily inspired by [Neuro-sama](https://www.youtube.com/@Neurosama)
-
-> [!TIP]
-> On Windows, you can also install AIRI with [winget](https://learn.microsoft.com/windows/package-manager/winget/):
->
-> ```powershell
-> winget install MoeruAI.AIRI
-> ```
->
-> Or install AIRI with [Scoop](https://scoop.sh/):
->
-> ```powershell
-> scoop bucket add airi https://github.com/moeru-ai/airi
-> scoop install airi/airi
-> ```
->
-> On macOS, you can install AIRI with [Homebrew Cask](https://brew.sh/) without adding a custom tap:
->
-> ```sh
-> brew install --cask airi
-> ```
-
-> [!WARNING]
-> **Attention:** We **do not** have any officially minted cryptocurrency or token associated with this project. Please check the information and proceed with caution.
-
-> [!NOTE]
->
-> We've got a whole dedicated organization [@proj-airi](https://github.com/proj-airi) for all the sub-projects born from Project AIRI. Check it out!
->
-> RAG, memory system, embedded database, icons, Live2D utilities, and more!
-
-> [!TIP]
-> You can translate AIRI on [Crowdin](https://crowdin.com/project/proj-airi), or open a pull request that changes `packages/i18n/src/locales/`. Both ways update the same translations.
->
-> Do not submit a translation that is the same as the English text. Review rejects it. A string without a translation shows the English text.
->
-> <a href="https://crowdin.com/project/proj-airi" target="_blank" rel="nofollow"><img style="width: 140px; height: 40px;" src="https://badges.crowdin.net/badge/light/crowdin-on-dark.png" srcset="https://badges.crowdin.net/badge/light/crowdin-on-dark.png 1x, https://badges.crowdin.net/badge/light/crowdin-on-dark@2x.png 2x" alt="Crowdin | Agile localization for tech companies" width="140" height="40" /></a>
-
-Have you dreamed about having a cyber living being (cyber waifu, digital pet) or digital companion that could play with and talk to you?
-
-With the power of modern large language models like [ChatGPT](https://chatgpt.com) and famous [Claude](https://claude.ai), asking a virtual being to roleplay and chat with us is already easy enough for everyone. Platforms like [Character.ai (a.k.a. c.ai)](https://character.ai) and [JanitorAI](https://janitorai.com/) as well as local playgrounds like [SillyTavern](https://github.com/SillyTavern/SillyTavern) are already good-enough solutions for a chat based or visual adventure game like experience.
-
-> But, what about the abilities to play games? And see what you are coding at? Chatting while playing games, watching videos, and is capable of doing many other things.
-
-Perhaps you know [Neuro-sama](https://www.youtube.com/@Neurosama) already. She is currently the best virtual streamer capable of playing games, chatting, and interacting with you and the participants. Some also call this kind of being "digital human." **Sadly, as it's not open sourced, you cannot interact with her after her live streams go offline**.
-
-Therefore, this project, AIRI, offers another possibility here: **let you own your digital life, cyber living, easily, anywhere, anytime**.
-
+For how this fork is deployed and what has been verified on it, see
+[`docs/HANDOFF.md`](./docs/HANDOFF.md).
 ## Recent DevLogs & Stories
 
 - [DevLog @ 2026.03.23: Mobile performance and game engine exploration](https://airi.moeru.ai/docs/en/blog/DevLog-2026.03.23/) - March 23, 2026
