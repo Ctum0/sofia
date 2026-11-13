@@ -133,13 +133,27 @@ for (const vp of VIEWPORTS) {
       }
     })
 
-    // Where her model ends, using the SAME share the placement code uses (28 % of
-    // the column). This used to be 75 %, which on a 1440 viewport is x=1080 while
-    // the model's painted edge measured 226 on the real build — the number stopped
-    // meaning "her shoulder" and started demanding a ~500 px dead band, so the
-    // gate failed four viewports for correctly-placed windows.
-    const shoulder = m.col ? Math.round(m.col.x + 0.28 * m.col.w) : Math.round(m.vw * 0.10)
-    const beside = m.vw - shoulder - 48 >= MIN_BESIDE
+    // Where her model ends. Two regimes, because the layout has two:
+    //
+    //   * above 768 px the column narrows to 56 % and the model is centred inside
+    //     it, ending at ~28 % of the column — measured 226 of 806 on the live
+    //     build;
+    //   * at or below 768 px the scoped CSS drops that cap to 100 %, so the
+    //     column is full width and the avatar fills it. Treating her as ending a
+    //     quarter in there is what let a window sit at x=239 on top of her, so
+    //     this branch says "no room beside her" and the layout must go low.
+    //
+    // The 75 % this replaces was wrong above 768 (x=1080 against a real edge of
+    // 226, i.e. it demanded the dead band the user reported) and accidentally
+    // safe below it.
+    const narrow = m.vw > 768
+    const shoulder = narrow
+      ? (m.col ? Math.round(m.col.x + 0.28 * m.col.w) : Math.round(m.vw * 0.10))
+      : m.vw
+    // The same two regimes as `shoulder` above: below 769 px there is no beside
+    // mode at all, so the layout must go low and wide. Deriving this from the
+    // gated value keeps the verdict and the assertion from disagreeing.
+    const beside = narrow && m.vw - shoulder - 48 >= MIN_BESIDE
     const w0 = m.wins[0]
 
     step(vp.name, 'a window renders', m.wins.length === 1, m.wins.length === 1

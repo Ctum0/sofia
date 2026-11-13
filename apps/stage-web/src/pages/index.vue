@@ -343,7 +343,16 @@ function showPanel(payload: { kind?: 'image' | 'web' | 'live', url: string, titl
   const colBox = document.querySelector('.stage-column')?.getBoundingClientRect()
   const columnRight = colBox ? Math.round(colBox.right) : Math.round(vw * 0.56)
   const columnLeft = colBox ? Math.round(colBox.x) : 0
-  const herRight = Math.round(columnLeft + (columnRight - columnLeft) * AVATAR_SHARE_OF_COLUMN)
+  // Below 769 px the scoped CSS drops `max-width: 56%` to 100% (see the media
+  // query below), so the column is FULL width and the avatar fills it. The 28 %
+  // share describes a NARROWED column only. Applying it there claimed she ended a
+  // quarter in and produced `besideW = 768 - 215 - 48 = 505`, which passed the
+  // 360 px floor and put the window at x=239, on top of her — the old 0.75 was
+  // accidentally safe on those widths because it stayed conservative.
+  const columnIsNarrow = vw > 768
+  const herRight = columnIsNarrow
+    ? Math.round(columnLeft + (columnRight - columnLeft) * AVATAR_SHARE_OF_COLUMN)
+    : Math.max(columnRight, Math.round(vw * 0.56))
   const besideW = vw - herRight - gutter * 2
   const beside = besideW >= 360
   const preferredW = kind === 'live' ? 680 : kind === 'web' ? 560 : 620
